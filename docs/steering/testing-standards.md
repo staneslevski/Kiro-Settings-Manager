@@ -26,6 +26,7 @@ inclusion: always
 - Test both success paths and error conditions
 - Test edge cases and boundary conditions
 - Test validation logic thoroughly
+- If there are more than 500 test executions in a script, it should show a status bar to the user to confirm that tests are still running
 
 ### Coverage Standards
 - Minimum 95% coverage across all metrics
