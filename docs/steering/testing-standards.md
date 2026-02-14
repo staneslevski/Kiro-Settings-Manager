@@ -10,8 +10,16 @@ inclusion: always
 3. ≥95% code coverage required (statements, branches, functions, lines)
 4. NEVER skip, disable, or comment out tests
 5. Task is incomplete until tests pass with ≥95% coverage
+6. ALWAYS follow Test-Driven Development (TDD)
 
 ## Core Requirements
+
+### Test-Driven Development (TDD)
+- Write tests BEFORE writing business logic
+- Work in small batches: write tests → run tests (they fail) → write code → tests pass
+- Tests define the standards and requirements for code to work
+- Never write implementation code without tests first
+- Refactor only after tests pass
 
 ### Test Everything
 - Every function, method, and module must have tests
