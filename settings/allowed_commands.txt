@@ -1,0 +1,36 @@
+npm test
+npm install *
+npm test *
+npm run build
+node --version
+nvm list
+chmod *
+which *
+pip show *
+python3 -m venv .venv
+pwd
+ls *
+node update-manifest-checksums.js
+sha256sum *
+cat kiro-codebuild-worker-power/manifest.json | jq '.steeringFiles[] | {path: .path, checksum: .checksum, required: .required}'
+grep *
+npm run test:coverage *
+tail *
+npx cdk synth *
+head *
+npx tsc --noEmit *
+wc *
+npm list *
+tree *
+./scripts/run-tests.sh
+source venv/bin/activate && pytest *
+source venv/bin/activate && cfn-lint *
+aws cloudformation validate-template *
+cfn-lint *
+python3 -m json.tool *
+source venv/bin/activate && python -m pytest *
+source .venv/bin/activate && pytest *
+source .venv/bin/activate && coverage run -m pytest *
+source .venv/bin/activate && coverage report *
+webFetch
+remote_web_search
