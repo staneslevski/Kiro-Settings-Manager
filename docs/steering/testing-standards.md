@@ -28,6 +28,9 @@ inclusion: always
 - Test validation logic thoroughly
 - If there are more than 500 test executions in a script, it should show a status bar to the user to confirm that tests are still running
 
+### Assess Coverage Appropriately
+- Before writing new tests, assess whether the functionality you want to assess is already covered by existing tests.
+
 ### Coverage Standards
 - Minimum 95% coverage across all metrics
 - Measure statements, branches, functions, and lines
