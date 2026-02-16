@@ -36,24 +36,28 @@ fileMatchPattern: ["**/*.py"]
 1. Line length must be 88 characters or less. NO EXCEPTIONS
 2. All unused imports must be removed
 3. After unused imports are removed, re-run all tests to ensure they still pass
-4. W293 must be followed
+4. You MUST NEVER add a comment to ignore a linting or formatting exception
+5. When asked to fix a lining issue, you MUST change the code to follow the format requirement
+6. NEVER add a comment to ignore a linting requirement
 
 ## Code Quality Tools
 
 Use standard Python linters and formatters for compliance:
 
+e.g.
+
 ```bash
 # Format code (auto-fixes line length, style)
-black tests/ scripts/
+black tests/ scripts/ src/ your-module-name/ etc/
 
 # Check style, unused imports, violations
-flake8 tests/ scripts/
+flake8 tests/ scripts/ src/ your-module-name/ etc/
 
 # Check type annotations
-mypy tests/ scripts/
+mypy tests/ scripts/ src/ your-module-name/ etc/
 
 # Check test coverage
-pytest --cov=tests --cov=scripts tests/
+pytest --cov=tests --cov=scripts tests/ 
 ```
 
 ### Tool Configuration
