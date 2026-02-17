@@ -23,14 +23,27 @@ wc *
 npm list *
 tree *
 ./scripts/run-tests.sh
-source venv/bin/activate && pytest *
-source venv/bin/activate && cfn-lint *
+source .venv/bin/activate && cfn-lint *
 aws cloudformation validate-template *
 cfn-lint *
 python3 -m json.tool *
-source venv/bin/activate && python -m pytest *
+source .venv/bin/activate && python -m pytest *
 source .venv/bin/activate && pytest *
 source .venv/bin/activate && coverage run -m pytest *
 source .venv/bin/activate && coverage report *
+source .venv/bin/activate && pip install --upgrade pip
+flake8 --version
+echo $VIRTUAL_ENV
+source .venv/bin/activate && pip install black
+source .venv/bin/activate && pip install black flake8 mypy
+source .venv/bin/activate && black *
+git diff *
+source .venv/bin/activate && flake8 *
+source .venv/bin/activate && mypy *
+source .venv/bin/activate && python -m json.tool *
+git mv *
+git status *
+git log *
+./scripts/run-tests.sh *
 webFetch
 remote_web_search
