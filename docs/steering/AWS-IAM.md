@@ -1,5 +1,5 @@
 ---
-inclusion: Always
+inclusion: always
 ---
 
 
