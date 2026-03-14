@@ -33,18 +33,19 @@ Always define the following categories: Users, Roles, Policies, AWS Accounts, co
 
 ## How to document the AWS IAM configuration
 
-### Structure
-    - You should create a directory in the root of the project called 'policies/' and then place all policies in there.
+### Structure and location
+    - All policies and roles MUST be written in cloudformation
+    - All cloudformation must reside within a directory at the project root named /cloudformation/
 
 ### How to write policies
-    - All policies MUST be written as valid AWS IAM Policy JSON
-    - You MUST write all policies as their own individual JSON file
+    - All policies MUST be written as valid AWS IAM Policy Cloudformation files
+    - You MUST write all policies/roles as a Cloudformation file
     - You MUST NOT use a '''cat >> some-policy.json <<EOF etc etc EOF''' format in documentation
     - You MUST create all policy files for the user, DO NOT ask the user to create a policy file
 
 ### Provide user guidance
 - If any code should be executed by a user, you MUST provide clear instructions in the documentation that explain:
-    - What permissions the user will require
-    - Which policy that refers to
+    - What permissions the user will require and which policy those permissions are contained in
     - Link to the policy document in the repository structure
-    - Describe how an administration should deploy the role/policy to an AWS account using cloudformation (include instructions on WHICH account)
+    - Describe how an administrator should deploy the role/policy to an AWS account using cloudformation (include instructions on WHICH account)
+    
