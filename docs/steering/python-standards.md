@@ -1,6 +1,6 @@
 ---
 inclusion: fileMatch
-fileMatchPattern: ["**/*.py"]
+fileMatchPattern: ["**/*.py", "**/pyproject.toml"]
 ---
 
 
