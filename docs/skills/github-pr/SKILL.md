@@ -88,10 +88,11 @@ Optional flags:
 
 4. If the script fails, read the error output and report it to the user with remediation steps.
 
-### 5. Confirm
+### 5. Confirm and clean up
 
 1. After successful creation, report the PR URL to the user (the `gh` CLI prints it).
-2. Offer to open the PR in the browser if needed: `gh pr view --web`
+2. Switch back to the main branch: `git checkout main`
+3. Offer to open the PR in the browser if needed: `gh pr view --web`
 
 ## Script reference
 
