@@ -16,5 +16,6 @@ inclusion: always
 
 ## Before Starting Work
 
+- Always pull the latest changes from remote before creating a new branch: `git pull origin main`.
 - If on `main`, create and switch to a new branch before making any changes.
 - If a branch does not match the naming convention, rename it before pushing.
