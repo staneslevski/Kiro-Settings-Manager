@@ -91,8 +91,10 @@ Optional flags:
 ### 5. Confirm and clean up
 
 1. After successful creation, report the PR URL to the user (the `gh` CLI prints it).
-2. Switch back to the main branch: `git checkout main`
-3. Offer to open the PR in the browser if needed: `gh pr view --web`
+2. Store the current branch name: `git branch --show-current`
+3. Switch back to the main branch: `git checkout main`
+4. Delete the old working branch locally: `git branch -D <branch-name>`
+5. Offer to open the PR in the browser if needed: `gh pr view --web`
 
 ## Script reference
 
