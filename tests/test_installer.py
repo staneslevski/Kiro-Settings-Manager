@@ -56,7 +56,7 @@ def test_full_bundle_installation(tmp_path: Path) -> None:
     )
     manifest = Manifest(entries=[])
 
-    installed = install_bundle(
+    results = install_bundle(
         bundle=bundle,
         target_dir=target,
         scope="local",
@@ -68,7 +68,7 @@ def test_full_bundle_installation(tmp_path: Path) -> None:
 
     assert (target / "skills" / "aws-cross" / "SKILL.md").exists()
     assert (target / "steering" / "AWS-IAM.md").exists()
-    assert len(installed) == 2
+    assert len(results) == 2
 
 
 def test_filtered_installation_copies_only_specified(
@@ -90,7 +90,7 @@ def test_filtered_installation_copies_only_specified(
     )
     manifest = Manifest(entries=[])
 
-    installed = install_bundle(
+    results = install_bundle(
         bundle=bundle,
         target_dir=target,
         scope="local",
@@ -103,7 +103,7 @@ def test_filtered_installation_copies_only_specified(
     assert (target / "skills" / "s.md").exists()
     assert not (target / "steering").exists()
     assert not (target / "hooks").exists()
-    assert len(installed) == 1
+    assert len(results) == 1
 
 
 def test_dot_notation_installs_only_target_item(
@@ -131,7 +131,7 @@ def test_dot_notation_installs_only_target_item(
         item_name="aws-cross",
     )
 
-    installed = install_bundle(
+    results = install_bundle(
         bundle=bundle,
         target_dir=target,
         scope="local",
@@ -143,7 +143,7 @@ def test_dot_notation_installs_only_target_item(
 
     assert (target / "skills" / "aws-cross" / "SKILL.md").exists()
     assert not (target / "skills" / "other-skill").exists()
-    assert len(installed) == 1
+    assert len(results) == 1
 
 
 def test_manifest_updated_with_installed_files(
@@ -218,7 +218,7 @@ def test_warning_for_missing_filtered_subdirectory(
     bundle = _make_resolved_bundle(reg, "b", {"skills": {"f.md": b"x"}})
     manifest = Manifest(entries=[])
 
-    installed = install_bundle(
+    results = install_bundle(
         bundle=bundle,
         target_dir=target,
         scope="local",
@@ -230,7 +230,7 @@ def test_warning_for_missing_filtered_subdirectory(
 
     # skills should be installed, hooks missing triggers warning
     assert (target / "skills" / "f.md").exists()
-    assert len(installed) == 1
+    assert len(results) == 1
     captured = capsys.readouterr()
     assert "hooks" in captured.err
 
@@ -314,7 +314,7 @@ def test_dot_notation_single_file(tmp_path: Path) -> None:
         item_name="my-file.md",
     )
 
-    installed = install_bundle(
+    results = install_bundle(
         bundle=bundle,
         target_dir=target,
         scope="global",
@@ -325,7 +325,7 @@ def test_dot_notation_single_file(tmp_path: Path) -> None:
     )
 
     assert (target / "steering" / "my-file.md").exists()
-    assert len(installed) == 1
+    assert len(results) == 1
     assert manifest.entries[0].scope == "global"
 
 

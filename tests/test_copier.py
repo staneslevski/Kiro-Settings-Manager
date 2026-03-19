@@ -5,11 +5,17 @@ from pathlib import Path
 from hypothesis import HealthCheck, given, settings as h_settings
 from hypothesis import strategies as st
 
-from ksm.copier import copy_file, copy_tree, files_identical
+from ksm.copier import (
+    CopyResult,
+    CopyStatus,
+    copy_file,
+    copy_tree,
+    files_identical,
+)
 
 
-def test_copy_file_copies_content(tmp_path: Path) -> None:
-    """copy_file copies content byte-for-byte."""
+def test_copy_file_new_file(tmp_path: Path) -> None:
+    """copy_file returns NEW status for non-existent destination."""
     src = tmp_path / "src" / "file.txt"
     dst = tmp_path / "dst" / "file.txt"
     src.parent.mkdir(parents=True)
@@ -17,12 +23,13 @@ def test_copy_file_copies_content(tmp_path: Path) -> None:
 
     result = copy_file(src, dst)
 
-    assert result is True
+    assert result.status == CopyStatus.NEW
+    assert result.path == dst
     assert dst.read_bytes() == b"hello world\n"
 
 
 def test_copy_file_skips_identical(tmp_path: Path) -> None:
-    """copy_file skips when destination has identical content."""
+    """copy_file returns UNCHANGED for identical content."""
     src = tmp_path / "src" / "file.txt"
     dst = tmp_path / "dst" / "file.txt"
     src.parent.mkdir(parents=True)
@@ -33,11 +40,12 @@ def test_copy_file_skips_identical(tmp_path: Path) -> None:
 
     result = copy_file(src, dst)
 
-    assert result is False
+    assert result.status == CopyStatus.UNCHANGED
+    assert result.path == dst
 
 
 def test_copy_file_overwrites_different(tmp_path: Path) -> None:
-    """copy_file overwrites when destination has different content."""
+    """copy_file returns UPDATED for different content."""
     src = tmp_path / "src" / "file.txt"
     dst = tmp_path / "dst" / "file.txt"
     src.parent.mkdir(parents=True)
@@ -47,7 +55,8 @@ def test_copy_file_overwrites_different(tmp_path: Path) -> None:
 
     result = copy_file(src, dst)
 
-    assert result is True
+    assert result.status == CopyStatus.UPDATED
+    assert result.path == dst
     assert dst.read_bytes() == b"new content"
 
 
@@ -55,32 +64,35 @@ def test_copy_tree_preserves_structure(tmp_path: Path) -> None:
     """copy_tree preserves directory structure."""
     src = tmp_path / "src"
     dst = tmp_path / "dst"
-    # Create nested structure
     (src / "subdir").mkdir(parents=True)
     (src / "file1.txt").write_bytes(b"one")
     (src / "subdir" / "file2.txt").write_bytes(b"two")
 
-    copied = copy_tree(src, dst)
+    results = copy_tree(src, dst)
 
     assert (dst / "file1.txt").read_bytes() == b"one"
     assert (dst / "subdir" / "file2.txt").read_bytes() == b"two"
-    assert len(copied) == 2
+    assert len(results) == 2
+    assert all(r.status == CopyStatus.NEW for r in results)
 
 
-def test_copy_tree_returns_copied_paths(tmp_path: Path) -> None:
-    """copy_tree returns list of destination paths that were copied."""
+def test_copy_tree_returns_all_results(tmp_path: Path) -> None:
+    """copy_tree returns CopyResult for every file."""
     src = tmp_path / "src"
     dst = tmp_path / "dst"
     (src / "a").mkdir(parents=True)
     (src / "a" / "b.txt").write_bytes(b"data")
 
-    copied = copy_tree(src, dst)
+    results = copy_tree(src, dst)
 
-    assert dst / "a" / "b.txt" in copied
+    paths = [r.path for r in results]
+    assert dst / "a" / "b.txt" in paths
 
 
-def test_copy_tree_skips_identical_files(tmp_path: Path) -> None:
-    """copy_tree skips files that already exist with identical content."""
+def test_copy_tree_unchanged_files_included(
+    tmp_path: Path,
+) -> None:
+    """copy_tree includes UNCHANGED files in results."""
     src = tmp_path / "src"
     dst = tmp_path / "dst"
     src.mkdir()
@@ -91,9 +103,10 @@ def test_copy_tree_skips_identical_files(tmp_path: Path) -> None:
     src_file.write_bytes(content)
     dst_file.write_bytes(content)
 
-    copied = copy_tree(src, dst)
+    results = copy_tree(src, dst)
 
-    assert len(copied) == 0
+    assert len(results) == 1
+    assert results[0].status == CopyStatus.UNCHANGED
 
 
 def test_files_identical_true(tmp_path: Path) -> None:
@@ -186,5 +199,43 @@ def test_property_identical_files_skipped(
 
     result = copy_file(src, dst)
 
-    assert result is False
+    assert result.status == CopyStatus.UNCHANGED
     assert dst.read_bytes() == content
+
+
+# Feature: ux-review-fixes
+# Property 22: File diff summary uses distinct status symbols
+@given(
+    statuses=st.lists(
+        st.sampled_from(list(CopyStatus)),
+        min_size=1,
+        max_size=10,
+    ),
+    filenames=st.lists(
+        st.from_regex(r"[a-z]{1,6}/[a-z]{1,6}\.[a-z]{1,3}", fullmatch=True),
+        min_size=1,
+        max_size=10,
+    ),
+)
+def test_property_diff_summary_distinct_symbols(
+    statuses: list[CopyStatus],
+    filenames: list[str],
+) -> None:
+    """Property 22: File diff summary uses distinct status symbols."""
+    from ksm.copier import _STATUS_SYMBOLS, format_diff_summary
+
+    # Pair up statuses and filenames (zip to shorter)
+    pairs = list(zip(statuses, filenames))
+    results = [CopyResult(path=Path(fn), status=st) for st, fn in pairs]
+
+    output = format_diff_summary(results)
+
+    # Verify symbols are pairwise distinct
+    symbols = list(_STATUS_SYMBOLS.values())
+    assert len(symbols) == len(set(symbols))
+
+    # Verify each result appears with correct symbol
+    for r in results:
+        expected_sym = _STATUS_SYMBOLS[r.status]
+        assert f"{expected_sym} {r.path}" in output
+        assert f"({r.status.value})" in output

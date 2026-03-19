@@ -14,6 +14,7 @@ from ksm.dot_notation import (
     parse_dot_notation,
     validate_dot_selection,
 )
+from ksm.copier import format_diff_summary
 from ksm.errors import (
     BundleNotFoundError,
     InvalidSubdirectoryError,
@@ -67,8 +68,18 @@ def run_add(
         bundle_spec = bundle_name
 
     if bundle_spec is None:
-        print("Error: no bundle specified", file=sys.stderr)
-        return 1
+        # Auto-launch selector if TTY (Req 9)
+        if sys.stdin.isatty():
+            bundle_name = _handle_display(registry_index, manifest)
+            if bundle_name is None:
+                return 0
+            bundle_spec = bundle_name
+        else:
+            print(
+                "Error: no bundle specified",
+                file=sys.stderr,
+            )
+            return 1
 
     # Parse dot notation
     dot_selection = parse_dot_notation(bundle_spec)
@@ -132,7 +143,7 @@ def run_add(
                 return 1
 
         try:
-            install_bundle(
+            results = install_bundle(
                 bundle=resolved,
                 target_dir=target_dir,
                 scope=scope,
@@ -143,6 +154,12 @@ def run_add(
             )
         except SystemExit:
             return 1
+
+        if results:
+            print(
+                format_diff_summary(results),
+                file=sys.stderr,
+            )
 
         save_manifest(manifest, manifest_path)
         return 0
@@ -215,7 +232,7 @@ def _handle_ephemeral(
                 return 1
 
         try:
-            install_bundle(
+            results = install_bundle(
                 bundle=resolved,
                 target_dir=target_dir,
                 scope=scope,
@@ -226,6 +243,12 @@ def _handle_ephemeral(
             )
         except SystemExit:
             return 1
+
+        if results:
+            print(
+                format_diff_summary(results),
+                file=sys.stderr,
+            )
 
         save_manifest(manifest, manifest_path)
         return 0

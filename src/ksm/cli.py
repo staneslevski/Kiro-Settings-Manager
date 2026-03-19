@@ -82,7 +82,20 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # --- ls ---
-    sub.add_parser("ls", help="List installed bundles")
+    ls_p = sub.add_parser("ls", help="List installed bundles")
+    ls_p.add_argument(
+        "--scope",
+        choices=["local", "global"],
+        default=None,
+        help="Filter by scope",
+    )
+    ls_p.add_argument(
+        "--format",
+        dest="output_format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
 
     # --- sync ---
     sync_p = sub.add_parser("sync", help="Sync installed bundles")

@@ -1103,3 +1103,182 @@ def test_property_dot_notation_filter_mutual_exclusion(
         )
 
         assert code == 1
+
+
+# --- Tests for file-level diff output (Req 22) ---
+
+
+def test_run_add_prints_diff_summary(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """run_add prints file-level diff summary after install."""
+    from ksm.commands.add import run_add
+
+    reg = _setup_registry(
+        tmp_path,
+        {"aws": {"skills": {"S.md": b"skill"}}},
+    )
+    target_local = tmp_path / "workspace" / ".kiro"
+    target_global = tmp_path / "home" / ".kiro"
+    ksm_dir = tmp_path / "ksm_state"
+    ksm_dir.mkdir(parents=True)
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec="aws")
+    code = run_add(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=target_global,
+    )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    # Should contain diff symbol for new file
+    assert "+" in captured.err or "new" in captured.err.lower()
+
+
+# --- Tests for auto-launch selector (Req 9) ---
+
+
+def test_run_add_auto_launch_tty(
+    tmp_path: Path,
+) -> None:
+    """run_add auto-launches selector when no bundle_spec + TTY."""
+    from ksm.commands.add import run_add
+
+    reg = _setup_registry(
+        tmp_path,
+        {"aws": {"skills": {"S.md": b"s"}}},
+    )
+    target_local = tmp_path / "workspace" / ".kiro"
+    target_global = tmp_path / "home" / ".kiro"
+    ksm_dir = tmp_path / "ksm_state"
+    ksm_dir.mkdir(parents=True)
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec=None)
+
+    with (
+        patch("sys.stdin") as mock_stdin,
+        patch(
+            "ksm.commands.add.interactive_select",
+            return_value="aws",
+        ) as mock_sel,
+    ):
+        mock_stdin.isatty.return_value = True
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=target_global,
+        )
+
+    assert code == 0
+    mock_sel.assert_called_once()
+    assert (target_local / "skills" / "S.md").exists()
+
+
+def test_run_add_auto_launch_tty_quit(
+    tmp_path: Path,
+) -> None:
+    """run_add auto-launch returns 0 when user quits."""
+    from ksm.commands.add import run_add
+
+    reg = _setup_registry(
+        tmp_path,
+        {"aws": {"skills": {"S.md": b"s"}}},
+    )
+    ksm_dir = tmp_path / "ksm_state"
+    ksm_dir.mkdir(parents=True)
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec=None)
+
+    with (
+        patch("sys.stdin") as mock_stdin,
+        patch(
+            "ksm.commands.add.interactive_select",
+            return_value=None,
+        ),
+    ):
+        mock_stdin.isatty.return_value = True
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=tmp_path / "local",
+            target_global=tmp_path / "global",
+        )
+
+    assert code == 0
+    assert len(manifest.entries) == 0
+
+
+def test_run_add_non_tty_no_bundle_prints_error(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """run_add with no bundle_spec + non-TTY prints error."""
+    from ksm.commands.add import run_add
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+    idx = RegistryIndex(registries=[])
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec=None)
+
+    with patch("sys.stdin") as mock_stdin:
+        mock_stdin.isatty.return_value = False
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=tmp_path / "local",
+            target_global=tmp_path / "global",
+        )
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "no bundle specified" in captured.err.lower()

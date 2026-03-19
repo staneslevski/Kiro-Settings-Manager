@@ -8,7 +8,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ksm.copier import copy_file, copy_tree
+from ksm.copier import CopyResult, copy_file, copy_tree
 from ksm.dot_notation import DotSelection
 from ksm.manifest import Manifest, ManifestEntry
 from ksm.resolver import ResolvedBundle
@@ -23,10 +23,10 @@ def install_bundle(
     dot_selection: DotSelection | None,
     manifest: Manifest,
     source_label: str,
-) -> list[Path]:
+) -> list[CopyResult]:
     """Install bundle files and update manifest.
 
-    Returns list of installed destination file paths.
+    Returns list of CopyResult for all files processed.
     """
     if dot_selection is not None:
         return _install_dot_selection(
@@ -39,19 +39,15 @@ def install_bundle(
         )
 
     subdirs_to_copy = _resolve_subdirs(bundle, subdirectory_filter)
-    installed: list[Path] = []
+    results: list[CopyResult] = []
 
     for subdir in subdirs_to_copy:
         src = bundle.path / subdir
         dst = target_dir / subdir
-        copy_tree(src, dst)
-        # Record all destination files (not just newly copied)
-        for src_file in sorted(src.rglob("*")):
-            if src_file.is_file():
-                rel = src_file.relative_to(src)
-                installed.append(dst / rel)
+        tree_results = copy_tree(src, dst)
+        results.extend(tree_results)
 
-    rel_paths = [str(p.relative_to(target_dir)) for p in installed]
+    rel_paths = [str(r.path.relative_to(target_dir)) for r in results]
     _update_manifest(
         manifest,
         bundle.name,
@@ -59,7 +55,7 @@ def install_bundle(
         scope,
         rel_paths,
     )
-    return installed
+    return results
 
 
 def _install_dot_selection(
@@ -69,24 +65,21 @@ def _install_dot_selection(
     dot_selection: DotSelection,
     manifest: Manifest,
     source_label: str,
-) -> list[Path]:
+) -> list[CopyResult]:
     """Install a single item via dot notation."""
     src_item = bundle.path / dot_selection.subdirectory / dot_selection.item_name
     dst_base = target_dir / dot_selection.subdirectory
-    installed: list[Path] = []
+    results: list[CopyResult] = []
 
     if src_item.is_dir():
-        copied = copy_tree(src_item, dst_base / dot_selection.item_name)
-        installed.extend(copied)
+        tree_results = copy_tree(src_item, dst_base / dot_selection.item_name)
+        results.extend(tree_results)
     elif src_item.is_file():
         dst_file = dst_base / dot_selection.item_name
-        if copy_file(src_item, dst_file):
-            installed.append(dst_file)
-        else:
-            # File was identical, still record it
-            installed.append(dst_file)
+        result = copy_file(src_item, dst_file)
+        results.append(result)
 
-    rel_paths = [str(p.relative_to(target_dir)) for p in installed]
+    rel_paths = [str(r.path.relative_to(target_dir)) for r in results]
     _update_manifest(
         manifest,
         bundle.name,
@@ -94,7 +87,7 @@ def _install_dot_selection(
         scope,
         rel_paths,
     )
-    return installed
+    return results
 
 
 def _resolve_subdirs(

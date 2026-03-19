@@ -814,3 +814,51 @@ def test_property_sync_updates_timestamp(
 
         updated = datetime.fromisoformat(manifest.entries[0].updated_at)
         assert updated >= before
+
+
+# --- Tests for file-level diff output (Req 22) ---
+
+
+def test_sync_prints_diff_summary(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Sync prints file-level diff summary after re-install."""
+    from ksm.commands.sync import run_sync
+
+    reg = tmp_path / "reg"
+    _setup_bundle(reg, "aws", {"skills/f.md": b"new-content"})
+    target = tmp_path / "target" / ".kiro"
+    target.mkdir(parents=True)
+    (target / "skills").mkdir()
+    (target / "skills" / "f.md").write_bytes(b"old-content")
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[_make_entry("aws", files=["skills/f.md"])])
+
+    args = _make_args(bundle_names=["aws"], yes=True)
+    code = run_sync(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    # Should contain diff symbol for updated file
+    assert "~" in captured.err or "updated" in captured.err.lower()
