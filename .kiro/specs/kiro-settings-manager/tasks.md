@@ -256,11 +256,11 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
         - Ensure all tests pass, ask the user if questions arise.
 
 
-- [ ] 4. Command Layer
+- [x] 4. Command Layer
 
-    - [ ] 4.1 `commands/add.py`
+    - [x] 4.1 `commands/add.py`
 
-        - [ ] 4.1.1 Write tests for `commands/add.py` in `tests/test_add.py`
+        - [x] 4.1.1 Write tests for `commands/add.py` in `tests/test_add.py`
             - Test `run_add` with plain bundle name installs to local `.kiro/`
             - Test `-g` flag installs to global `~/.kiro/`
             - Test `--display` launches interactive selector
@@ -271,7 +271,7 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
             - Test ephemeral source recorded as git URL in manifest
             - _Requirements: 1.1–1.8, 9.1–9.8, 10.1–10.10, 11.1–11.9_
 
-        - [ ] 4.1.2 Write property tests for add command
+        - [x] 4.1.2 Write property tests for add command
             - **Property 1: Scope flag determines target directory**
             - **Property 21: Ephemeral registry is not persisted**
             - **Property 23: Ephemeral source recorded as git URL**
@@ -280,28 +280,28 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
             - **Property 31: Dot notation and subdirectory filter are mutually exclusive**
             - **Validates: Requirements 1.2, 1.3, 1.4, 9.3, 9.7, 11.4, 11.5, 11.6, 11.9**
 
-        - [ ] 4.1.3 Implement `src/ksm/commands/add.py`
+        - [x] 4.1.3 Implement `src/ksm/commands/add.py`
             - `run_add()` orchestrating resolver, installer, selector, dot_notation, git_ops
             - _Requirements: 1.1–1.8, 9.1–9.8, 10.1–10.10, 11.1–11.9_
 
-    - [ ] 4.2 `commands/ls.py`
+    - [x] 4.2 `commands/ls.py`
 
-        - [ ] 4.2.1 Write tests for `commands/ls.py` in `tests/test_ls.py`
+        - [x] 4.2.1 Write tests for `commands/ls.py` in `tests/test_ls.py`
             - Test output contains bundle name, scope, and source registry for each entry
             - Test empty manifest prints "no bundles installed" message
             - _Requirements: 3.1, 3.2, 3.3_
 
-        - [ ] 4.2.2 Write property test for ls output
+        - [x] 4.2.2 Write property test for ls output
             - **Property 8: ls displays all manifest entries with required fields**
             - **Validates: Requirements 3.1, 3.2**
 
-        - [ ] 4.2.3 Implement `src/ksm/commands/ls.py`
+        - [x] 4.2.3 Implement `src/ksm/commands/ls.py`
             - `run_ls()` reading manifest and formatting output
             - _Requirements: 3.1, 3.2, 3.3_
 
-    - [ ] 4.3 `commands/sync.py`
+    - [x] 4.3 `commands/sync.py`
 
-        - [ ] 4.3.1 Write tests for `commands/sync.py` in `tests/test_sync.py`
+        - [x] 4.3.1 Write tests for `commands/sync.py` in `tests/test_sync.py`
             - Test confirmation prompt aborts on non-`y` input
             - Test `--yes` skips confirmation
             - Test sync re-copies files from source registry
@@ -312,33 +312,33 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
             - Test git pull called for custom registries before sync
             - _Requirements: 4.1–4.11_
 
-        - [ ] 4.3.2 Write property tests for sync command
+        - [x] 4.3.2 Write property tests for sync command
             - **Property 9: Sync aborts on non-y confirmation**
             - **Property 10: Sync re-copies bundle files from source**
             - **Property 11: Sync continues past unknown bundles**
             - **Property 12: Sync updates manifest timestamp**
             - **Validates: Requirements 4.4, 4.6, 4.7, 4.8, 4.10**
 
-        - [ ] 4.3.3 Implement `src/ksm/commands/sync.py`
+        - [x] 4.3.3 Implement `src/ksm/commands/sync.py`
             - `run_sync()` with confirmation prompt, `--yes`, `--all`, git pull
             - _Requirements: 4.1–4.11_
 
-    - [ ] 4.4 `commands/add_registry.py`
+    - [x] 4.4 `commands/add_registry.py`
 
-        - [ ] 4.4.1 Write tests for `commands/add_registry.py` in `tests/test_add_registry.py`
+        - [x] 4.4.1 Write tests for `commands/add_registry.py` in `tests/test_add_registry.py`
             - Test cloning a new git repo and registering it
             - Test duplicate URL prints message and exits 0
             - Test git clone failure prints error and exits 1
             - Test scanned bundles are registered from cloned repo
             - _Requirements: 5.1–5.5_
 
-        - [ ] 4.4.2 Implement `src/ksm/commands/add_registry.py`
+        - [x] 4.4.2 Implement `src/ksm/commands/add_registry.py`
             - `run_add_registry()` orchestrating git_ops, scanner, registry
             - _Requirements: 5.1–5.5_
 
-    - [ ] 4.5 `commands/rm.py`
+    - [x] 4.5 `commands/rm.py`
 
-        - [ ] 4.5.1 Write tests for `commands/rm.py` in `tests/test_rm.py`
+        - [x] 4.5.1 Write tests for `commands/rm.py` in `tests/test_rm.py`
             - Test `run_rm` removes files and updates manifest
             - Test `-l`/`-g` scope flags resolve correct target directory
             - Test `--display` launches removal selector
@@ -346,16 +346,16 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
             - Test no bundles installed with `--display` prints message and exits 0
             - _Requirements: 12.1–12.17_
 
-        - [ ] 4.5.2 Write property tests for rm command
+        - [x] 4.5.2 Write property tests for rm command
             - **Property 34: Unknown bundle in rm produces error**
             - **Property 35: Rm scope flag determines target directory**
             - **Validates: Requirements 12.3, 12.4, 12.5, 12.6**
 
-        - [ ] 4.5.3 Implement `src/ksm/commands/rm.py`
+        - [x] 4.5.3 Implement `src/ksm/commands/rm.py`
             - `run_rm()` orchestrating remover, manifest, selector
             - _Requirements: 12.1–12.17_
 
-    - [ ] 4.6 Checkpoint — Verify command layer
+    - [x] 4.6 Checkpoint — Verify command layer
         - Ensure all tests pass, ask the user if questions arise.
 
 
