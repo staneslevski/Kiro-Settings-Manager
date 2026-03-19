@@ -1,2 +1,5 @@
 scripts/tmp/**/*
 scripts/tmp/
+
+tmp/
+tmp/**/*
