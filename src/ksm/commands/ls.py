@@ -4,6 +4,7 @@ Handles `ksm ls` — lists all installed bundles from the manifest.
 """
 
 import argparse
+import sys
 
 from ksm.manifest import Manifest
 
@@ -15,7 +16,7 @@ def run_ls(
 ) -> int:
     """Read manifest and print installed bundles. Returns exit code."""
     if not manifest.entries:
-        print("No bundles currently installed.")
+        print("No bundles currently installed.", file=sys.stderr)
         return 0
 
     max_name = max(len(e.bundle_name) for e in manifest.entries)

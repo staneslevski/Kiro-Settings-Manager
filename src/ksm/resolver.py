@@ -30,7 +30,9 @@ def resolve_bundle(
     Returns the first match found. Raises BundleNotFoundError if
     the bundle is not found in any registered registry.
     """
+    searched: list[str] = []
     for entry in registry_index.registries:
+        searched.append(entry.name)
         registry_path = Path(entry.local_path)
         bundles = scan_registry(registry_path)
         for bundle in bundles:
@@ -41,4 +43,4 @@ def resolve_bundle(
                     registry_name=entry.name,
                     subdirectories=bundle.subdirectories,
                 )
-    raise BundleNotFoundError(bundle_name)
+    raise BundleNotFoundError(bundle_name, searched_registries=searched)

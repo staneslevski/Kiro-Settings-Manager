@@ -4,16 +4,75 @@
 class BundleNotFoundError(Exception):
     """Raised when a bundle name cannot be found in any registry."""
 
-    def __init__(self, bundle_name: str) -> None:
+    def __init__(
+        self,
+        bundle_name: str,
+        searched_registries: list[str] | None = None,
+    ) -> None:
         self.bundle_name = bundle_name
-        super().__init__(f"Bundle not found: {bundle_name}")
+        self.searched_registries = searched_registries or []
+        msg = f"Bundle '{bundle_name}' not found"
+        if self.searched_registries:
+            names = ", ".join(self.searched_registries)
+            count = len(self.searched_registries)
+            msg += (
+                f" in any registered registry.\n"
+                f"  Searched {count} "
+                f"{'registry' if count == 1 else 'registries'}"
+                f": {names}\n"
+                f"  Run `ksm registry ls` to see"
+                f" available registries.\n"
+                f"  Run `ksm add {bundle_name} --from"
+                f" <git-url>` to install from a"
+                f" specific source."
+            )
+        else:
+            msg += "."
+        super().__init__(msg)
 
 
 class GitError(Exception):
     """Raised when a git subprocess operation fails."""
 
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
+    def __init__(
+        self,
+        message: str,
+        url: str | None = None,
+        stderr_output: str | None = None,
+    ) -> None:
+        self.url = url
+        self.stderr_output = stderr_output
+        self._base_message = message
+        if url:
+            super().__init__(f"{message}\n  URL: {url}")
+        else:
+            super().__init__(message)
+
+    def formatted_message(self) -> str:
+        """Return a cleaned, actionable error message."""
+        parts = [self._base_message]
+        if self.url:
+            parts.append(f"  URL: {self.url}")
+        if self.stderr_output:
+            summary = _clean_stderr(self.stderr_output)
+            if summary:
+                parts.append(f"  Git said: {summary}")
+        if self.url:
+            parts.append("  Check that the URL is correct" " and you have access.")
+        return "\n".join(parts)
+
+
+def _clean_stderr(stderr: str) -> str:
+    """Extract the meaningful line from git stderr output."""
+    for line in stderr.strip().splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("fatal:"):
+            return stripped[len("fatal:") :].strip()
+        if stripped.lower().startswith("error:"):
+            return stripped[len("error:") :].strip()
+    # Fall back to last non-empty line
+    lines = [ln.strip() for ln in stderr.strip().splitlines() if ln.strip()]
+    return lines[-1] if lines else ""
 
 
 class InvalidSubdirectoryError(Exception):

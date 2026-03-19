@@ -14,7 +14,6 @@ from ksm.commands.add import run_add
 from ksm.commands.ls import run_ls
 from ksm.commands.rm import run_rm
 from ksm.commands.sync import run_sync
-from ksm.commands.add_registry import run_add_registry
 from ksm.manifest import Manifest
 from ksm.registry import RegistryEntry, RegistryIndex
 
@@ -72,14 +71,12 @@ class TestFullLifecycle:
         # --- ADD ---
         add_args = argparse.Namespace(
             bundle_spec="myapp",
-            display=False,
+            interactive=False,
             from_url=None,
             local=False,
             global_=False,
-            skills_only=False,
-            agents_only=False,
-            steering_only=False,
-            hooks_only=False,
+            only=None,
+            dry_run=False,
         )
         code = run_add(
             add_args,
@@ -109,6 +106,7 @@ class TestFullLifecycle:
             bundle_names=["myapp"],
             all=False,
             yes=True,
+            dry_run=False,
         )
         code = run_sync(
             sync_args,
@@ -124,9 +122,11 @@ class TestFullLifecycle:
         # --- RM ---
         rm_args = argparse.Namespace(
             bundle_name="myapp",
-            display=False,
+            interactive=False,
             local=False,
             global_=False,
+            yes=True,
+            dry_run=False,
         )
         code = run_rm(
             rm_args,
@@ -162,14 +162,11 @@ class TestEphemeralRegistryE2E:
 
         args = argparse.Namespace(
             bundle_spec="mybundle",
-            display=False,
+            interactive=False,
             from_url="https://example.com/repo.git",
             local=False,
             global_=False,
-            skills_only=False,
-            agents_only=False,
-            steering_only=False,
-            hooks_only=False,
+            only=None,
         )
 
         # Mock clone_ephemeral to return our local "remote"
@@ -221,14 +218,11 @@ class TestDotNotationE2E:
 
         args = argparse.Namespace(
             bundle_spec="aws.skills.cross-account",
-            display=False,
+            interactive=False,
             from_url=None,
             local=False,
             global_=False,
-            skills_only=False,
-            agents_only=False,
-            steering_only=False,
-            hooks_only=False,
+            only=None,
         )
         code = run_add(
             args,
@@ -249,7 +243,7 @@ class TestSubdirectoryFiltersE2E:
     """Test add with subdirectory filters end-to-end."""
 
     def test_skills_only_filter(self, tmp_path: Path) -> None:
-        """--skills-only copies only skills/ subdirectory."""
+        """--only skills copies only skills/ subdirectory."""
         reg = _setup_registry(
             tmp_path,
             {
@@ -269,14 +263,11 @@ class TestSubdirectoryFiltersE2E:
 
         args = argparse.Namespace(
             bundle_spec="myapp",
-            display=False,
+            interactive=False,
             from_url=None,
             local=False,
             global_=False,
-            skills_only=True,
-            agents_only=False,
-            steering_only=False,
-            hooks_only=False,
+            only=["skills"],
         )
         code = run_add(
             args,
@@ -293,10 +284,12 @@ class TestSubdirectoryFiltersE2E:
 
 
 class TestAddRegistryE2E:
-    """Test add-registry with mocked git clone end-to-end."""
+    """Test registry add with mocked git clone end-to-end."""
 
     def test_add_registry_clones_and_registers(self, tmp_path: Path) -> None:
-        """add-registry clones repo and adds to registry index."""
+        """registry add clones repo and adds to registry index."""
+        from ksm.commands.registry_add import run_registry_add
+
         cache_dir = tmp_path / "cache"
         cache_dir.mkdir()
         idx_path = tmp_path / "registries.json"
@@ -310,10 +303,10 @@ class TestAddRegistryE2E:
         args = argparse.Namespace(git_url="https://github.com/org/team-configs.git")
 
         with patch(
-            "ksm.commands.add_registry.clone_repo",
+            "ksm.commands.registry_add.clone_repo",
             side_effect=fake_clone,
         ):
-            code = run_add_registry(
+            code = run_registry_add(
                 args,
                 registry_index=idx,
                 registry_index_path=idx_path,

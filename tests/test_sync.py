@@ -46,6 +46,7 @@ def _make_args(**kwargs: object) -> argparse.Namespace:
         "bundle_names": [],
         "all": False,
         "yes": False,
+        "dry_run": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -83,7 +84,10 @@ def test_sync_aborts_on_non_y_input(
 
     args = _make_args(bundle_names=["aws"])
 
-    with patch("builtins.input", return_value="n"):
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("builtins.input", return_value="n"),
+    ):
         code = run_sync(
             args,
             registry_index=idx,
@@ -459,7 +463,10 @@ def test_sync_eoferror_aborts(
     manifest = Manifest(entries=[_make_entry("aws", "local", "default")])
     args = _make_args(bundle_names=["aws"])
 
-    with patch("builtins.input", side_effect=EOFError):
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("builtins.input", side_effect=EOFError),
+    ):
         code = run_sync(
             args,
             registry_index=idx,
@@ -648,7 +655,10 @@ def test_property_sync_aborts_on_non_y(
 
         args = _make_args(bundle_names=["b"])
 
-        with patch("builtins.input", return_value=response):
+        with (
+            patch("sys.stdin.isatty", return_value=True),
+            patch("builtins.input", return_value=response),
+        ):
             code = run_sync(
                 args,
                 registry_index=idx,
@@ -814,3 +824,172 @@ def test_property_sync_updates_timestamp(
 
         updated = datetime.fromisoformat(manifest.entries[0].updated_at)
         assert updated >= before
+
+
+# Feature: ux-review-fixes, Property 16: Sync confirmation lists bundle names
+# and file count
+@given(
+    names=st.lists(
+        st.from_regex(r"[a-z]{3,8}", fullmatch=True),
+        min_size=1,
+        max_size=4,
+        unique=True,
+    ),
+    files_per_bundle=st.lists(
+        st.integers(min_value=1, max_value=5),
+        min_size=1,
+        max_size=4,
+    ),
+)
+def test_property_sync_confirmation_lists_bundles_and_files(
+    names: list[str],
+    files_per_bundle: list[int],
+) -> None:
+    """Property 16: Sync confirmation lists bundle names and file count."""
+    from ksm.commands.sync import _build_confirmation_message
+
+    # Build entries with matching file counts
+    entries = []
+    total_files = 0
+    for i, name in enumerate(names):
+        count = files_per_bundle[i % len(files_per_bundle)]
+        files = [f"skills/f{j}.md" for j in range(count)]
+        total_files += count
+        entries.append(
+            ManifestEntry(
+                bundle_name=name,
+                source_registry="default",
+                scope="local",
+                installed_files=files,
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            )
+        )
+
+    msg = _build_confirmation_message(entries)
+
+    # Must contain every bundle name
+    for name in names:
+        assert name in msg
+    # Must contain total file count
+    assert str(total_files) in msg
+
+
+# Feature: ux-review-fixes, Property 36: TTY check blocks prompt (sync path)
+@given(
+    bundle_name=st.from_regex(r"[a-z]{3,10}", fullmatch=True),
+)
+@h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_property_tty_check_blocks_prompt_sync(
+    bundle_name: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Property 36: TTY check blocks prompt when stdin is not TTY (sync)."""
+    import tempfile
+
+    from ksm.commands.sync import run_sync
+
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td)
+        reg = base / "reg"
+        _setup_bundle(reg, bundle_name, {"skills/f.md": b"data"})
+        target = base / "target" / ".kiro"
+        target.mkdir(parents=True)
+        (target / "skills").mkdir()
+        (target / "skills" / "f.md").write_bytes(b"old")
+
+        ksm_dir = base / "ksm"
+        ksm_dir.mkdir()
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[_make_entry(bundle_name, files=["skills/f.md"])])
+
+        # No --yes, stdin is not a TTY
+        args = _make_args(bundle_names=[bundle_name])
+
+        with patch("sys.stdin.isatty", return_value=False):
+            code = run_sync(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target,
+                target_global=base / "global" / ".kiro",
+            )
+
+        assert code == 1
+        # File unchanged
+        assert (target / "skills" / "f.md").read_bytes() == b"old"
+        captured = capsys.readouterr()
+        assert "terminal" in captured.err.lower()
+        assert "--yes" in captured.err
+
+
+# Feature: ux-review-fixes, Property 15: Dry-run does not modify state
+# (sync path)
+@given(
+    bundle_name=st.from_regex(r"[a-z]{3,10}", fullmatch=True),
+)
+@h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_property_dry_run_sync_does_not_modify_state(
+    bundle_name: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Feature: ux-review-fixes, Property 15: Dry-run does not modify
+    state (sync path)."""
+    import tempfile
+
+    from ksm.commands.sync import run_sync
+
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td)
+        reg = base / "reg"
+        _setup_bundle(reg, bundle_name, {"skills/f.md": b"new"})
+        target = base / "target" / ".kiro"
+        target.mkdir(parents=True)
+        (target / "skills").mkdir()
+        (target / "skills" / "f.md").write_bytes(b"old")
+
+        ksm_dir = base / "ksm"
+        ksm_dir.mkdir()
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[_make_entry(bundle_name, files=["skills/f.md"])])
+        original_count = len(manifest.entries)
+
+        args = _make_args(bundle_names=[bundle_name], yes=True, dry_run=True)
+        code = run_sync(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target,
+            target_global=base / "global" / ".kiro",
+        )
+
+        assert code == 0
+        # File must remain unchanged
+        assert (target / "skills" / "f.md").read_bytes() == b"old"
+        # Manifest unchanged
+        assert len(manifest.entries) == original_count
+        # Preview printed to stderr
+        captured = capsys.readouterr()
+        assert bundle_name in captured.err

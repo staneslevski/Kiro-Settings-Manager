@@ -37,14 +37,12 @@ def _make_args(**kwargs: object) -> argparse.Namespace:
     """Build an argparse.Namespace with defaults for add command."""
     defaults = {
         "bundle_spec": "aws",
-        "display": False,
+        "interactive": False,
         "from_url": None,
         "local": False,
         "global_": False,
-        "skills_only": False,
-        "agents_only": False,
-        "steering_only": False,
-        "hooks_only": False,
+        "only": None,
+        "dry_run": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -161,7 +159,7 @@ def test_run_add_display_launches_selector(
     )
     manifest = Manifest(entries=[])
 
-    args = _make_args(bundle_spec=None, display=True)
+    args = _make_args(bundle_spec=None, interactive=True)
 
     with patch("ksm.commands.add.interactive_select", return_value="aws") as mock_sel:
         code = run_add(
@@ -205,7 +203,7 @@ def test_run_add_display_quit_exits_zero(
     )
     manifest = Manifest(entries=[])
 
-    args = _make_args(bundle_spec=None, display=True)
+    args = _make_args(bundle_spec=None, interactive=True)
 
     with patch("ksm.commands.add.interactive_select", return_value=None):
         code = run_add(
@@ -340,7 +338,7 @@ def test_run_add_subdirectory_filter_restricts(
     )
     manifest = Manifest(entries=[])
 
-    args = _make_args(bundle_spec="aws", skills_only=True)
+    args = _make_args(bundle_spec="aws", only=["skills"])
     code = run_add(
         args,
         registry_index=idx,
@@ -371,7 +369,7 @@ def test_run_add_dot_notation_plus_filter_raises(
 
     args = _make_args(
         bundle_spec="aws.skills.cross",
-        skills_only=True,
+        only=["skills"],
     )
     code = run_add(
         args,
@@ -1103,3 +1101,75 @@ def test_property_dot_notation_filter_mutual_exclusion(
         )
 
         assert code == 1
+
+
+# Feature: ux-review-fixes, Property 15: Dry-run does not modify state
+# (add path)
+@given(
+    bundle_name=st.from_regex(r"[a-z]{3,10}", fullmatch=True),
+    scope=st.sampled_from(["local", "global"]),
+)
+@h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_property_dry_run_add_does_not_modify_state(
+    bundle_name: str,
+    scope: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Feature: ux-review-fixes, Property 15: Dry-run does not modify
+    state (add path)."""
+    import tempfile
+
+    from ksm.commands.add import run_add
+
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td)
+        reg = base / "reg"
+        # Create a bundle in the registry
+        bdir = reg / bundle_name / "skills"
+        bdir.mkdir(parents=True)
+        (bdir / "SKILL.md").write_bytes(b"skill content")
+
+        target_local = base / "workspace" / ".kiro"
+        target_global = base / "home" / ".kiro"
+        target = target_global if scope == "global" else target_local
+
+        ksm_dir = base / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+
+        args = _make_args(
+            bundle_spec=bundle_name,
+            global_=(scope == "global"),
+            local=(scope == "local"),
+            dry_run=True,
+        )
+
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=target_global,
+        )
+
+        assert code == 0
+        # No files should be installed
+        assert not target.exists() or not list(target.rglob("*"))
+        # Manifest must remain empty
+        assert len(manifest.entries) == 0
+        # Preview printed to stderr
+        captured = capsys.readouterr()
+        assert "would install" in captured.err.lower()
+        assert bundle_name in captured.err

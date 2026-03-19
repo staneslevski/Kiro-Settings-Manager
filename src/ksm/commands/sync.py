@@ -2,6 +2,8 @@
 
 Handles `ksm sync <bundle_name> [<bundle_name> ...]` and
 `ksm sync --all` with optional --yes to skip confirmation.
+
+Requirements: 13, 31.1
 """
 
 import argparse
@@ -14,6 +16,51 @@ from ksm.installer import install_bundle
 from ksm.manifest import Manifest, ManifestEntry, save_manifest
 from ksm.registry import RegistryIndex
 from ksm.resolver import resolve_bundle
+
+
+def _check_tty_for_prompt(yes_flag: bool) -> bool:
+    """Check if stdin is a TTY when confirmation is needed.
+
+    If stdin is not a TTY and --yes is not provided, prints error
+    to stderr and returns False. (Req 31.1)
+
+    Returns True if we can proceed (either TTY or --yes provided).
+    """
+    if not sys.stdin.isatty():
+        print(
+            "Error: confirmation required but stdin is not a terminal.\n"
+            "  Use --yes to skip confirmation in non-interactive mode.",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def _build_confirmation_message(entries: list[ManifestEntry]) -> str:
+    """Build specific confirmation listing bundle names and file counts.
+
+    Format (Req 13.1, 13.2):
+      Syncing N bundles: name1, name2, ...
+      This will overwrite M configuration files in .kiro/ and/or ~/.kiro/.
+      Continue? [y/n]
+    """
+    bundle_names = [e.bundle_name for e in entries]
+    total_files = sum(len(e.installed_files) for e in entries)
+
+    scopes = {e.scope for e in entries}
+    if scopes == {"local"}:
+        scope_desc = ".kiro/"
+    elif scopes == {"global"}:
+        scope_desc = "~/.kiro/"
+    else:
+        scope_desc = ".kiro/ and ~/.kiro/"
+
+    lines = [
+        f"Syncing {len(entries)} bundle(s): {', '.join(bundle_names)}",
+        f"This will overwrite {total_files} configuration file(s) " f"in {scope_desc}.",
+        "Continue? [y/n] ",
+    ]
+    return "\n".join(lines)
 
 
 def run_sync(
@@ -29,6 +76,7 @@ def run_sync(
     bundle_names: list[str] = getattr(args, "bundle_names", [])
     sync_all: bool = getattr(args, "all", False)
     skip_confirm: bool = getattr(args, "yes", False)
+    dry_run: bool = getattr(args, "dry_run", False)
 
     if not bundle_names and not sync_all:
         print(
@@ -55,16 +103,26 @@ def run_sync(
     if not entries_to_sync:
         return 0
 
-    # Confirmation prompt
+    # TTY check before confirmation (Req 31.1)
     if not skip_confirm:
+        if not _check_tty_for_prompt(skip_confirm):
+            return 1
+        # Build specific confirmation message (Req 13.1, 13.2)
+        prompt = _build_confirmation_message(entries_to_sync)
         try:
-            response = input(
-                "This will overwrite current configuration " "files. Continue? [y/n] "
-            )
+            response = input(prompt)
         except EOFError:
             response = "n"
         if response.strip() != "y":
             return 0
+
+    # Dry-run: preview without modifying (Req 12.3)
+    if dry_run:
+        print(
+            _build_confirmation_message(entries_to_sync).rstrip("\nContinue? [y/n] "),
+            file=sys.stderr,
+        )
+        return 0
 
     # Pull latest for custom git registries
     _pull_custom_registries(registry_index)

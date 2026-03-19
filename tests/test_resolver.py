@@ -173,3 +173,40 @@ def test_property_unknown_bundle_produces_error(
     with pytest.raises(BundleNotFoundError) as exc_info:
         resolve_bundle(bundle_name, index)
     assert bundle_name in str(exc_info.value)
+
+
+def test_resolve_bundle_not_found_includes_searched_registries(
+    tmp_path: Path,
+) -> None:
+    """resolve_bundle passes searched registry names to BundleNotFoundError."""
+    reg1 = tmp_path / "reg1"
+    reg1.mkdir()
+    reg2 = tmp_path / "reg2"
+    reg2.mkdir()
+
+    index = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg1),
+                is_default=True,
+            ),
+            RegistryEntry(
+                name="my-custom",
+                url="https://example.com/repo.git",
+                local_path=str(reg2),
+                is_default=False,
+            ),
+        ]
+    )
+
+    with pytest.raises(BundleNotFoundError) as exc_info:
+        resolve_bundle("missing-bundle", index)
+
+    err = exc_info.value
+    assert err.searched_registries == ["default", "my-custom"]
+    msg = str(err)
+    assert "default" in msg
+    assert "my-custom" in msg
+    assert "missing-bundle" in msg
