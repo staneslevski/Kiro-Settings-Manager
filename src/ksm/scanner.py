@@ -20,6 +20,7 @@ class BundleInfo:
     name: str
     path: Path
     subdirectories: list[str]
+    registry_name: str = ""
 
 
 def scan_registry(registry_path: Path) -> list[BundleInfo]:

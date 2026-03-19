@@ -16,9 +16,24 @@ def test_render_add_selector_alphabetical_with_prefix() -> None:
     from ksm.selector import render_add_selector
 
     bundles = [
-        BundleInfo(name="zebra", path=Path("/z"), subdirectories=["skills"]),
-        BundleInfo(name="alpha", path=Path("/a"), subdirectories=["hooks"]),
-        BundleInfo(name="mid", path=Path("/m"), subdirectories=["steering"]),
+        BundleInfo(
+            name="zebra",
+            path=Path("/z"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="mid",
+            path=Path("/m"),
+            subdirectories=["steering"],
+            registry_name="default",
+        ),
     ]
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
@@ -36,8 +51,18 @@ def test_render_add_selector_installed_label() -> None:
     from ksm.selector import render_add_selector
 
     bundles = [
-        BundleInfo(name="aws", path=Path("/a"), subdirectories=["skills"]),
-        BundleInfo(name="git", path=Path("/g"), subdirectories=["hooks"]),
+        BundleInfo(
+            name="aws",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="git",
+            path=Path("/g"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
     ]
     lines = render_add_selector(bundles, installed_names={"aws"}, selected=0)
 
@@ -45,6 +70,58 @@ def test_render_add_selector_installed_label() -> None:
     git_line = [ln for ln in lines if "git" in ln][0]
     assert "[installed]" in aws_line
     assert "[installed]" not in git_line
+
+
+def test_render_add_selector_shows_registry_name() -> None:
+    """Selector shows registry name for each bundle."""
+    from ksm.selector import render_add_selector
+
+    bundles = [
+        BundleInfo(
+            name="aws",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="team-tools",
+            path=Path("/t"),
+            subdirectories=["hooks"],
+            registry_name="team-repo",
+        ),
+    ]
+    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+
+    aws_line = [ln for ln in lines if "aws" in ln][0]
+    team_line = [ln for ln in lines if "team-tools" in ln][0]
+    assert "(default)" in aws_line
+    assert "(team-repo)" in team_line
+
+
+def test_render_add_selector_multi_registry_sorted() -> None:
+    """Bundles from multiple registries are sorted alphabetically."""
+    from ksm.selector import render_add_selector
+
+    bundles = [
+        BundleInfo(
+            name="zulu",
+            path=Path("/z"),
+            subdirectories=["skills"],
+            registry_name="team",
+        ),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+    ]
+    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+
+    assert "alpha" in lines[0]
+    assert "(default)" in lines[0]
+    assert "zulu" in lines[1]
+    assert "(team)" in lines[1]
 
 
 def test_navigation_clamps_at_boundaries() -> None:
@@ -172,7 +249,13 @@ def test_property_selector_sorted_alphabetically(
     from ksm.selector import render_add_selector
 
     bundles = [
-        BundleInfo(name=n, path=Path(f"/{n}"), subdirectories=["skills"]) for n in names
+        BundleInfo(
+            name=n,
+            path=Path(f"/{n}"),
+            subdirectories=["skills"],
+            registry_name="default",
+        )
+        for n in names
     ]
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
@@ -210,7 +293,13 @@ def test_property_installed_label_accuracy(
         )
     )
     bundles = [
-        BundleInfo(name=n, path=Path(f"/{n}"), subdirectories=["skills"]) for n in names
+        BundleInfo(
+            name=n,
+            path=Path(f"/{n}"),
+            subdirectories=["skills"],
+            registry_name="default",
+        )
+        for n in names
     ]
     lines = render_add_selector(bundles, installed_names=installed, selected=0)
 
@@ -291,8 +380,18 @@ def test_interactive_select_returns_selected_bundle() -> None:
     from ksm.selector import interactive_select
 
     bundles = [
-        BundleInfo(name="alpha", path=Path("/a"), subdirectories=["skills"]),
-        BundleInfo(name="beta", path=Path("/b"), subdirectories=["hooks"]),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
     ]
 
     # Simulate: press Enter immediately (select first item)
@@ -316,7 +415,12 @@ def test_interactive_select_quit_returns_none() -> None:
     from ksm.selector import interactive_select
 
     bundles = [
-        BundleInfo(name="alpha", path=Path("/a"), subdirectories=["skills"]),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
     ]
 
     with (
@@ -347,8 +451,18 @@ def test_interactive_select_navigate_then_select() -> None:
     from ksm.selector import interactive_select
 
     bundles = [
-        BundleInfo(name="alpha", path=Path("/a"), subdirectories=["skills"]),
-        BundleInfo(name="beta", path=Path("/b"), subdirectories=["hooks"]),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
     ]
 
     call_count = 0
