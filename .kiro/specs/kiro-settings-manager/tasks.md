@@ -148,27 +148,27 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
         - Ensure all tests pass, ask the user if questions arise.
 
 
-- [ ] 3. Domain Layer — Orchestration Modules
+- [x] 3. Domain Layer — Orchestration Modules
 
-    - [ ] 3.1 Resolver module
+    - [x] 3.1 Resolver module
 
-        - [ ] 3.1.1 Write tests for `resolver.py` in `tests/test_resolver.py`
+        - [x] 3.1.1 Write tests for `resolver.py` in `tests/test_resolver.py`
             - Test resolving a bundle found in default registry
             - Test resolving a bundle found in custom registry
             - Test `BundleNotFoundError` for unknown bundle
             - _Requirements: 1.1, 1.5_
 
-        - [ ] 3.1.2 Write property test for unknown bundle error
+        - [x] 3.1.2 Write property test for unknown bundle error
             - **Property 2: Unknown bundle produces error**
             - **Validates: Requirements 1.5**
 
-        - [ ] 3.1.3 Implement `src/ksm/resolver.py`
+        - [x] 3.1.3 Implement `src/ksm/resolver.py`
             - `ResolvedBundle` dataclass, `resolve_bundle()`
             - _Requirements: 1.1, 1.5_
 
-    - [ ] 3.2 Installer module
+    - [x] 3.2 Installer module
 
-        - [ ] 3.2.1 Write tests for `installer.py` in `tests/test_installer.py`
+        - [x] 3.2.1 Write tests for `installer.py` in `tests/test_installer.py`
             - Test full bundle installation copies all recognised subdirs
             - Test filtered installation copies only specified subdirs
             - Test dot-notation installation copies only target item
@@ -178,7 +178,7 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
             - Test error when all filters miss
             - _Requirements: 1.1, 1.6, 1.7, 7.1, 10.1–10.9, 11.1, 11.5, 11.6_
 
-        - [ ] 3.2.2 Write property tests for installer
+        - [x] 3.2.2 Write property tests for installer
             - **Property 3: Manifest records exactly the installed files**
             - **Property 4: Reinstallation is idempotent**
             - **Property 17: Only recognised subdirectories are copied**
@@ -188,50 +188,50 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
             - **Property 27: Dot notation installs only the target item**
             - **Validates: Requirements 1.7, 1.8, 7.1, 10.1–10.9, 11.1, 11.7**
 
-        - [ ] 3.2.3 Implement `src/ksm/installer.py`
+        - [x] 3.2.3 Implement `src/ksm/installer.py`
             - `install_bundle()` with scope, filter, and dot-selection support
             - _Requirements: 1.1, 1.6, 1.7, 1.8, 7.1, 10.1–10.9, 11.1, 11.5, 11.6, 11.7_
 
-    - [ ] 3.3 Remover module
+    - [x] 3.3 Remover module
 
-        - [ ] 3.3.1 Write tests for `remover.py` in `tests/test_remover.py`
+        - [x] 3.3.1 Write tests for `remover.py` in `tests/test_remover.py`
             - Test removal deletes all manifest-listed files
             - Test removal skips files that no longer exist on disk
             - Test manifest entry is removed after deletion
             - Test empty subdirectories are preserved
             - _Requirements: 12.1, 12.2, 12.7, 12.8_
 
-        - [ ] 3.3.2 Write property tests for remover
+        - [x] 3.3.2 Write property tests for remover
             - **Property 32: Removal deletes exactly the manifest-listed files**
             - **Property 33: Removal removes the manifest entry**
             - **Property 36: Missing files on disk are skipped gracefully**
             - **Property 37: Empty subdirectories are preserved after removal**
             - **Validates: Requirements 12.1, 12.2, 12.7, 12.8**
 
-        - [ ] 3.3.3 Implement `src/ksm/remover.py`
+        - [x] 3.3.3 Implement `src/ksm/remover.py`
             - `RemovalResult` dataclass, `remove_bundle()`
             - _Requirements: 12.1, 12.2, 12.7, 12.8_
 
-    - [ ] 3.4 Git operations module
+    - [x] 3.4 Git operations module
 
-        - [ ] 3.4.1 Write tests for `git_ops.py` in `tests/test_git_ops.py`
+        - [x] 3.4.1 Write tests for `git_ops.py` in `tests/test_git_ops.py`
             - Test `clone_repo` calls subprocess with correct args (mocked)
             - Test `pull_repo` calls subprocess with correct args (mocked)
             - Test `clone_ephemeral` returns temp path and clones (mocked)
             - Test `GitError` raised on subprocess failure
             - _Requirements: 5.1, 5.5, 9.1, 9.4_
 
-        - [ ] 3.4.2 Write property test for ephemeral cleanup
+        - [x] 3.4.2 Write property test for ephemeral cleanup
             - **Property 22: Ephemeral clone is cleaned up**
             - **Validates: Requirements 9.4**
 
-        - [ ] 3.4.3 Implement `src/ksm/git_ops.py`
+        - [x] 3.4.3 Implement `src/ksm/git_ops.py`
             - `clone_repo()`, `pull_repo()`, `clone_ephemeral()`
             - _Requirements: 5.1, 5.5, 9.1, 9.4_
 
-    - [ ] 3.5 Selector module
+    - [x] 3.5 Selector module
 
-        - [ ] 3.5.1 Write tests for `selector.py` in `tests/test_selector.py`
+        - [x] 3.5.1 Write tests for `selector.py` in `tests/test_selector.py`
             - Test render output shows bundles alphabetically with `>` prefix
             - Test `[installed]` label appears for installed bundles
             - Test arrow key navigation clamps at boundaries
@@ -240,19 +240,19 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
             - Test removal selector shows scope labels
             - _Requirements: 2.1–2.8, 12.9–12.17_
 
-        - [ ] 3.5.2 Write property tests for selector
+        - [x] 3.5.2 Write property tests for selector
             - **Property 5: Selector presents all bundles sorted alphabetically**
             - **Property 6: Installed label accuracy**
             - **Property 7: Arrow key navigation wraps correctly**
             - **Property 38: Removal selector shows installed bundles with scope labels sorted alphabetically**
             - **Validates: Requirements 2.1, 2.2, 2.5, 2.6, 12.9, 12.10, 12.13**
 
-        - [ ] 3.5.3 Implement `src/ksm/selector.py`
+        - [x] 3.5.3 Implement `src/ksm/selector.py`
             - `interactive_select()`, `interactive_removal_select()`
             - Raw terminal mode via `tty`/`termios`, `>` prefix, `[installed]`/`[local]`/`[global]` labels
             - _Requirements: 2.1–2.8, 12.9–12.17_
 
-    - [ ] 3.6 Checkpoint — Verify orchestration modules
+    - [x] 3.6 Checkpoint — Verify orchestration modules
         - Ensure all tests pass, ask the user if questions arise.
 
 
