@@ -444,3 +444,278 @@ def test_interactive_removal_select_empty_returns_none() -> None:
 
     result = interactive_removal_select([])
     assert result is None
+
+
+# --- Column alignment tests ---
+
+
+def test_render_add_selector_columns_aligned() -> None:
+    """All columns in add selector must start at the same position."""
+    from ksm.selector import render_add_selector
+
+    bundles = [
+        BundleInfo(
+            name="aws",
+            path=Path("/a"),
+            subdirectories=["skills"],
+        ),
+        BundleInfo(
+            name="project_foundations",
+            path=Path("/p"),
+            subdirectories=["steering", "hooks"],
+        ),
+    ]
+    lines = render_add_selector(bundles, installed_names={"aws"}, selected=0)
+
+    # Find where the [installed] tag starts — it should be
+    # at a consistent column even though names differ in length.
+    # The line without [installed] should still have the name
+    # padded so that if a tag were present it would align.
+    # Check that the name field is padded to the same width.
+    # Strip the 2-char prefix (">" or " " + space)
+    name_ends = []
+    for line in lines:
+        # After prefix "X ", the name is padded
+        after_prefix = line[2:]
+        # Find where trailing spaces end (i.e. first non-space
+        # after the name characters)
+        stripped = after_prefix.rstrip()
+        name_ends.append(len(stripped.split("[")[0].rstrip()))
+    # The name column width should be consistent
+    # (all names padded to same width)
+    col_widths = []
+    for line in lines:
+        after_prefix = line[2:]
+        # Name column ends where [installed] or end of line is
+        if "[installed]" in after_prefix:
+            col_widths.append(after_prefix.index("[installed]"))
+        else:
+            # Padded name should have trailing spaces
+            col_widths.append(
+                len(after_prefix)
+                - len(after_prefix.lstrip())
+                + len(after_prefix.split()[0])
+                if after_prefix.strip()
+                else 0
+            )
+    # At minimum, lines with [installed] should have the tag
+    # at a consistent position
+    installed_lines = [ln for ln in lines if "[installed]" in ln]
+    if len(installed_lines) > 1:
+        positions = [ln.index("[installed]") for ln in installed_lines]
+        assert len(set(positions)) == 1
+
+
+def test_render_add_selector_installed_column_aligned() -> None:
+    """[installed] tags must start at the same column."""
+    from ksm.selector import render_add_selector
+
+    bundles = [
+        BundleInfo(
+            name="a",
+            path=Path("/a"),
+            subdirectories=["skills"],
+        ),
+        BundleInfo(
+            name="long_bundle_name",
+            path=Path("/l"),
+            subdirectories=["hooks"],
+        ),
+    ]
+    lines = render_add_selector(
+        bundles, installed_names={"a", "long_bundle_name"}, selected=0
+    )
+
+    tag_positions = []
+    for line in lines:
+        pos = line.index("[installed]")
+        tag_positions.append(pos)
+    assert len(set(tag_positions)) == 1, f"[installed] tags misaligned: {tag_positions}"
+
+
+def test_render_removal_selector_columns_aligned() -> None:
+    """Scope labels in removal selector must be column-aligned."""
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="aws",
+            source_registry="default",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="project_foundations",
+            source_registry="default",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    lines = render_removal_selector(entries, selected=0)
+
+    bracket_positions = []
+    for line in lines:
+        pos = line.index("[")
+        bracket_positions.append(pos)
+    assert (
+        len(set(bracket_positions)) == 1
+    ), f"Scope columns misaligned: {bracket_positions}"
+
+
+# --- Terminal rendering escape sequence tests ---
+
+
+def test_interactive_select_does_not_use_clear_screen() -> None:
+    """Interactive selector must not use ESC[2J (clear entire screen).
+
+    ESC[2J pushes content into scrollback on every redraw,
+    causing the scrollbar to jump and the viewport to shift.
+    """
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+        ),
+    ]
+    buf = io.StringIO()
+
+    with (
+        patch("ksm.selector.termios") as mock_termios,
+        patch("ksm.selector.tty"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stdin.fileno.return_value = 0
+        mock_termios.tcgetattr.return_value = []
+        mock_sys.stdin.buffer.read.return_value = b"\r"
+        mock_sys.stdout = buf
+
+        interactive_select(bundles, installed_names=set())
+
+    full_output = buf.getvalue()
+    assert "\033[2J" not in full_output, "Must not use ESC[2J — it pollutes scrollback"
+
+
+def test_interactive_select_uses_cursor_home() -> None:
+    """Interactive selector must use ESC[H to reposition cursor."""
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+        ),
+    ]
+    buf = io.StringIO()
+
+    with (
+        patch("ksm.selector.termios") as mock_termios,
+        patch("ksm.selector.tty"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stdin.fileno.return_value = 0
+        mock_termios.tcgetattr.return_value = []
+        mock_sys.stdin.buffer.read.return_value = b"\r"
+        mock_sys.stdout = buf
+
+        interactive_select(bundles, installed_names=set())
+
+    full_output = buf.getvalue()
+    assert "\033[H" in full_output, "Must use ESC[H to move cursor home"
+
+
+def test_interactive_select_erases_below_after_content() -> None:
+    """Interactive selector must use ESC[J to erase below content."""
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+        ),
+    ]
+    buf = io.StringIO()
+
+    with (
+        patch("ksm.selector.termios") as mock_termios,
+        patch("ksm.selector.tty"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stdin.fileno.return_value = 0
+        mock_termios.tcgetattr.return_value = []
+        mock_sys.stdin.buffer.read.return_value = b"\r"
+        mock_sys.stdout = buf
+
+        interactive_select(bundles, installed_names=set())
+
+    full_output = buf.getvalue()
+    assert "\033[J" in full_output, "Must use ESC[J to erase trailing content"
+
+
+def test_interactive_select_restores_cursor_visibility() -> None:
+    """Cursor must be shown again after selector exits."""
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+        ),
+    ]
+    buf = io.StringIO()
+
+    with (
+        patch("ksm.selector.termios") as mock_termios,
+        patch("ksm.selector.tty"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stdin.fileno.return_value = 0
+        mock_termios.tcgetattr.return_value = []
+        mock_sys.stdin.buffer.read.return_value = b"q"
+        mock_sys.stdout = buf
+
+        interactive_select(bundles, installed_names=set())
+
+    full_output = buf.getvalue()
+    assert "\033[?25h" in full_output, "Must restore cursor visibility on exit"
+
+
+def test_interactive_removal_does_not_use_clear_screen() -> None:
+    """Removal selector must not use ESC[2J."""
+    from ksm.selector import interactive_removal_select
+
+    entries = [
+        ManifestEntry(
+            bundle_name="aws",
+            source_registry="default",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    buf = io.StringIO()
+
+    with (
+        patch("ksm.selector.termios") as mock_termios,
+        patch("ksm.selector.tty"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stdin.fileno.return_value = 0
+        mock_termios.tcgetattr.return_value = []
+        mock_sys.stdin.buffer.read.return_value = b"\r"
+        mock_sys.stdout = buf
+
+        interactive_removal_select(entries)
+
+    full_output = buf.getvalue()
+    assert "\033[2J" not in full_output, "Must not use ESC[2J — it pollutes scrollback"

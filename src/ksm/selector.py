@@ -27,14 +27,17 @@ def render_add_selector(
 
     Bundles are sorted alphabetically (case-insensitive).
     The selected line gets a ``>`` prefix; installed bundles
-    get an ``[installed]`` label.
+    get an ``[installed]`` label. Names are padded to align
+    columns.
     """
     sorted_bundles = sorted(bundles, key=lambda b: b.name.lower())
+    max_name = max((len(b.name) for b in sorted_bundles), default=0)
     lines: list[str] = []
     for i, bundle in enumerate(sorted_bundles):
         prefix = ">" if i == selected else " "
+        padded = bundle.name.ljust(max_name)
         label = " [installed]" if bundle.name in installed_names else ""
-        lines.append(f"{prefix} {bundle.name}{label}")
+        lines.append(f"{prefix} {padded}{label}")
     return lines
 
 
@@ -46,12 +49,15 @@ def render_removal_selector(
 
     Entries are sorted alphabetically by bundle name
     (case-insensitive). Each line shows the scope label.
+    Names are padded to align columns.
     """
     sorted_entries = sorted(entries, key=lambda e: e.bundle_name.lower())
+    max_name = max((len(e.bundle_name) for e in sorted_entries), default=0)
     lines: list[str] = []
     for i, entry in enumerate(sorted_entries):
         prefix = ">" if i == selected else " "
-        lines.append(f"{prefix} {entry.bundle_name} [{entry.scope}]")
+        padded = entry.bundle_name.ljust(max_name)
+        lines.append(f"{prefix} {padded} [{entry.scope}]")
     return lines
 
 
@@ -104,7 +110,7 @@ def interactive_select(
         while True:
             lines = render_add_selector(bundles, installed_names, selected)
             output = "\r\n".join(lines) + "\r\n"
-            sys.stdout.write("\033[2J\033[H" + output)
+            sys.stdout.write("\033[?25l\033[H" + output + "\033[J\033[?25h")
             sys.stdout.flush()
 
             key = _read_key()
@@ -114,6 +120,8 @@ def interactive_select(
             if action == "quit":
                 return None
     finally:
+        sys.stdout.write("\033[?25h")
+        sys.stdout.flush()
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
@@ -138,7 +146,7 @@ def interactive_removal_select(
         while True:
             lines = render_removal_selector(entries, selected)
             output = "\r\n".join(lines) + "\r\n"
-            sys.stdout.write("\033[2J\033[H" + output)
+            sys.stdout.write("\033[?25l\033[H" + output + "\033[J\033[?25h")
             sys.stdout.flush()
 
             key = _read_key()
@@ -148,4 +156,6 @@ def interactive_removal_select(
             if action == "quit":
                 return None
     finally:
+        sys.stdout.write("\033[?25h")
+        sys.stdout.flush()
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)

@@ -18,11 +18,12 @@ def run_ls(
         print("No bundles currently installed.")
         return 0
 
+    max_name = max(len(e.bundle_name) for e in manifest.entries)
+    max_scope = max(len(e.scope) for e in manifest.entries)
+
     for entry in manifest.entries:
-        print(
-            f"{entry.bundle_name}  "
-            f"[{entry.scope}]  "
-            f"(source: {entry.source_registry})"
-        )
+        name = entry.bundle_name.ljust(max_name)
+        scope = entry.scope.ljust(max_scope)
+        print(f"{name}  [{scope}]  " f"(source: {entry.source_registry})")
 
     return 0
