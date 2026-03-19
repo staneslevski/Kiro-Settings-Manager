@@ -1,6 +1,8 @@
 """Tests for ksm.selector module."""
 
+import io
 from pathlib import Path
+from unittest.mock import patch
 
 from hypothesis import given
 from hypothesis import strategies as st
@@ -279,3 +281,166 @@ def test_property_removal_selector_sorted_with_scope(
     for i, (name, scope) in enumerate(expected_sorted):
         assert name in lines[i]
         assert f"[{scope}]" in lines[i]
+
+
+# --- Tests for interactive functions with mocked terminal I/O ---
+
+
+def test_interactive_select_returns_selected_bundle() -> None:
+    """interactive_select returns the selected bundle name on Enter."""
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(name="alpha", path=Path("/a"), subdirectories=["skills"]),
+        BundleInfo(name="beta", path=Path("/b"), subdirectories=["hooks"]),
+    ]
+
+    # Simulate: press Enter immediately (select first item)
+    with (
+        patch("ksm.selector.termios") as mock_termios,
+        patch("ksm.selector.tty"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stdin.fileno.return_value = 0
+        mock_termios.tcgetattr.return_value = []
+        mock_sys.stdin.buffer.read.return_value = b"\r"
+        mock_sys.stdout = io.StringIO()
+
+        result = interactive_select(bundles, installed_names=set())
+
+    assert result == "alpha"
+
+
+def test_interactive_select_quit_returns_none() -> None:
+    """interactive_select returns None when user presses q."""
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(name="alpha", path=Path("/a"), subdirectories=["skills"]),
+    ]
+
+    with (
+        patch("ksm.selector.termios") as mock_termios,
+        patch("ksm.selector.tty"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stdin.fileno.return_value = 0
+        mock_termios.tcgetattr.return_value = []
+        mock_sys.stdin.buffer.read.return_value = b"q"
+        mock_sys.stdout = io.StringIO()
+
+        result = interactive_select(bundles, installed_names=set())
+
+    assert result is None
+
+
+def test_interactive_select_empty_bundles_returns_none() -> None:
+    """interactive_select returns None for empty bundle list."""
+    from ksm.selector import interactive_select
+
+    result = interactive_select([], installed_names=set())
+    assert result is None
+
+
+def test_interactive_select_navigate_then_select() -> None:
+    """interactive_select navigates down then selects."""
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(name="alpha", path=Path("/a"), subdirectories=["skills"]),
+        BundleInfo(name="beta", path=Path("/b"), subdirectories=["hooks"]),
+    ]
+
+    call_count = 0
+
+    def fake_read(n: int) -> bytes:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return b"\x1b"  # Start of down arrow
+        if call_count == 2:
+            return b"[B"  # Rest of down arrow
+        return b"\r"  # Enter
+
+    with (
+        patch("ksm.selector.termios") as mock_termios,
+        patch("ksm.selector.tty"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stdin.fileno.return_value = 0
+        mock_termios.tcgetattr.return_value = []
+        mock_sys.stdin.buffer.read.side_effect = fake_read
+        mock_sys.stdout = io.StringIO()
+
+        result = interactive_select(bundles, installed_names=set())
+
+    assert result == "beta"
+
+
+def test_interactive_removal_select_returns_entry() -> None:
+    """interactive_removal_select returns selected ManifestEntry."""
+    from ksm.selector import interactive_removal_select
+
+    entries = [
+        ManifestEntry(
+            bundle_name="aws",
+            source_registry="default",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+
+    with (
+        patch("ksm.selector.termios") as mock_termios,
+        patch("ksm.selector.tty"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stdin.fileno.return_value = 0
+        mock_termios.tcgetattr.return_value = []
+        mock_sys.stdin.buffer.read.return_value = b"\r"
+        mock_sys.stdout = io.StringIO()
+
+        result = interactive_removal_select(entries)
+
+    assert result is not None
+    assert result.bundle_name == "aws"
+
+
+def test_interactive_removal_select_quit_returns_none() -> None:
+    """interactive_removal_select returns None on quit."""
+    from ksm.selector import interactive_removal_select
+
+    entries = [
+        ManifestEntry(
+            bundle_name="aws",
+            source_registry="default",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+
+    with (
+        patch("ksm.selector.termios") as mock_termios,
+        patch("ksm.selector.tty"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stdin.fileno.return_value = 0
+        mock_termios.tcgetattr.return_value = []
+        mock_sys.stdin.buffer.read.return_value = b"q"
+        mock_sys.stdout = io.StringIO()
+
+        result = interactive_removal_select(entries)
+
+    assert result is None
+
+
+def test_interactive_removal_select_empty_returns_none() -> None:
+    """interactive_removal_select returns None for empty list."""
+    from ksm.selector import interactive_removal_select
+
+    result = interactive_removal_select([])
+    assert result is None

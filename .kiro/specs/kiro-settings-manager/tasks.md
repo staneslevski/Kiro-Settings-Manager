@@ -359,29 +359,29 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
         - Ensure all tests pass, ask the user if questions arise.
 
 
-- [ ] 5. CLI Entry Point and Integration
+- [x] 5. CLI Entry Point and Integration
 
-    - [ ] 5.1 CLI module
+    - [x] 5.1 CLI module
 
-        - [ ] 5.1.1 Write tests for `cli.py` in `tests/test_cli.py`
+        - [x] 5.1.1 Write tests for `cli.py` in `tests/test_cli.py`
             - Test `--help` displays help with all commands listed
             - Test `--version` displays version string
             - Test unknown command exits with non-zero status and lists valid commands
             - Test each subcommand dispatches to correct handler
             - _Requirements: 8.2, 8.3, 8.4, 8.5_
 
-        - [ ] 5.1.2 Write property test for unknown command error
+        - [x] 5.1.2 Write property test for unknown command error
             - **Property 20: Unknown CLI command produces error**
             - **Validates: Requirements 8.5**
 
-        - [ ] 5.1.3 Implement `src/ksm/cli.py`
+        - [x] 5.1.3 Implement `src/ksm/cli.py`
             - `main()` with argparse, subparsers for `add`, `ls`, `sync`, `add-registry`, `rm`
             - Global `--version` flag
             - _Requirements: 8.1–8.5_
 
-    - [ ] 5.2 Integration wiring and end-to-end tests
+    - [x] 5.2 Integration wiring and end-to-end tests
 
-        - [ ] 5.2.1 Write integration tests in `tests/test_integration.py`
+        - [x] 5.2.1 Write integration tests in `tests/test_integration.py`
             - Test full `add` → `ls` → `sync` → `rm` workflow using tmp_path fixtures
             - Test `add` with `--from` ephemeral registry end-to-end
             - Test `add` with dot notation end-to-end
@@ -389,19 +389,19 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
             - Test `add-registry` with mocked git clone end-to-end
             - _Requirements: 1.1–1.8, 3.1–3.3, 4.1–4.11, 9.1–9.8, 12.1–12.8_
 
-        - [ ] 5.2.2 Verify all modules are wired together correctly
+        - [x] 5.2.2 Verify all modules are wired together correctly
             - Ensure CLI dispatches to commands, commands use domain modules, domain modules use infrastructure
             - Run full test suite and confirm no import errors or missing dependencies
 
-    - [ ] 5.3 Coverage and linting verification
+    - [x] 5.3 Coverage and linting verification
 
-        - [ ] 5.3.1 Run `pytest --cov=ksm --cov-report=term-missing` and verify ≥95% coverage
+        - [x] 5.3.1 Run `pytest --cov=ksm --cov-report=term-missing` and verify ≥95% coverage
             - Identify and fill any coverage gaps with additional tests
 
-        - [ ] 5.3.2 Run `black src/ tests/` and `flake8 src/ tests/` and `mypy src/`
+        - [x] 5.3.2 Run `black src/ tests/` and `flake8 src/ tests/` and `mypy src/`
             - Fix any formatting, style, or type errors
 
-    - [ ] 5.4 Final checkpoint — All tests pass with ≥95% coverage
+    - [x] 5.4 Final checkpoint — All tests pass with ≥95% coverage
         - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
