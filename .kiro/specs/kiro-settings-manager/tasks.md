@@ -53,98 +53,98 @@ Incremental, TDD-driven implementation of the `ksm` CLI tool. Each group writes 
         - Ensure all tests pass, ask the user if questions arise.
 
 
-- [ ] 2. Domain Layer — Data Models and Pure Logic
+- [x] 2. Domain Layer — Data Models and Pure Logic
 
-    - [ ] 2.1 Registry index module
+    - [x] 2.1 Registry index module
 
-        - [ ] 2.1.1 Write tests for `registry.py` in `tests/test_registry.py`
+        - [x] 2.1.1 Write tests for `registry.py` in `tests/test_registry.py`
             - Test `load_registry_index` creates default entry on first run
             - Test `save_registry_index` / `load_registry_index` round-trip
             - Test duplicate registry detection
             - _Requirements: 6.1, 6.4, 5.4_
 
-        - [ ] 2.1.2 Write property test for registry round-trip
+        - [x] 2.1.2 Write property test for registry round-trip
             - **Property 15: Registry index JSON round-trip**
             - **Validates: Requirements 6.5**
 
-        - [ ] 2.1.3 Write property test for duplicate registry no-op
+        - [x] 2.1.3 Write property test for duplicate registry no-op
             - **Property 14: Duplicate registry is a no-op**
             - **Validates: Requirements 5.4**
 
-        - [ ] 2.1.4 Implement `src/ksm/registry.py`
+        - [x] 2.1.4 Implement `src/ksm/registry.py`
             - `RegistryEntry`, `RegistryIndex` dataclasses
             - `load_registry_index()`, `save_registry_index()`
             - _Requirements: 6.1, 6.4, 6.5_
 
-    - [ ] 2.2 Manifest module
+    - [x] 2.2 Manifest module
 
-        - [ ] 2.2.1 Write tests for `manifest.py` in `tests/test_manifest.py`
+        - [x] 2.2.1 Write tests for `manifest.py` in `tests/test_manifest.py`
             - Test `load_manifest` returns empty manifest when file missing
             - Test `save_manifest` / `load_manifest` round-trip
             - Test manifest entry lookup by name and scope
             - _Requirements: 6.2, 6.6_
 
-        - [ ] 2.2.2 Write property test for manifest round-trip
+        - [x] 2.2.2 Write property test for manifest round-trip
             - **Property 16: Manifest JSON round-trip**
             - **Validates: Requirements 6.6**
 
-        - [ ] 2.2.3 Implement `src/ksm/manifest.py`
+        - [x] 2.2.3 Implement `src/ksm/manifest.py`
             - `ManifestEntry`, `Manifest` dataclasses
             - `load_manifest()`, `save_manifest()`
             - _Requirements: 6.2, 6.6_
 
-    - [ ] 2.3 Scanner module
+    - [x] 2.3 Scanner module
 
-        - [ ] 2.3.1 Write tests for `scanner.py` in `tests/test_scanner.py`
+        - [x] 2.3.1 Write tests for `scanner.py` in `tests/test_scanner.py`
             - Test scanning a directory with valid bundles
             - Test scanning ignores directories without recognised subdirs
             - Test scanning empty directory returns empty list
             - _Requirements: 5.2, 7.1_
 
-        - [ ] 2.3.2 Write property test for scanner identification
+        - [x] 2.3.2 Write property test for scanner identification
             - **Property 13: Scanner identifies valid bundles**
             - **Validates: Requirements 5.2**
 
-        - [ ] 2.3.3 Implement `src/ksm/scanner.py`
+        - [x] 2.3.3 Implement `src/ksm/scanner.py`
             - `RECOGNISED_SUBDIRS`, `BundleInfo` dataclass, `scan_registry()`
             - _Requirements: 5.2, 7.1_
 
-    - [ ] 2.4 Dot notation module
+    - [x] 2.4 Dot notation module
 
-        - [ ] 2.4.1 Write tests for `dot_notation.py` in `tests/test_dot_notation.py`
+        - [x] 2.4.1 Write tests for `dot_notation.py` in `tests/test_dot_notation.py`
             - Test parsing plain name returns `None`
             - Test parsing valid dot notation returns `DotSelection`
             - Test invalid subdirectory type raises `InvalidSubdirectoryError`
             - Test malformed strings (too few/many dots)
             - _Requirements: 11.1, 11.2, 11.3_
 
-        - [ ] 2.4.2 Write property test for dot notation validation
+        - [x] 2.4.2 Write property test for dot notation validation
             - **Property 28: Dot notation validates subdirectory type**
             - **Validates: Requirements 11.2, 11.3**
 
-        - [ ] 2.4.3 Implement `src/ksm/dot_notation.py`
+        - [x] 2.4.3 Implement `src/ksm/dot_notation.py`
             - `DotSelection` dataclass, `parse_dot_notation()`, `validate_dot_selection()`
             - _Requirements: 11.1, 11.2, 11.3_
 
-    - [ ] 2.5 Copier module
+    - [x] 2.5 Copier module
 
-        - [ ] 2.5.1 Write tests for `copier.py` in `tests/test_copier.py`
+        - [x] 2.5.1 Write tests for `copier.py` in `tests/test_copier.py`
             - Test `copy_file` copies content byte-for-byte
             - Test `copy_file` skips identical files
             - Test `copy_tree` preserves directory structure
             - Test `files_identical` returns correct results
             - _Requirements: 7.2, 7.3, 7.4, 7.5_
 
-        - [ ] 2.5.2 Write property tests for copier
+        - [x] 2.5.2 Write property tests for copier
             - **Property 18: File copy preserves structure and content**
             - **Property 19: Identical files are skipped**
             - **Validates: Requirements 7.2, 7.3, 7.4, 7.5**
 
-        - [ ] 2.5.3 Implement `src/ksm/copier.py`
+        - [x] 2.5.3 Implement `src/ksm/copier.py`
             - `copy_tree()`, `copy_file()`, `files_identical()`
             - _Requirements: 7.2, 7.3, 7.4, 7.5_
 
-    - [ ] 2.6 Checkpoint — Verify data models and pure logic
+    - [x] 2.6 Checkpoint — Verify data models and pure logic
         - Ensure all tests pass, ask the user if questions arise.
 
 
