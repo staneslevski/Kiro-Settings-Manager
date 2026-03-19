@@ -181,48 +181,48 @@ Implements 35 requirements from the ksm CLI UX and engineering reviews across 8 
 
   - [x] 4.5 Checkpoint — Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Interactive Selectors — Headers, stderr, alternate buffer, fallback, filter, multi-select
+- [x] 5. Interactive Selectors — Headers, stderr, alternate buffer, fallback, filter, multi-select
 
-  - [ ] 5.1 Selector rendering to stderr and alternate screen buffer — _Agent: terminal-ui-engineer_
+  - [x] 5.1 Selector rendering to stderr and alternate screen buffer — _Agent: terminal-ui-engineer_
 
-    - [ ] 5.1.1 Refactor `selector.py`: change all `sys.stdout.write` to `sys.stderr.write`; add alternate screen buffer enter/exit (`\033[?1049h`/`\033[?1049l`)
+    - [x] 5.1.1 Refactor `selector.py`: change all `sys.stdout.write` to `sys.stderr.write`; add alternate screen buffer enter/exit (`\033[?1049h`/`\033[?1049l`)
       - _Requirements: 25.1, 25.2, 25.3, 30.1, 30.2, 30.3_
 
-    - [ ] 5.1.2 Write tests for stderr rendering and alternate buffer
+    - [x] 5.1.2 Write tests for stderr rendering and alternate buffer
       - **Property 30: Selector renders zero bytes to stdout**
       - **Property 35: Alternate screen buffer sequences emitted on enter/exit**
       - **Validates: Requirements 25, 30**
 
-  - [ ] 5.2 Cross-platform fallback and TERM=dumb — _Agent: terminal-ui-engineer_
+  - [x] 5.2 Cross-platform fallback and TERM=dumb — _Agent: terminal-ui-engineer_
 
-    - [ ] 5.2.1 Add conditional `tty`/`termios` import with `_HAS_TERMIOS` flag; implement `_use_raw_mode()` check; implement `_numbered_list_select()` fallback rendering to stderr
+    - [x] 5.2.1 Add conditional `tty`/`termios` import with `_HAS_TERMIOS` flag; implement `_use_raw_mode()` check; implement `_numbered_list_select()` fallback rendering to stderr
       - _Requirements: 26.1, 26.2, 26.3, 26.4, 29.1, 29.2, 29.3_
 
-    - [ ] 5.2.2 Write tests for fallback selector
+    - [x] 5.2.2 Write tests for fallback selector
       - **Property 31: Numbered-list fallback accepts valid numbers and rejects invalid**
       - **Property 34: TERM=dumb disables all ANSI sequences**
       - Test `q` input returns None
       - **Validates: Requirements 26, 29**
 
-  - [ ] 5.3 Headers, type-to-filter, and multi-select — _Agent: terminal-ui-engineer_
+  - [x] 5.3 Headers, type-to-filter, and multi-select — _Agent: terminal-ui-engineer_
 
-    - [ ] 5.3.1 Add header and instruction lines to `render_add_selector()` and `render_removal_selector()`
+    - [x] 5.3.1 Add header and instruction lines to `render_add_selector()` and `render_removal_selector()`
       - _Requirements: 3.1, 3.2, 3.3_
 
-    - [ ] 5.3.2 Add `filter_text` parameter and filtering logic to render functions; handle alphanumeric keys and Backspace in `process_key()`
+    - [x] 5.3.2 Add `filter_text` parameter and filtering logic to render functions; handle alphanumeric keys and Backspace in `process_key()`
       - _Requirements: 14.1, 14.2, 14.3, 14.4_
 
-    - [ ] 5.3.3 Add `multi_selected` set parameter; handle Space toggle in `process_key()`; show checkmark/empty indicators; update `interactive_select()` and `interactive_removal_select()` to return lists
+    - [x] 5.3.3 Add `multi_selected` set parameter; handle Space toggle in `process_key()`; show checkmark/empty indicators; update `interactive_select()` and `interactive_removal_select()` to return lists
       - _Requirements: 15.1, 15.2, 15.3, 15.4_
 
-    - [ ] 5.3.4 Write property tests for selector features
+    - [x] 5.3.4 Write property tests for selector features
       - **Property 4: Selector render includes header and instructions**
       - **Property 17: Type-to-filter produces correct filtered list**
       - **Property 18: Multi-select toggle is symmetric**
       - **Property 19: Multi-select render shows correct indicators**
       - **Validates: Requirements 3, 14, 15**
 
-  - [ ] 5.4 Checkpoint — Ensure all tests pass, ask the user if questions arise.
+  - [x] 5.4 Checkpoint — Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 6. Output Quality — ls improvements, CopyResult, file-level diff, auto-launch selector
 

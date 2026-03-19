@@ -115,10 +115,11 @@ def run_rm(
             print("No bundles currently installed.")
             return 0
 
-        selected = interactive_removal_select(manifest.entries)
-        if selected is None:
+        selected_list = interactive_removal_select(manifest.entries)
+        if selected_list is None:
             return 0
 
+        selected = selected_list[0]
         scope = selected.scope
         target_dir = target_global if scope == "global" else target_local
 

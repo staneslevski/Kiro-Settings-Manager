@@ -181,7 +181,10 @@ def _handle_display(
         all_bundles.extend(scan_registry(registry_path))
 
     installed_names = {e.bundle_name for e in manifest.entries}
-    return interactive_select(all_bundles, installed_names)
+    result = interactive_select(all_bundles, installed_names)
+    if result is None:
+        return None
+    return result[0] if result else None
 
 
 def _handle_ephemeral(

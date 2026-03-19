@@ -145,7 +145,7 @@ def test_run_rm_display_launches_removal_selector(
 
     with patch(
         "ksm.commands.rm.interactive_removal_select",
-        return_value=entry,
+        return_value=[entry],
     ) as mock_sel:
         code = run_rm(
             args,
@@ -601,7 +601,7 @@ def test_run_rm_interactive_confirmation_y(
     with (
         patch(
             "ksm.commands.rm.interactive_removal_select",
-            return_value=entry,
+            return_value=[entry],
         ),
         patch("sys.stdin.isatty", return_value=True),
         patch("builtins.input", return_value="y"),
@@ -639,7 +639,7 @@ def test_run_rm_interactive_confirmation_n(
     with (
         patch(
             "ksm.commands.rm.interactive_removal_select",
-            return_value=entry,
+            return_value=[entry],
         ),
         patch("sys.stdin.isatty", return_value=True),
         patch("builtins.input", return_value="n"),
@@ -670,7 +670,7 @@ def test_run_rm_interactive_confirmation_eof(
     with (
         patch(
             "ksm.commands.rm.interactive_removal_select",
-            return_value=entry,
+            return_value=[entry],
         ),
         patch("sys.stdin.isatty", return_value=True),
         patch("builtins.input", side_effect=EOFError),
@@ -701,7 +701,7 @@ def test_run_rm_interactive_tty_check_blocks(
     with (
         patch(
             "ksm.commands.rm.interactive_removal_select",
-            return_value=entry,
+            return_value=[entry],
         ),
         patch("sys.stdin.isatty", return_value=False),
     ):
@@ -736,7 +736,7 @@ def test_run_rm_interactive_dry_run(
 
     with patch(
         "ksm.commands.rm.interactive_removal_select",
-        return_value=entry,
+        return_value=[entry],
     ):
         code = run_rm(
             args,

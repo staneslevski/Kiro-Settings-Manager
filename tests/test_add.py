@@ -161,7 +161,7 @@ def test_run_add_display_launches_selector(
 
     args = _make_args(bundle_spec=None, interactive=True)
 
-    with patch("ksm.commands.add.interactive_select", return_value="aws") as mock_sel:
+    with patch("ksm.commands.add.interactive_select", return_value=["aws"]) as mock_sel:
         code = run_add(
             args,
             registry_index=idx,
