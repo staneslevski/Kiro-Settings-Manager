@@ -1,0 +1,164 @@
+"""Bundle installer for ksm.
+
+Orchestrates file copying from a resolved bundle into the target
+.kiro/ directory and updates the install manifest.
+"""
+
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+from ksm.copier import copy_file, copy_tree
+from ksm.dot_notation import DotSelection
+from ksm.manifest import Manifest, ManifestEntry
+from ksm.resolver import ResolvedBundle
+from ksm.scanner import RECOGNISED_SUBDIRS
+
+
+def install_bundle(
+    bundle: ResolvedBundle,
+    target_dir: Path,
+    scope: str,
+    subdirectory_filter: set[str] | None,
+    dot_selection: DotSelection | None,
+    manifest: Manifest,
+    source_label: str,
+) -> list[Path]:
+    """Install bundle files and update manifest.
+
+    Returns list of installed destination file paths.
+    """
+    if dot_selection is not None:
+        return _install_dot_selection(
+            bundle,
+            target_dir,
+            scope,
+            dot_selection,
+            manifest,
+            source_label,
+        )
+
+    subdirs_to_copy = _resolve_subdirs(bundle, subdirectory_filter)
+    installed: list[Path] = []
+
+    for subdir in subdirs_to_copy:
+        src = bundle.path / subdir
+        dst = target_dir / subdir
+        copy_tree(src, dst)
+        # Record all destination files (not just newly copied)
+        for src_file in sorted(src.rglob("*")):
+            if src_file.is_file():
+                rel = src_file.relative_to(src)
+                installed.append(dst / rel)
+
+    rel_paths = [str(p.relative_to(target_dir)) for p in installed]
+    _update_manifest(
+        manifest,
+        bundle.name,
+        source_label,
+        scope,
+        rel_paths,
+    )
+    return installed
+
+
+def _install_dot_selection(
+    bundle: ResolvedBundle,
+    target_dir: Path,
+    scope: str,
+    dot_selection: DotSelection,
+    manifest: Manifest,
+    source_label: str,
+) -> list[Path]:
+    """Install a single item via dot notation."""
+    src_item = bundle.path / dot_selection.subdirectory / dot_selection.item_name
+    dst_base = target_dir / dot_selection.subdirectory
+    installed: list[Path] = []
+
+    if src_item.is_dir():
+        copied = copy_tree(src_item, dst_base / dot_selection.item_name)
+        installed.extend(copied)
+    elif src_item.is_file():
+        dst_file = dst_base / dot_selection.item_name
+        if copy_file(src_item, dst_file):
+            installed.append(dst_file)
+        else:
+            # File was identical, still record it
+            installed.append(dst_file)
+
+    rel_paths = [str(p.relative_to(target_dir)) for p in installed]
+    _update_manifest(
+        manifest,
+        bundle.name,
+        source_label,
+        scope,
+        rel_paths,
+    )
+    return installed
+
+
+def _resolve_subdirs(
+    bundle: ResolvedBundle,
+    subdirectory_filter: set[str] | None,
+) -> list[str]:
+    """Determine which subdirectories to copy.
+
+    Emits warnings for missing filtered subdirs.
+    Exits if all filters miss.
+    """
+    available = set(bundle.subdirectories) & RECOGNISED_SUBDIRS
+
+    if subdirectory_filter is None:
+        return sorted(available)
+
+    matched: list[str] = []
+    for sd in sorted(subdirectory_filter):
+        if sd in available:
+            matched.append(sd)
+        else:
+            print(
+                f"Warning: subdirectory '{sd}' not found " f"in bundle '{bundle.name}'",
+                file=sys.stderr,
+            )
+
+    if not matched:
+        print(
+            f"Error: none of the specified subdirectories "
+            f"exist in bundle '{bundle.name}'",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    return matched
+
+
+def _update_manifest(
+    manifest: Manifest,
+    bundle_name: str,
+    source_registry: str,
+    scope: str,
+    installed_files: list[str],
+) -> None:
+    """Add or update a manifest entry for the installed bundle."""
+    now = datetime.now(timezone.utc).isoformat()
+
+    existing = [
+        e for e in manifest.entries if e.bundle_name == bundle_name and e.scope == scope
+    ]
+
+    if existing:
+        entry = existing[0]
+        entry.installed_files = installed_files
+        entry.updated_at = now
+        entry.source_registry = source_registry
+    else:
+        manifest.entries.append(
+            ManifestEntry(
+                bundle_name=bundle_name,
+                source_registry=source_registry,
+                scope=scope,
+                installed_files=installed_files,
+                installed_at=now,
+                updated_at=now,
+            )
+        )
