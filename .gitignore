@@ -3,3 +3,16 @@ scripts/tmp/
 
 tmp/
 tmp/**/*
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+*.egg
+.coverage
