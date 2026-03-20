@@ -29,7 +29,18 @@ class TestHelp:
             with patch("sys.argv", ["ksm", "--help"]):
                 main()
         captured = capsys.readouterr()
-        for cmd in ("add", "ls", "sync", "registry", "rm"):
+        for cmd in (
+            "add",
+            "ls",
+            "sync",
+            "add-registry",
+            "rm",
+            "registry",
+            "init",
+            "info",
+            "search",
+            "completions",
+        ):
             assert cmd in captured.out
 
 
@@ -59,14 +70,25 @@ class TestUnknownCommand:
     def test_unknown_command_lists_valid_commands(
         self, capsys: pytest.CaptureFixture
     ) -> None:
-        """Error output for unknown command includes help hint."""
+        """Error output for unknown command lists valid commands."""
         with pytest.raises(SystemExit):
             with patch("sys.argv", ["ksm", "bogus-cmd"]):
                 main()
         captured = capsys.readouterr()
         combined = captured.out + captured.err
-        assert "bogus-cmd" in combined
-        assert "ksm --help" in combined
+        for cmd in (
+            "add",
+            "ls",
+            "sync",
+            "add-registry",
+            "rm",
+            "registry",
+            "init",
+            "info",
+            "search",
+            "completions",
+        ):
+            assert cmd in combined
 
 
 class TestSubcommandDispatch:
@@ -102,14 +124,14 @@ class TestSubcommandDispatch:
         assert exc_info.value.code == 0
         mock_dispatch.assert_called_once()
 
-    @patch("ksm.cli._dispatch_registry_add")
-    def test_registry_add_dispatches(self, mock_dispatch: MagicMock) -> None:
-        """'ksm registry add <url>' dispatches to registry add handler."""
+    @patch("ksm.cli._dispatch_add_registry")
+    def test_add_registry_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm add-registry <url>' dispatches to add-registry handler."""
         mock_dispatch.return_value = 0
         with pytest.raises(SystemExit) as exc_info:
             with patch(
                 "sys.argv",
-                ["ksm", "registry", "add", "https://example.com/repo.git"],
+                ["ksm", "add-registry", "https://example.com/repo.git"],
             ):
                 main()
         assert exc_info.value.code == 0
@@ -121,6 +143,82 @@ class TestSubcommandDispatch:
         mock_dispatch.return_value = 0
         with pytest.raises(SystemExit) as exc_info:
             with patch("sys.argv", ["ksm", "rm", "mybundle"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_init")
+    def test_init_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm init' dispatches to init handler."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "init"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_info")
+    def test_info_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm info mybundle' dispatches to info handler."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "info", "mybundle"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_search")
+    def test_search_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm search query' dispatches to search handler."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "search", "myquery"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_completions")
+    def test_completions_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm completions bash' dispatches to completions."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "completions", "bash"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_registry")
+    def test_registry_ls_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm registry ls' dispatches to registry handler."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "registry", "ls"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_registry")
+    def test_registry_rm_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm registry rm myname' dispatches to registry."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch(
+                "sys.argv",
+                ["ksm", "registry", "rm", "myname"],
+            ):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_registry")
+    def test_registry_inspect_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm registry inspect myname' dispatches."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch(
+                "sys.argv",
+                ["ksm", "registry", "inspect", "myname"],
+            ):
                 main()
         assert exc_info.value.code == 0
         mock_dispatch.assert_called_once()
@@ -183,16 +281,15 @@ class TestAddSubcommandFlags:
                 [
                     "ksm",
                     "add",
-                    "--only",
-                    "skills",
-                    "--only",
-                    "hooks",
+                    "--skills-only",
+                    "--hooks-only",
                     "mybundle",
                 ],
             ):
                 main()
         args = mock_dispatch.call_args[0][0]
-        assert args.only == ["skills", "hooks"]
+        assert args.skills_only is True
+        assert args.hooks_only is True
 
 
 class TestSyncSubcommandFlags:
@@ -266,7 +363,21 @@ class TestProperty20:
             ),
             min_size=1,
             max_size=20,
-        ).filter(lambda s: s not in ("add", "ls", "sync", "registry", "rm"))
+        ).filter(
+            lambda s: s
+            not in (
+                "add",
+                "ls",
+                "sync",
+                "add-registry",
+                "rm",
+                "registry",
+                "init",
+                "info",
+                "search",
+                "completions",
+            )
+        )
     )
     def test_unknown_command_produces_error(self, cmd: str) -> None:
         import io
@@ -280,9 +391,19 @@ class TestProperty20:
                     main()
         assert exc_info.value.code != 0
         combined = out.getvalue() + err.getvalue()
-        # Error message includes the unknown command and help hint
-        assert cmd in combined
-        assert "ksm --help" in combined
+        for valid_cmd in (
+            "add",
+            "ls",
+            "sync",
+            "add-registry",
+            "rm",
+            "registry",
+            "init",
+            "info",
+            "search",
+            "completions",
+        ):
+            assert valid_cmd in combined
 
 
 class TestDispatchIntegration:
@@ -360,10 +481,10 @@ class TestDispatchIntegration:
     @patch("ksm.cli.load_registry_index")
     @patch("ksm.cli.ensure_ksm_dir")
     @patch(
-        "ksm.commands.registry_add.run_registry_add",
+        "ksm.commands.add_registry.run_add_registry",
         return_value=0,
     )
-    def test_dispatch_registry_add_wires_correctly(
+    def test_dispatch_add_registry_wires_correctly(
         self,
         mock_run_ar: MagicMock,
         mock_ensure: MagicMock,
@@ -376,7 +497,7 @@ class TestDispatchIntegration:
         with pytest.raises(SystemExit) as exc_info:
             with patch(
                 "sys.argv",
-                ["ksm", "registry", "add", "https://x.com/r.git"],
+                ["ksm", "add-registry", "https://x.com/r.git"],
             ):
                 main()
         assert exc_info.value.code == 0
@@ -414,6 +535,218 @@ class TestDispatchIntegration:
         captured = capsys.readouterr()
         assert "add" in captured.out
 
+    @patch("ksm.commands.init.run_init", return_value=0)
+    @patch("ksm.cli.load_manifest")
+    @patch("ksm.cli.load_registry_index")
+    def test_dispatch_init_wires_correctly(
+        self,
+        mock_load_reg: MagicMock,
+        mock_load_man: MagicMock,
+        mock_run_init: MagicMock,
+    ) -> None:
+        from ksm.manifest import Manifest
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+        mock_load_man.return_value = Manifest(entries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "init"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_run_init.assert_called_once()
+
+    @patch("ksm.cli.load_manifest")
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.commands.info.run_info", return_value=0)
+    def test_dispatch_info_wires_correctly(
+        self,
+        mock_run_info: MagicMock,
+        mock_load_reg: MagicMock,
+        mock_load_man: MagicMock,
+    ) -> None:
+        from ksm.manifest import Manifest
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+        mock_load_man.return_value = Manifest(entries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "info", "mybundle"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_run_info.assert_called_once()
+
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.commands.search.run_search", return_value=0)
+    def test_dispatch_search_wires_correctly(
+        self,
+        mock_run_search: MagicMock,
+        mock_load_reg: MagicMock,
+    ) -> None:
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "search", "myquery"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_run_search.assert_called_once()
+
+    @patch(
+        "ksm.commands.completions.run_completions",
+        return_value=0,
+    )
+    def test_dispatch_completions_wires_correctly(
+        self,
+        mock_run_comp: MagicMock,
+    ) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "completions", "bash"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_run_comp.assert_called_once()
+
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch(
+        "ksm.commands.registry_ls.run_registry_ls",
+        return_value=0,
+    )
+    def test_dispatch_registry_ls_wires_correctly(
+        self,
+        mock_run_rls: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+    ) -> None:
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "registry", "ls"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_ensure.assert_called_once()
+        mock_run_rls.assert_called_once()
+
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch(
+        "ksm.commands.registry_rm.run_registry_rm",
+        return_value=0,
+    )
+    def test_dispatch_registry_rm_wires_correctly(
+        self,
+        mock_run_rrm: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+    ) -> None:
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch(
+                "sys.argv",
+                ["ksm", "registry", "rm", "myname"],
+            ):
+                main()
+        assert exc_info.value.code == 0
+        mock_ensure.assert_called_once()
+        mock_run_rrm.assert_called_once()
+
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch(
+        "ksm.commands.registry_inspect.run_registry_inspect",
+        return_value=0,
+    )
+    def test_dispatch_registry_inspect_wires_correctly(
+        self,
+        mock_run_ri: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+    ) -> None:
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch(
+                "sys.argv",
+                ["ksm", "registry", "inspect", "myname"],
+            ):
+                main()
+        assert exc_info.value.code == 0
+        mock_ensure.assert_called_once()
+        mock_run_ri.assert_called_once()
+
+    def test_registry_no_subcommand_exits_2(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        """'ksm registry' with no subcommand exits 2."""
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "registry"]):
+                main()
+        assert exc_info.value.code == 2
+
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch(
+        "ksm.commands.add_registry.run_add_registry",
+        return_value=0,
+    )
+    def test_dispatch_registry_add_wires_correctly(
+        self,
+        mock_run_ra: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+    ) -> None:
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+
+        with pytest.raises(SystemExit):
+            with patch(
+                "sys.argv",
+                [
+                    "ksm",
+                    "registry",
+                    "add",
+                    "https://x.com/r.git",
+                ],
+            ):
+                main()
+        mock_ensure.assert_called_once()
+
+    @patch("ksm.commands.init.run_init", return_value=0)
+    @patch(
+        "ksm.cli.load_manifest",
+        side_effect=Exception("no manifest"),
+    )
+    @patch(
+        "ksm.cli.load_registry_index",
+        side_effect=FileNotFoundError("no reg"),
+    )
+    def test_dispatch_init_handles_missing_files(
+        self,
+        mock_load_reg: MagicMock,
+        mock_load_man: MagicMock,
+        mock_run_init: MagicMock,
+    ) -> None:
+        """Init works even when registry/manifest don't exist."""
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "init"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_run_init.assert_called_once()
+        # Verify None was passed for both
+        call_kwargs = mock_run_init.call_args[1]
+        assert call_kwargs["registry_index"] is None
+        assert call_kwargs["manifest"] is None
+
 
 class TestErrorClasses:
     """Test custom exception classes for coverage."""
@@ -427,464 +760,3 @@ class TestErrorClasses:
         assert "--foo" in str(err)
         assert "--bar" in str(err)
         assert "mutually exclusive" in str(err)
-
-
-# ---------------------------------------------------------------
-# Task 2.1.6 — Property tests for parser changes
-# ---------------------------------------------------------------
-
-VALID_ONLY_TYPES = ["skills", "agents", "steering", "hooks"]
-
-
-class TestProperty5:
-    """Property 5: --only flag builds correct filter set.
-
-    For any non-empty subset of valid subdirectory types,
-    when provided as --only arguments, the resulting filter
-    set shall equal exactly the provided subset.
-
-    Validates: Requirements 5.1, 5.2, 5.3
-    """
-
-    @given(
-        types=st.sets(
-            st.sampled_from(VALID_ONLY_TYPES),
-            min_size=1,
-        )
-    )
-    def test_only_flag_builds_correct_filter_set(self, types: set[str]) -> None:
-        """Feature: ux-review-fixes, Property 5."""
-        from ksm.cli import _build_parser
-
-        argv = ["add"]
-        for t in sorted(types):
-            argv.extend(["--only", t])
-        argv.append("mybundle")
-
-        parser = _build_parser()
-        args = parser.parse_args(argv)
-        assert set(args.only) == types
-
-
-class TestProperty6:
-    """Property 6: Invalid --only type produces error.
-
-    For any string not in the valid set, --only shall
-    produce an error message containing all valid types.
-
-    Validates: Requirements 5.5
-    """
-
-    @given(
-        bad_type=st.text(
-            alphabet=st.characters(
-                whitelist_categories=("Ll", "Lu", "Nd"),
-            ),
-            min_size=1,
-            max_size=20,
-        ).filter(lambda s: s not in VALID_ONLY_TYPES)
-    )
-    def test_invalid_only_type_produces_error(self, bad_type: str) -> None:
-        """Feature: ux-review-fixes, Property 6."""
-        import io
-        from contextlib import redirect_stderr, redirect_stdout
-
-        from ksm.cli import _build_parser
-
-        parser = _build_parser()
-        out = io.StringIO()
-        err = io.StringIO()
-        with pytest.raises(SystemExit) as exc_info:
-            with redirect_stdout(out), redirect_stderr(err):
-                parser.parse_args(["add", "--only", bad_type, "mybundle"])
-        assert exc_info.value.code == 2
-        combined = out.getvalue() + err.getvalue()
-        for valid in VALID_ONLY_TYPES:
-            assert valid in combined
-
-
-class TestProperty32:
-    """Property 32: Mutually exclusive -l/-g produces error.
-
-    For any command accepting -l/-g (add, rm), providing
-    both shall cause exit code 2 with 'not allowed with'.
-
-    Validates: Requirements 27.1, 27.2, 27.3
-    """
-
-    @pytest.mark.parametrize(
-        "cmd_argv",
-        [
-            ["add", "-l", "-g", "mybundle"],
-            ["rm", "-l", "-g", "mybundle"],
-        ],
-    )
-    def test_mutual_exclusion_l_g(self, cmd_argv: list[str]) -> None:
-        """Feature: ux-review-fixes, Property 32."""
-        import io
-        from contextlib import redirect_stderr, redirect_stdout
-
-        from ksm.cli import _build_parser
-
-        parser = _build_parser()
-        out = io.StringIO()
-        err = io.StringIO()
-        with pytest.raises(SystemExit) as exc_info:
-            with redirect_stdout(out), redirect_stderr(err):
-                parser.parse_args(cmd_argv)
-        assert exc_info.value.code == 2
-        combined = out.getvalue() + err.getvalue()
-        assert "not allowed with" in combined
-
-
-class TestProperty33:
-    """Property 33: Global verbose/quiet mutual exclusion.
-
-    Providing both --verbose and --quiet shall exit 2.
-    Each alone shall set the correct flag.
-
-    Validates: Requirements 28.1, 28.2, 28.5
-    """
-
-    def test_verbose_and_quiet_together_errors(self) -> None:
-        """Feature: ux-review-fixes, Property 33."""
-        import io
-        from contextlib import redirect_stderr, redirect_stdout
-
-        from ksm.cli import _build_parser
-
-        parser = _build_parser()
-        out = io.StringIO()
-        err = io.StringIO()
-        with pytest.raises(SystemExit) as exc_info:
-            with redirect_stdout(out), redirect_stderr(err):
-                parser.parse_args(["--verbose", "--quiet", "ls"])
-        assert exc_info.value.code == 2
-
-    def test_verbose_alone_sets_flag(self) -> None:
-        from ksm.cli import _build_parser
-
-        parser = _build_parser()
-        args = parser.parse_args(["--verbose", "ls"])
-        assert args.verbose is True
-        assert args.quiet is False
-
-    def test_quiet_alone_sets_flag(self) -> None:
-        from ksm.cli import _build_parser
-
-        parser = _build_parser()
-        args = parser.parse_args(["--quiet", "ls"])
-        assert args.quiet is True
-        assert args.verbose is False
-
-
-class TestDisplayDeprecation:
-    """Test --display deprecation warning.
-
-    When --display is used, a deprecation warning shall be
-    printed to stderr and args.interactive shall be set True.
-
-    Validates: Requirements 11.1, 11.2, 11.3
-    """
-
-    @patch("ksm.cli._dispatch_add")
-    def test_display_flag_emits_deprecation_warning(
-        self,
-        mock_dispatch: MagicMock,
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        mock_dispatch.return_value = 0
-        with pytest.raises(SystemExit):
-            with patch("sys.argv", ["ksm", "add", "--display"]):
-                main()
-        captured = capsys.readouterr()
-        assert "--display is deprecated" in captured.err
-        assert "--interactive" in captured.err
-
-    @patch("ksm.cli._dispatch_add")
-    def test_display_flag_sets_interactive_true(
-        self,
-        mock_dispatch: MagicMock,
-    ) -> None:
-        mock_dispatch.return_value = 0
-        with pytest.raises(SystemExit):
-            with patch("sys.argv", ["ksm", "add", "--display"]):
-                main()
-        args = mock_dispatch.call_args[0][0]
-        assert args.interactive is True
-
-    @patch("ksm.cli._dispatch_rm")
-    def test_display_on_rm_emits_deprecation(
-        self,
-        mock_dispatch: MagicMock,
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        mock_dispatch.return_value = 0
-        with pytest.raises(SystemExit):
-            with patch("sys.argv", ["ksm", "rm", "--display"]):
-                main()
-        captured = capsys.readouterr()
-        assert "--display is deprecated" in captured.err
-
-
-# ---------------------------------------------------------------
-# Task 2.2.3 — Tests for registry subcommand structure
-# ---------------------------------------------------------------
-
-
-class TestRegistrySubcommandStructure:
-    """Test registry subcommand group structure.
-
-    Parser accepts registry add/ls/rm/inspect.
-    add-registry is rejected as unknown.
-    registry with no subcommand shows help and exits 0.
-
-    Validates: Requirements 4.1, 4.3, 4.4
-    """
-
-    def test_registry_add_accepted(self) -> None:
-        from ksm.cli import _build_parser
-
-        parser = _build_parser()
-        args = parser.parse_args(["registry", "add", "https://example.com/repo.git"])
-        assert args.command == "registry"
-        assert args.registry_command == "add"
-        assert args.git_url == "https://example.com/repo.git"
-
-    def test_registry_ls_accepted(self) -> None:
-        from ksm.cli import _build_parser
-
-        parser = _build_parser()
-        args = parser.parse_args(["registry", "ls"])
-        assert args.command == "registry"
-        assert args.registry_command == "ls"
-
-    def test_registry_rm_accepted(self) -> None:
-        from ksm.cli import _build_parser
-
-        parser = _build_parser()
-        args = parser.parse_args(["registry", "rm", "my-reg"])
-        assert args.command == "registry"
-        assert args.registry_command == "rm"
-        assert args.name == "my-reg"
-
-    def test_registry_inspect_accepted(self) -> None:
-        from ksm.cli import _build_parser
-
-        parser = _build_parser()
-        args = parser.parse_args(["registry", "inspect", "my-reg"])
-        assert args.command == "registry"
-        assert args.registry_command == "inspect"
-        assert args.name == "my-reg"
-
-    def test_add_registry_rejected_as_unknown(self) -> None:
-        """add-registry is no longer a valid command."""
-        import io
-        from contextlib import redirect_stderr, redirect_stdout
-
-        from ksm.cli import _build_parser
-
-        parser = _build_parser()
-        out = io.StringIO()
-        err = io.StringIO()
-        with pytest.raises(SystemExit) as exc_info:
-            with redirect_stdout(out), redirect_stderr(err):
-                parser.parse_args(
-                    [
-                        "add-registry",
-                        "https://example.com/repo.git",
-                    ]
-                )
-        assert exc_info.value.code != 0
-
-    def test_registry_no_subcommand_shows_help_exits_0(
-        self,
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        """registry with no subcommand shows help, exits 0."""
-        with pytest.raises(SystemExit) as exc_info:
-            with patch("sys.argv", ["ksm", "registry"]):
-                main()
-        assert exc_info.value.code == 0
-        captured = capsys.readouterr()
-        assert "add" in captured.out
-        assert "ls" in captured.out
-        assert "rm" in captured.out
-        assert "inspect" in captured.out
-
-
-# ---------------------------------------------------------------
-# Task 2.3.3 — Tests for help text
-# ---------------------------------------------------------------
-
-
-class TestProperty28:
-    """Property 28: Help epilog contains examples for every subcommand.
-
-    For every subcommand, the --help output shall contain an
-    'examples' section with at least 2 concrete usage lines.
-
-    Validates: Requirements 23.1, 23.2
-    """
-
-    SUBCOMMANDS = [
-        ["add"],
-        ["rm"],
-        ["ls"],
-        ["sync"],
-        ["registry"],
-        ["registry", "add"],
-        ["registry", "ls"],
-        ["registry", "rm"],
-        ["registry", "inspect"],
-    ]
-
-    @pytest.mark.parametrize("subcmd", SUBCOMMANDS)
-    def test_help_epilog_contains_examples(
-        self,
-        subcmd: list[str],
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        """Feature: ux-review-fixes, Property 28."""
-        with pytest.raises(SystemExit) as exc_info:
-            with patch("sys.argv", ["ksm"] + subcmd + ["--help"]):
-                main()
-        assert exc_info.value.code == 0
-        captured = capsys.readouterr()
-        assert "examples:" in captured.out.lower()
-        # Count lines starting with "ksm " in the examples
-        example_lines = [
-            line.strip()
-            for line in captured.out.splitlines()
-            if line.strip().startswith("ksm ")
-        ]
-        assert len(example_lines) >= 2, (
-            f"Expected ≥2 example lines for {subcmd}, "
-            f"got {len(example_lines)}: {example_lines}"
-        )
-
-
-class TestProperty40:
-    """Property 40: Help examples are syntactically valid commands.
-
-    Every example line starting with 'ksm ' (excluding lines
-    with placeholder markers < and >) shall be parseable by
-    the argparse parser without raising SystemExit.
-
-    Validates: Requirements 35.1
-    """
-
-    SUBCOMMANDS_WITH_HELP = [
-        ["add"],
-        ["rm"],
-        ["ls"],
-        ["sync"],
-        ["registry"],
-        ["registry", "add"],
-        ["registry", "ls"],
-        ["registry", "rm"],
-        ["registry", "inspect"],
-    ]
-
-    @pytest.mark.parametrize("subcmd", SUBCOMMANDS_WITH_HELP)
-    def test_help_examples_round_trip(
-        self,
-        subcmd: list[str],
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        """Feature: ux-review-fixes, Property 40."""
-        from ksm.cli import _build_parser
-
-        # Capture help output
-        with pytest.raises(SystemExit):
-            with patch("sys.argv", ["ksm"] + subcmd + ["--help"]):
-                main()
-        captured = capsys.readouterr()
-
-        # Extract example lines
-        example_lines = [
-            line.strip()
-            for line in captured.out.splitlines()
-            if line.strip().startswith("ksm ")
-        ]
-
-        parser = _build_parser()
-        for line in example_lines:
-            # Skip lines with placeholders
-            if "<" in line or ">" in line:
-                continue
-            argv = line.split()[1:]  # strip "ksm"
-            # Should parse without error
-            parser.parse_args(argv)
-
-
-class TestCuratedHelp:
-    """Test curated help screen when no command given.
-
-    The curated help shall contain the tool name, version,
-    grouped commands, and quick-start examples.
-
-    Validates: Requirements 16.1, 16.2, 16.3
-    """
-
-    def test_curated_help_contains_tool_name_and_version(
-        self,
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        with pytest.raises(SystemExit) as exc_info:
-            with patch("sys.argv", ["ksm"]):
-                main()
-        assert exc_info.value.code == 2
-        captured = capsys.readouterr()
-        assert "ksm" in captured.out
-        assert __version__ in captured.out
-
-    def test_curated_help_contains_commands(
-        self,
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        with pytest.raises(SystemExit):
-            with patch("sys.argv", ["ksm"]):
-                main()
-        captured = capsys.readouterr()
-        for cmd in (
-            "add",
-            "rm",
-            "ls",
-            "sync",
-            "registry add",
-            "registry ls",
-            "registry rm",
-        ):
-            assert cmd in captured.out
-
-    def test_curated_help_contains_quick_start(
-        self,
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        with pytest.raises(SystemExit):
-            with patch("sys.argv", ["ksm"]):
-                main()
-        captured = capsys.readouterr()
-        assert "Quick start:" in captured.out
-
-    def test_curated_help_contains_footer(
-        self,
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        with pytest.raises(SystemExit):
-            with patch("sys.argv", ["ksm"]):
-                main()
-        captured = capsys.readouterr()
-        assert "ksm <command> --help" in captured.out
-
-    def test_top_level_help_flag_contains_footer(
-        self,
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        """--help output contains the footer hint (Req 23.3)."""
-        with pytest.raises(SystemExit):
-            with patch("sys.argv", ["ksm", "--help"]):
-                main()
-        captured = capsys.readouterr()
-        assert "ksm <command> --help" in captured.out

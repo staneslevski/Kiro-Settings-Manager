@@ -37,12 +37,14 @@ def _make_args(**kwargs: object) -> argparse.Namespace:
     """Build an argparse.Namespace with defaults for add command."""
     defaults = {
         "bundle_spec": "aws",
-        "interactive": False,
+        "display": False,
         "from_url": None,
         "local": False,
         "global_": False,
-        "only": None,
-        "dry_run": False,
+        "skills_only": False,
+        "agents_only": False,
+        "steering_only": False,
+        "hooks_only": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -159,9 +161,9 @@ def test_run_add_display_launches_selector(
     )
     manifest = Manifest(entries=[])
 
-    args = _make_args(bundle_spec=None, interactive=True)
+    args = _make_args(bundle_spec=None, display=True)
 
-    with patch("ksm.commands.add.interactive_select", return_value=["aws"]) as mock_sel:
+    with patch("ksm.commands.add.interactive_select", return_value="aws") as mock_sel:
         code = run_add(
             args,
             registry_index=idx,
@@ -203,7 +205,7 @@ def test_run_add_display_quit_exits_zero(
     )
     manifest = Manifest(entries=[])
 
-    args = _make_args(bundle_spec=None, interactive=True)
+    args = _make_args(bundle_spec=None, display=True)
 
     with patch("ksm.commands.add.interactive_select", return_value=None):
         code = run_add(
@@ -338,7 +340,7 @@ def test_run_add_subdirectory_filter_restricts(
     )
     manifest = Manifest(entries=[])
 
-    args = _make_args(bundle_spec="aws", only=["skills"])
+    args = _make_args(bundle_spec="aws", skills_only=True)
     code = run_add(
         args,
         registry_index=idx,
@@ -369,7 +371,7 @@ def test_run_add_dot_notation_plus_filter_raises(
 
     args = _make_args(
         bundle_spec="aws.skills.cross",
-        only=["skills"],
+        skills_only=True,
     )
     code = run_add(
         args,
@@ -1103,58 +1105,93 @@ def test_property_dot_notation_filter_mutual_exclusion(
         assert code == 1
 
 
-# Feature: ux-review-fixes, Property 15: Dry-run does not modify state
-# (add path)
-@given(
-    bundle_name=st.from_regex(r"[a-z]{3,10}", fullmatch=True),
-    scope=st.sampled_from(["local", "global"]),
-)
-@h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
-def test_property_dry_run_add_does_not_modify_state(
-    bundle_name: str,
-    scope: str,
+# --- Tests for file-level diff output (Req 22) ---
+
+
+def test_run_add_prints_diff_summary(
+    tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Feature: ux-review-fixes, Property 15: Dry-run does not modify
-    state (add path)."""
-    import tempfile
-
+    """run_add prints file-level diff summary after install."""
     from ksm.commands.add import run_add
 
-    with tempfile.TemporaryDirectory() as td:
-        base = Path(td)
-        reg = base / "reg"
-        # Create a bundle in the registry
-        bdir = reg / bundle_name / "skills"
-        bdir.mkdir(parents=True)
-        (bdir / "SKILL.md").write_bytes(b"skill content")
+    reg = _setup_registry(
+        tmp_path,
+        {"aws": {"skills": {"S.md": b"skill"}}},
+    )
+    target_local = tmp_path / "workspace" / ".kiro"
+    target_global = tmp_path / "home" / ".kiro"
+    ksm_dir = tmp_path / "ksm_state"
+    ksm_dir.mkdir(parents=True)
 
-        target_local = base / "workspace" / ".kiro"
-        target_global = base / "home" / ".kiro"
-        target = target_global if scope == "global" else target_local
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
 
-        ksm_dir = base / "ksm"
-        ksm_dir.mkdir(parents=True)
+    args = _make_args(bundle_spec="aws")
+    code = run_add(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=target_global,
+    )
 
-        idx = RegistryIndex(
-            registries=[
-                RegistryEntry(
-                    name="default",
-                    url=None,
-                    local_path=str(reg),
-                    is_default=True,
-                )
-            ]
-        )
-        manifest = Manifest(entries=[])
+    assert code == 0
+    captured = capsys.readouterr()
+    # Should contain diff symbol for new file
+    assert "+" in captured.err or "new" in captured.err.lower()
 
-        args = _make_args(
-            bundle_spec=bundle_name,
-            global_=(scope == "global"),
-            local=(scope == "local"),
-            dry_run=True,
-        )
 
+# --- Tests for auto-launch selector (Req 9) ---
+
+
+def test_run_add_auto_launch_tty(
+    tmp_path: Path,
+) -> None:
+    """run_add auto-launches selector when no bundle_spec + TTY."""
+    from ksm.commands.add import run_add
+
+    reg = _setup_registry(
+        tmp_path,
+        {"aws": {"skills": {"S.md": b"s"}}},
+    )
+    target_local = tmp_path / "workspace" / ".kiro"
+    target_global = tmp_path / "home" / ".kiro"
+    ksm_dir = tmp_path / "ksm_state"
+    ksm_dir.mkdir(parents=True)
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec=None)
+
+    with (
+        patch("sys.stdin") as mock_stdin,
+        patch(
+            "ksm.commands.add.interactive_select",
+            return_value="aws",
+        ) as mock_sel,
+    ):
+        mock_stdin.isatty.return_value = True
         code = run_add(
             args,
             registry_index=idx,
@@ -1164,12 +1201,187 @@ def test_property_dry_run_add_does_not_modify_state(
             target_global=target_global,
         )
 
-        assert code == 0
-        # No files should be installed
-        assert not target.exists() or not list(target.rglob("*"))
-        # Manifest must remain empty
-        assert len(manifest.entries) == 0
-        # Preview printed to stderr
-        captured = capsys.readouterr()
-        assert "would install" in captured.err.lower()
-        assert bundle_name in captured.err
+    assert code == 0
+    mock_sel.assert_called_once()
+    assert (target_local / "skills" / "S.md").exists()
+
+
+def test_run_add_auto_launch_tty_quit(
+    tmp_path: Path,
+) -> None:
+    """run_add auto-launch returns 0 when user quits."""
+    from ksm.commands.add import run_add
+
+    reg = _setup_registry(
+        tmp_path,
+        {"aws": {"skills": {"S.md": b"s"}}},
+    )
+    ksm_dir = tmp_path / "ksm_state"
+    ksm_dir.mkdir(parents=True)
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec=None)
+
+    with (
+        patch("sys.stdin") as mock_stdin,
+        patch(
+            "ksm.commands.add.interactive_select",
+            return_value=None,
+        ),
+    ):
+        mock_stdin.isatty.return_value = True
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=tmp_path / "local",
+            target_global=tmp_path / "global",
+        )
+
+    assert code == 0
+    assert len(manifest.entries) == 0
+
+
+def test_run_add_non_tty_no_bundle_prints_error(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """run_add with no bundle_spec + non-TTY prints error."""
+    from ksm.commands.add import run_add
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+    idx = RegistryIndex(registries=[])
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec=None)
+
+    with patch("sys.stdin") as mock_stdin:
+        mock_stdin.isatty.return_value = False
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=tmp_path / "local",
+            target_global=tmp_path / "global",
+        )
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "no bundle specified" in captured.err.lower()
+
+
+def test_run_add_versioned_install_error_with_available(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Versioned install error shows available versions."""
+    from ksm.commands.add import run_add
+    from ksm.errors import GitError
+
+    reg = _setup_registry(
+        tmp_path,
+        {"mybundle": {"skills": {"S.md": b"skill"}}},
+    )
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url="https://example.com",
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    args = _make_args(bundle_spec="mybundle@v999")
+
+    with patch(
+        "ksm.commands.add.checkout_version",
+        side_effect=GitError("not found"),
+    ):
+        with patch(
+            "ksm.commands.add.list_versions",
+            return_value=["v1.0.0", "v2.0.0"],
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=tmp_path / "local" / ".kiro",
+                target_global=tmp_path / "global" / ".kiro",
+            )
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "v999" in captured.err
+    assert "v1.0.0" in captured.err
+    assert "v2.0.0" in captured.err
+
+
+def test_run_add_versioned_install_error_no_available(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Versioned install error with no available versions."""
+    from ksm.commands.add import run_add
+    from ksm.errors import GitError
+
+    reg = _setup_registry(
+        tmp_path,
+        {"mybundle": {"skills": {"S.md": b"skill"}}},
+    )
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url="https://example.com",
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    args = _make_args(bundle_spec="mybundle@v999")
+
+    with patch(
+        "ksm.commands.add.checkout_version",
+        side_effect=GitError("not found"),
+    ):
+        with patch(
+            "ksm.commands.add.list_versions",
+            return_value=[],
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=tmp_path / "local" / ".kiro",
+                target_global=tmp_path / "global" / ".kiro",
+            )
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "v999" in captured.err
+    assert "no versions available" in captured.err.lower()

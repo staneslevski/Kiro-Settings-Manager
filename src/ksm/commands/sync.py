@@ -10,6 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from ksm.copier import format_diff_summary
 from ksm.errors import BundleNotFoundError
 from ksm.git_ops import pull_repo
 from ksm.installer import install_bundle
@@ -174,7 +175,7 @@ def _sync_entry(
         return
 
     try:
-        install_bundle(
+        results = install_bundle(
             bundle=resolved,
             target_dir=target_dir,
             scope=entry.scope,
@@ -186,5 +187,12 @@ def _sync_entry(
     except SystemExit:
         print(
             f"Warning: failed to sync '{entry.bundle_name}'",
+            file=sys.stderr,
+        )
+        return
+
+    if results:
+        print(
+            format_diff_summary(results),
             file=sys.stderr,
         )

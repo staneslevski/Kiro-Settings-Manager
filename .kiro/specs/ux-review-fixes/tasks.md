@@ -224,126 +224,126 @@ Implements 35 requirements from the ksm CLI UX and engineering reviews across 8 
 
   - [x] 5.4 Checkpoint — Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 6. Output Quality — ls improvements, CopyResult, file-level diff, auto-launch selector
+- [x] 6. Output Quality — ls improvements, CopyResult, file-level diff, auto-launch selector
 
-  - [ ] 6.1 Copier enhancements — _Agent: general-task-execution_
+  - [x] 6.1 Copier enhancements — _Agent: general-task-execution_
 
-    - [ ] 6.1.1 Add `CopyStatus` enum and `CopyResult` dataclass to `copier.py`; refactor `copy_file()` and `copy_tree()` to return `CopyResult`
+    - [x] 6.1.1 Add `CopyStatus` enum and `CopyResult` dataclass to `copier.py`; refactor `copy_file()` and `copy_tree()` to return `CopyResult`
       - _Requirements: 22.1, 22.2, 22.3_
 
-    - [ ] 6.1.2 Update `installer.py` to propagate `CopyResult` list up to callers
+    - [x] 6.1.2 Update `installer.py` to propagate `CopyResult` list up to callers
       - _Requirements: 22.1_
 
-    - [ ] 6.1.3 Write property test for file diff symbols
+    - [x] 6.1.3 Write property test for file diff symbols
       - **Property 22: File diff summary uses distinct status symbols**
       - **Validates: Requirements 22.1, 22.2, 22.3**
 
-  - [ ] 6.2 ls improvements — _Agent: cli-output-formatter_
+  - [x] 6.2 ls improvements — _Agent: cli-output-formatter_
 
-    - [ ] 6.2.1 Rewrite `run_ls()`: grouped output by scope with headers, `--verbose` shows files, `--scope` filter, `--format json`, relative timestamps, color output
+    - [x] 6.2.1 Rewrite `run_ls()`: grouped output by scope with headers, `--verbose` shows files, `--scope` filter, `--format json`, relative timestamps, color output
       - Add `--verbose`/`-v`, `--scope`, `--format` flags to ls parser
       - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 10.4_
 
-    - [ ] 6.2.2 Write property tests for ls
+    - [x] 6.2.2 Write property tests for ls
       - **Property 7: ls groups by scope and includes metadata**
       - **Property 8: ls verbose includes all installed files**
       - **Property 9: ls scope filter shows only matching scope**
       - **Property 10: ls JSON output round-trips**
       - **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5**
 
-  - [ ] 6.3 File-level diff and auto-launch selector — _Agent: cli-engineer_
+  - [x] 6.3 File-level diff and auto-launch selector — _Agent: cli-engineer_
 
-    - [ ] 6.3.1 Add file-level diff output to `run_add()` and `run_sync()` using `CopyResult` data; use `+`/`~`/`=` prefixes
+    - [x] 6.3.1 Add file-level diff output to `run_add()` and `run_sync()` using `CopyResult` data; use `+`/`~`/`=` prefixes
       - _Requirements: 22.1, 22.2, 22.3_
 
-    - [ ] 6.3.2 Implement auto-launch interactive selector in `run_add()` when no bundle spec and stdin is TTY; print error with hints when non-TTY
+    - [x] 6.3.2 Implement auto-launch interactive selector in `run_add()` when no bundle spec and stdin is TTY; print error with hints when non-TTY
       - _Requirements: 9.1, 9.2, 9.3_
 
-    - [ ] 6.3.3 Write tests for auto-launch and diff output
+    - [x] 6.3.3 Write tests for auto-launch and diff output
       - Test TTY auto-launch, non-TTY error, quit returns 0
       - **Validates: Requirements 9, 22**
 
-  - [ ] 6.4 Checkpoint — Ensure all tests pass, ask the user if questions arise.
+  - [x] 6.4 Checkpoint — Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. New Commands — Registry ls/rm/inspect, init, info, search, completions, versioned install
+- [x] 7. New Commands — Registry ls/rm/inspect, init, info, search, completions, versioned install
 
-  - [ ] 7.1 Registry management commands — _Agent: cli-engineer_
+  - [x] 7.1 Registry management commands — _Agent: cli-engineer_
 
-    - [ ] 7.1.1 Create `commands/registry_ls.py` — list registries with name, URL, path, bundle count
+    - [x] 7.1.1 Create `commands/registry_ls.py` — list registries with name, URL, path, bundle count
       - _Requirements: 8.1_
 
-    - [ ] 7.1.2 Create `commands/registry_rm.py` — remove named registry, block default removal, clean cache
+    - [x] 7.1.2 Create `commands/registry_rm.py` — remove named registry, block default removal, clean cache
       - _Requirements: 8.2, 8.3_
 
-    - [ ] 7.1.3 Create `commands/registry_inspect.py` — list bundles in a registry with subdirectory contents
+    - [x] 7.1.3 Create `commands/registry_inspect.py` — list bundles in a registry with subdirectory contents
       - _Requirements: 8.4, 8.5_
 
-    - [ ] 7.1.4 Write property tests for registry commands
+    - [x] 7.1.4 Write property tests for registry commands
       - **Property 23: Registry ls output contains all metadata**
       - **Property 24: Registry rm removes exactly the named registry**
       - **Property 25: Registry not-found error lists registered names**
       - **Validates: Requirements 8.1, 8.2, 8.3, 8.4, 8.5**
 
-  - [ ] 7.2 init, info, search commands — _Agent: cli-engineer_
+  - [x] 7.2 init, info, search commands — _Agent: cli-engineer_
 
-    - [ ] 7.2.1 Create `commands/init.py` — create `.kiro/` dir, success message, offer interactive selector on TTY
+    - [x] 7.2.1 Create `commands/init.py` — create `.kiro/` dir, success message, offer interactive selector on TTY
       - _Requirements: 17.1, 17.2, 17.3, 17.4_
 
-    - [ ] 7.2.2 Create `commands/info.py` — display bundle metadata, subdirectory breakdown, installed status
+    - [x] 7.2.2 Create `commands/info.py` — display bundle metadata, subdirectory breakdown, installed status
       - _Requirements: 18.1, 18.2, 18.3_
 
-    - [ ] 7.2.3 Create `commands/search.py` — case-insensitive name search across registries
+    - [x] 7.2.3 Create `commands/search.py` — case-insensitive name search across registries
       - _Requirements: 19.1, 19.2, 19.3_
 
-    - [ ] 7.2.4 Write property tests for init, info, search
+    - [x] 7.2.4 Write property tests for init, info, search
       - **Property 27: Init creates .kiro/ directory**
       - **Property 21: Info output contains bundle metadata**
       - **Property 20: Search returns exactly matching bundles**
       - **Validates: Requirements 17, 18, 19**
 
-  - [ ] 7.3 Completions and versioned install — _Agent: cli-engineer_
+  - [x] 7.3 Completions and versioned install — _Agent: cli-engineer_
 
-    - [ ] 7.3.1 Create `commands/completions.py` — generate shell completion scripts for bash/zsh/fish
+    - [x] 7.3.1 Create `commands/completions.py` — generate shell completion scripts for bash/zsh/fish
       - _Requirements: 21.1, 21.2, 21.3_
 
-    - [ ] 7.3.2 Implement versioned install: parse `bundle@version` syntax in `run_add()`, add `checkout_version()` and `list_versions()` to `git_ops.py`, add `version` field to `ManifestEntry`
+    - [x] 7.3.2 Implement versioned install: parse `bundle@version` syntax in `run_add()`, add `checkout_version()` and `list_versions()` to `git_ops.py`, add `version` field to `ManifestEntry`
       - _Requirements: 20.1, 20.2, 20.3_
 
-    - [ ] 7.3.3 Write tests for completions and versioned install
+    - [x] 7.3.3 Write tests for completions and versioned install
       - **Property 26: Version recorded in manifest after versioned install**
       - Test `ksm completions bash/zsh/fish` produces non-empty output
       - Test non-existent version produces error with available versions
       - **Validates: Requirements 20, 21**
 
-  - [ ] 7.4 Wire all new commands into `cli.py` dispatch table — _Agent: cli-engineer_
+  - [x] 7.4 Wire all new commands into `cli.py` dispatch table — _Agent: cli-engineer_
     - Add dispatch functions for init, info, search, completions, registry ls/rm/inspect
     - _Requirements: 4.1, 17, 18, 19, 20, 21_
 
-  - [ ] 7.5 Checkpoint — Ensure all tests pass, ask the user if questions arise.
+  - [x] 7.5 Checkpoint — Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Cleanup & Polish — Empty dir cleanup, signal handler integration, final validation
+- [x] 8. Cleanup & Polish — Empty dir cleanup, signal handler integration, final validation
 
-  - [ ] 8.1 Empty directory cleanup — _Agent: general-task-execution_
+  - [x] 8.1 Empty directory cleanup — _Agent: general-task-execution_
 
-    - [ ] 8.1.1 Add `_cleanup_empty_dirs()` to `remover.py`; call it after file deletion in `remove_bundle()`; stop at `.kiro/` boundary
+    - [x] 8.1.1 Add `_cleanup_empty_dirs()` to `remover.py`; call it after file deletion in `remove_bundle()`; stop at `.kiro/` boundary
       - _Requirements: 33.1, 33.2, 33.3_
 
-    - [ ] 8.1.2 Write property test for empty dir cleanup
+    - [x] 8.1.2 Write property test for empty dir cleanup
       - **Property 38: Empty dir cleanup removes only empty dirs up to .kiro/ boundary**
       - **Validates: Requirements 33.1, 33.2, 33.3**
 
-  - [ ] 8.2 Signal handler integration — _Agent: general-task-execution_
+  - [x] 8.2 Signal handler integration — _Agent: general-task-execution_
 
-    - [ ] 8.2.1 Call `install_signal_handler()` in `main()`; add `register_temp_dir()`/`unregister_temp_dir()` calls in `git_ops.py` clone operations and `commands/add.py` ephemeral flow
+    - [x] 8.2.1 Call `install_signal_handler()` in `main()`; add `register_temp_dir()`/`unregister_temp_dir()` calls in `git_ops.py` clone operations and `commands/add.py` ephemeral flow
       - _Requirements: 34.1, 34.2_
 
-  - [ ] 8.3 Final integration and validation
+  - [x] 8.3 Final integration and validation
 
-    - [ ] 8.3.1 Run full test suite, verify ≥95% coverage on all new/modified modules, fix any gaps
+    - [x] 8.3.1 Run full test suite, verify ≥95% coverage on all new/modified modules, fix any gaps
       - Run `black`, `flake8`, `mypy` on all code
       - _Requirements: all_
 
-  - [ ] 8.4 Final checkpoint — Ensure all tests pass, ask the user if questions arise.
+  - [x] 8.4 Final checkpoint — Ensure all tests pass, ask the user if questions arise.
 
 ## Agent Legend
 

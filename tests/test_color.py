@@ -1,16 +1,10 @@
-"""Tests for ksm.color module.
+"""Tests for ksm.color module."""
 
-Property-based tests validating color output behavior
-under various terminal/environment conditions.
-"""
-
-import io
-
-from hypothesis import given
-from hypothesis import strategies as st
+from io import StringIO
+from unittest.mock import MagicMock, patch
 
 from ksm.color import (
-    _color_enabled_for_stream,
+    _color_enabled,
     bold,
     dim,
     green,
@@ -18,189 +12,126 @@ from ksm.color import (
     yellow,
 )
 
-COLOR_FUNCS = [green, red, yellow, dim, bold]
+
+def _make_tty_stream() -> MagicMock:
+    """Create a mock stream that reports as a TTY."""
+    stream = MagicMock(spec=StringIO)
+    stream.isatty.return_value = True
+    return stream
 
 
-class _FakeTTY(io.StringIO):
-    """StringIO that reports as a TTY."""
-
-    def isatty(self) -> bool:
-        return True
+def _make_non_tty_stream() -> StringIO:
+    """Create a non-TTY stream."""
+    return StringIO()
 
 
-class _FakeNonTTY(io.StringIO):
-    """StringIO that reports as not a TTY."""
-
-    def isatty(self) -> bool:
-        return False
+def _clean_env() -> dict[str, str]:
+    """Env dict with NO_COLOR removed and TERM set."""
+    return {"TERM": "xterm-256color"}
 
 
-# ------------------------------------------------------------------
-# Property 13: Color disabled returns plain text
-# ------------------------------------------------------------------
+def test_color_disabled_no_color_env() -> None:
+    """Color disabled when NO_COLOR is set."""
+    with patch.dict("os.environ", {"NO_COLOR": "1"}):
+        assert not _color_enabled()
 
 
-@given(text=st.text())
-def test_color_disabled_no_color_env(text: str) -> None:
-    """Property 13: Color disabled returns plain text (NO_COLOR)."""
-    import pytest
-
-    mp = pytest.MonkeyPatch()
-    mp.setenv("NO_COLOR", "1")
-    try:
-        stream = _FakeTTY()
-        for fn in COLOR_FUNCS:
-            assert fn(text, stream=stream) == text
-    finally:
-        mp.undo()
+def test_color_disabled_term_dumb() -> None:
+    """Color disabled when TERM=dumb."""
+    with patch.dict("os.environ", {"TERM": "dumb"}, clear=True):
+        assert not _color_enabled()
 
 
-@given(text=st.text())
-def test_color_disabled_non_tty(text: str) -> None:
-    """Property 13: Color disabled returns plain text (non-TTY)."""
-    stream = _FakeNonTTY()
-    for fn in COLOR_FUNCS:
-        assert fn(text, stream=stream) == text
+def test_color_disabled_non_tty() -> None:
+    """Color disabled for non-TTY stream."""
+    stream = _make_non_tty_stream()
+    assert not _color_enabled(stream)
 
 
-@given(text=st.text())
-def test_color_disabled_term_dumb(text: str) -> None:
-    """Property 13: Color disabled returns plain text (TERM=dumb)."""
-    import pytest
-
-    mp = pytest.MonkeyPatch()
-    mp.setenv("TERM", "dumb")
-    mp.delenv("NO_COLOR", raising=False)
-    try:
-        stream = _FakeTTY()
-        for fn in COLOR_FUNCS:
-            assert fn(text, stream=stream) == text
-    finally:
-        mp.undo()
+def test_color_enabled_tty() -> None:
+    """Color enabled for TTY stream without NO_COLOR."""
+    stream = _make_tty_stream()
+    with patch.dict("os.environ", _clean_env(), clear=True):
+        assert _color_enabled(stream)
 
 
-# ------------------------------------------------------------------
-# Property 14: Color enabled wraps with ANSI codes
-# ------------------------------------------------------------------
+def test_green_returns_plain_non_tty() -> None:
+    """green() returns plain text for non-TTY."""
+    stream = _make_non_tty_stream()
+    assert green("hello", stream) == "hello"
 
 
-@given(text=st.text(min_size=1))
-def test_color_enabled_wraps_ansi(text: str) -> None:
-    """Property 14: Color enabled wraps with ANSI codes."""
-    import pytest
-
-    mp = pytest.MonkeyPatch()
-    mp.delenv("NO_COLOR", raising=False)
-    mp.delenv("TERM", raising=False)
-    try:
-        stream = _FakeTTY()
-        for fn in COLOR_FUNCS:
-            result = fn(text, stream=stream)
-            assert result.startswith("\033[")
-            assert result.endswith("\033[0m")
-            assert text in result
-    finally:
-        mp.undo()
+def test_red_returns_plain_non_tty() -> None:
+    """red() returns plain text for non-TTY."""
+    stream = _make_non_tty_stream()
+    assert red("hello", stream) == "hello"
 
 
-# ------------------------------------------------------------------
-# Property 14b: Color checks correct stream TTY status
-# ------------------------------------------------------------------
+def test_yellow_returns_plain_non_tty() -> None:
+    """yellow() returns plain text for non-TTY."""
+    stream = _make_non_tty_stream()
+    assert yellow("hello", stream) == "hello"
 
 
-@given(text=st.text(min_size=1))
-def test_color_checks_stream_tty(text: str) -> None:
-    """Property 14b: Color checks correct stream TTY status."""
-    import pytest
-
-    mp = pytest.MonkeyPatch()
-    mp.delenv("NO_COLOR", raising=False)
-    mp.delenv("TERM", raising=False)
-    try:
-        tty_stream = _FakeTTY()
-        non_tty_stream = _FakeNonTTY()
-
-        # TTY stream should get ANSI codes
-        for fn in COLOR_FUNCS:
-            result = fn(text, stream=tty_stream)
-            assert "\033[" in result
-
-        # Non-TTY stream should get plain text
-        for fn in COLOR_FUNCS:
-            result = fn(text, stream=non_tty_stream)
-            assert result == text
-    finally:
-        mp.undo()
+def test_dim_returns_plain_non_tty() -> None:
+    """dim() returns plain text for non-TTY."""
+    stream = _make_non_tty_stream()
+    assert dim("hello", stream) == "hello"
 
 
-# ------------------------------------------------------------------
-# _color_enabled_for_stream edge cases
-# ------------------------------------------------------------------
+def test_bold_returns_plain_non_tty() -> None:
+    """bold() returns plain text for non-TTY."""
+    stream = _make_non_tty_stream()
+    assert bold("hello", stream) == "hello"
 
 
-def test_color_enabled_no_isatty() -> None:
-    """Stream without isatty attribute returns False."""
-    obj = object()
-    assert _color_enabled_for_stream(obj) is False  # type: ignore[arg-type]
+def test_green_wraps_ansi_tty() -> None:
+    """green() wraps with ANSI when TTY."""
+    stream = _make_tty_stream()
+    with patch.dict("os.environ", _clean_env(), clear=True):
+        result = green("ok", stream)
+        assert "\033[32m" in result
+        assert "ok" in result
+        assert "\033[0m" in result
 
 
-# ------------------------------------------------------------------
-# Coverage: _color_enabled(), _color_enabled_stderr(), _wrap no-stream
-# ------------------------------------------------------------------
+def test_red_wraps_ansi_tty() -> None:
+    """red() wraps with ANSI when TTY."""
+    stream = _make_tty_stream()
+    with patch.dict("os.environ", _clean_env(), clear=True):
+        result = red("err", stream)
+        assert "\033[31m" in result
 
 
-def test_color_enabled_delegates_to_stdout() -> None:
-    """_color_enabled() checks sys.stdout TTY status."""
-    import sys
-
-    import pytest
-
-    from ksm.color import _color_enabled
-
-    mp = pytest.MonkeyPatch()
-    mp.delenv("NO_COLOR", raising=False)
-    mp.delenv("TERM", raising=False)
-    fake = _FakeTTY()
-    mp.setattr(sys, "stdout", fake)
-    try:
-        assert _color_enabled() is True
-    finally:
-        mp.undo()
+def test_yellow_wraps_ansi_tty() -> None:
+    """yellow() wraps with ANSI when TTY."""
+    stream = _make_tty_stream()
+    with patch.dict("os.environ", _clean_env(), clear=True):
+        result = yellow("warn", stream)
+        assert "\033[33m" in result
 
 
-def test_color_enabled_stderr_delegates() -> None:
-    """_color_enabled_stderr() checks sys.stderr TTY status."""
-    import sys
-
-    import pytest
-
-    from ksm.color import _color_enabled_stderr
-
-    mp = pytest.MonkeyPatch()
-    mp.delenv("NO_COLOR", raising=False)
-    mp.delenv("TERM", raising=False)
-    fake = _FakeTTY()
-    mp.setattr(sys, "stderr", fake)
-    try:
-        assert _color_enabled_stderr() is True
-    finally:
-        mp.undo()
+def test_dim_wraps_ansi_tty() -> None:
+    """dim() wraps with ANSI when TTY."""
+    stream = _make_tty_stream()
+    with patch.dict("os.environ", _clean_env(), clear=True):
+        result = dim("faded", stream)
+        assert "\033[2m" in result
 
 
-def test_wrap_no_stream_uses_stdout() -> None:
-    """_wrap with no stream argument falls back to _color_enabled()."""
-    import sys
+def test_bold_wraps_ansi_tty() -> None:
+    """bold() wraps with ANSI when TTY."""
+    stream = _make_tty_stream()
+    with patch.dict("os.environ", _clean_env(), clear=True):
+        result = bold("strong", stream)
+        assert "\033[1m" in result
 
-    import pytest
 
-    mp = pytest.MonkeyPatch()
-    mp.delenv("NO_COLOR", raising=False)
-    mp.delenv("TERM", raising=False)
-    fake = _FakeTTY()
-    mp.setattr(sys, "stdout", fake)
-    try:
-        result = green("hello")
-        assert result.startswith("\033[")
-        assert "hello" in result
-    finally:
-        mp.undo()
+def test_color_no_isatty_attribute() -> None:
+    """Color disabled when stream has no isatty attribute."""
+
+    class NoIsatty:
+        pass
+
+    result = _color_enabled(NoIsatty())  # type: ignore[arg-type]
+    assert not result

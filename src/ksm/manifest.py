@@ -20,6 +20,7 @@ class ManifestEntry:
     installed_files: list[str]
     installed_at: str  # ISO 8601 timestamp
     updated_at: str  # ISO 8601 timestamp
+    version: str | None = None
 
 
 @dataclass
@@ -31,7 +32,7 @@ class Manifest:
 
 def _entry_to_dict(entry: ManifestEntry) -> dict:
     """Serialize a ManifestEntry to a dict."""
-    return {
+    d: dict = {
         "bundle_name": entry.bundle_name,
         "source_registry": entry.source_registry,
         "scope": entry.scope,
@@ -39,6 +40,9 @@ def _entry_to_dict(entry: ManifestEntry) -> dict:
         "installed_at": entry.installed_at,
         "updated_at": entry.updated_at,
     }
+    if entry.version is not None:
+        d["version"] = entry.version
+    return d
 
 
 def _dict_to_entry(data: dict) -> ManifestEntry:
@@ -50,6 +54,7 @@ def _dict_to_entry(data: dict) -> ManifestEntry:
         installed_files=data["installed_files"],
         installed_at=data["installed_at"],
         updated_at=data["updated_at"],
+        version=data.get("version"),
     )
 
 

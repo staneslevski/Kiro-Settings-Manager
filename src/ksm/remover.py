@@ -18,6 +18,21 @@ class RemovalResult:
     skipped_files: list[str] = field(default_factory=list)
 
 
+def _cleanup_empty_dirs(start_dir: Path, boundary: Path) -> None:
+    """Remove empty directories walking up from *start_dir*.
+
+    Stops at (and never removes) *boundary* itself.  If *start_dir*
+    does not exist the call is a no-op.
+    """
+    current = start_dir
+    while current != boundary and current.is_dir():
+        try:
+            current.rmdir()  # only succeeds when empty
+        except OSError:
+            break
+        current = current.parent
+
+
 def remove_bundle(
     entry: ManifestEntry,
     target_dir: Path,
@@ -28,8 +43,9 @@ def remove_bundle(
     For each file in entry.installed_files:
       - If the file exists on disk, delete it.
       - If the file does not exist, record it as skipped.
-    After all files are processed, remove the entry from the manifest.
-    Empty subdirectories are left in place.
+    After all files are processed, empty parent directories are
+    cleaned up to the *target_dir* boundary, then the entry is
+    removed from the manifest.
     """
     result = RemovalResult()
 
@@ -38,6 +54,7 @@ def remove_bundle(
         if full_path.exists():
             full_path.unlink()
             result.removed_files.append(rel_path)
+            _cleanup_empty_dirs(full_path.parent, target_dir)
         else:
             result.skipped_files.append(rel_path)
 

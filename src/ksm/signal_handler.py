@@ -1,7 +1,9 @@
-"""SIGINT handler for graceful cleanup of temporary directories.
+"""Signal handler for graceful SIGINT cleanup.
 
-Registers a signal handler at CLI startup that tracks active temp
-directories. On SIGINT (Ctrl+C), cleans up tracked dirs and exits 130.
+Tracks temporary directories created during git operations and
+cleans them up if the user presses Ctrl-C.
+
+Requirements: 34.1, 34.2, 34.3, 34.4
 """
 
 import shutil
@@ -10,33 +12,35 @@ import sys
 from pathlib import Path
 from types import FrameType
 
-# Module-level set of temp directories to clean up on SIGINT
 _active_temp_dirs: set[Path] = set()
 
 
 def register_temp_dir(path: Path) -> None:
-    """Track a temp directory for cleanup on SIGINT."""
+    """Register a temporary directory for cleanup on SIGINT."""
     _active_temp_dirs.add(path)
 
 
 def unregister_temp_dir(path: Path) -> None:
-    """Stop tracking a temp directory (normal cleanup completed)."""
+    """Unregister a temporary directory after successful cleanup."""
     _active_temp_dirs.discard(path)
 
 
 def _sigint_handler(signum: int, frame: FrameType | None) -> None:
-    """Clean up tracked temp dirs and exit 130."""
-    for d in list(_active_temp_dirs):
-        shutil.rmtree(d, ignore_errors=True)
+    """Handle SIGINT by cleaning up tracked temp dirs."""
+    for tmp in list(_active_temp_dirs):
+        try:
+            shutil.rmtree(tmp, ignore_errors=True)
+        except Exception:
+            pass
     if _active_temp_dirs:
         print(
-            "\nCancelled. Cleaned up temporary files.",
+            "\nInterrupted — cleaned up temporary files.",
             file=sys.stderr,
         )
     _active_temp_dirs.clear()
-    sys.exit(130)
+    raise SystemExit(130)
 
 
 def install_signal_handler() -> None:
-    """Register the SIGINT handler. Called once at CLI startup."""
+    """Install the SIGINT handler for temp-dir cleanup."""
     signal.signal(signal.SIGINT, _sigint_handler)

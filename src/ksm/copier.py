@@ -5,7 +5,25 @@ optimisation and directory structure preservation.
 """
 
 import shutil
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
+
+
+class CopyStatus(Enum):
+    """Status of a single file copy operation."""
+
+    NEW = "new"
+    UPDATED = "updated"
+    UNCHANGED = "unchanged"
+
+
+@dataclass
+class CopyResult:
+    """Result of copying a single file."""
+
+    path: Path
+    status: CopyStatus
 
 
 def files_identical(a: Path, b: Path) -> bool:
@@ -20,27 +38,33 @@ def files_identical(a: Path, b: Path) -> bool:
     return a.read_bytes() == b.read_bytes()
 
 
-def copy_file(src: Path, dst: Path, skip_identical: bool = True) -> bool:
+def copy_file(src: Path, dst: Path, skip_identical: bool = True) -> CopyResult:
     """Copy a single file from src to dst.
 
-    Returns True if the copy occurred, False if skipped.
+    Returns a CopyResult with the destination path and status:
+    - NEW: file did not exist at dst
+    - UPDATED: file existed but had different content
+    - UNCHANGED: file existed with identical content (skipped)
+
     Creates parent directories of dst if they don't exist.
     """
     if skip_identical and dst.exists() and files_identical(src, dst):
-        return False
+        return CopyResult(path=dst, status=CopyStatus.UNCHANGED)
 
+    existed = dst.exists()
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dst)
-    return True
+    status = CopyStatus.UPDATED if existed else CopyStatus.NEW
+    return CopyResult(path=dst, status=status)
 
 
-def copy_tree(src: Path, dst: Path, skip_identical: bool = True) -> list[Path]:
+def copy_tree(src: Path, dst: Path, skip_identical: bool = True) -> list[CopyResult]:
     """Recursively copy src directory to dst.
 
-    Returns list of destination file paths that were actually copied
-    (skipped files are not included).
+    Returns list of CopyResult for every file encountered,
+    including unchanged files.
     """
-    copied: list[Path] = []
+    results: list[CopyResult] = []
 
     for src_file in sorted(src.rglob("*")):
         if not src_file.is_file():
@@ -49,7 +73,30 @@ def copy_tree(src: Path, dst: Path, skip_identical: bool = True) -> list[Path]:
         rel = src_file.relative_to(src)
         dst_file = dst / rel
 
-        if copy_file(src_file, dst_file, skip_identical=skip_identical):
-            copied.append(dst_file)
+        result = copy_file(src_file, dst_file, skip_identical=skip_identical)
+        results.append(result)
 
-    return copied
+    return results
+
+
+# Status symbols for file-level diff output (Req 22)
+_STATUS_SYMBOLS: dict[CopyStatus, str] = {
+    CopyStatus.NEW: "+",
+    CopyStatus.UPDATED: "~",
+    CopyStatus.UNCHANGED: "=",
+}
+
+
+def format_diff_summary(results: list[CopyResult]) -> str:
+    """Format CopyResult list as file-level diff summary.
+
+    Each line shows a status symbol and the file path:
+      + steering/code-review.md (new)
+      ~ skills/refactor/SKILL.md (updated)
+      = hooks/pre-commit.json (unchanged)
+    """
+    lines: list[str] = []
+    for r in results:
+        sym = _STATUS_SYMBOLS[r.status]
+        lines.append(f"  {sym} {r.path} ({r.status.value})")
+    return "\n".join(lines)
