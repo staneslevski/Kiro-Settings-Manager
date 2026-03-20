@@ -412,7 +412,7 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
     - [x] 8.2 Final checkpoint — Run full test suite, verify all tests pass, lint with black and flake8
         → Agent: kiro
 
-    - [ ] 8.3 Create pull request
+    - [-] 8.3 Create pull request
         → Skill: github-pr
 
 ## Notes
