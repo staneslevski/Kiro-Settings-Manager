@@ -44,7 +44,12 @@ def run_init(
         all_bundles = []
         for entry in registry_index.registries:
             registry_path = Path(entry.local_path)
-            all_bundles.extend(scan_registry(registry_path))
+            all_bundles.extend(
+                scan_registry(
+                    registry_path,
+                    registry_name=entry.name,
+                )
+            )
 
         if all_bundles:
             installed = {e.bundle_name for e in manifest.entries}

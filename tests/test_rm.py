@@ -752,6 +752,189 @@ def test_run_rm_interactive_dry_run(
     assert "would remove" in captured.err.lower()
 
 
+class TestRmDisplayDeprecation:
+    """Tests for --display deprecation and -i handling (Req 5)."""
+
+    def test_display_flag_prints_deprecation_warning(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """--display prints deprecation warning to stderr (Req 5.6)."""
+        from ksm.commands.rm import run_rm
+
+        entry = _make_entry("aws", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=False,
+            display=True,
+        )
+
+        with patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ):
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=target,
+                target_global=tmp_path / "home" / ".kiro",
+            )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "Deprecated" in captured.err
+        assert "--display" in captured.err
+        assert "-i/--interactive" in captured.err
+
+    def test_display_flag_treated_as_interactive(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """--display behaves as -i, launching selector (Req 5.2)."""
+        from ksm.commands.rm import run_rm
+
+        entry = _make_entry("aws", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=False,
+            display=True,
+        )
+
+        with patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ) as mock_sel:
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=target,
+                target_global=tmp_path / "home" / ".kiro",
+            )
+
+        assert code == 0
+        mock_sel.assert_called_once()
+
+    def test_interactive_launches_selector(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """rm -i launches interactive selector (Req 5.8)."""
+        from ksm.commands.rm import run_rm
+
+        entry = _make_entry("aws", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=True,
+        )
+
+        with patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ) as mock_sel:
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=target,
+                target_global=tmp_path / "home" / ".kiro",
+            )
+
+        assert code == 0
+        mock_sel.assert_called_once()
+
+    def test_interactive_ignored_when_bundle_name_provided(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """-i ignored when bundle_name provided, stderr msg (Req 5.10)."""
+        from ksm.commands.rm import run_rm
+
+        entry = _make_entry("aws", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        args = _make_args(
+            bundle_name="aws",
+            interactive=True,
+        )
+
+        code = run_rm(
+            args,
+            manifest=manifest,
+            manifest_path=tmp_path / "manifest.json",
+            target_local=target,
+            target_global=tmp_path / "home" / ".kiro",
+        )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "-i ignored" in captured.err.lower() or (
+            "-i" in captured.err and "ignored" in captured.err.lower()
+        )
+
+    def test_display_deprecation_includes_versions(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """--display deprecation warning includes version numbers."""
+        from ksm.commands.rm import run_rm
+
+        entry = _make_entry("aws", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=False,
+            display=True,
+        )
+
+        with patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ):
+            run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=target,
+                target_global=tmp_path / "home" / ".kiro",
+            )
+
+        captured = capsys.readouterr()
+        assert "v0.2.0" in captured.err
+        assert "v1.0.0" in captured.err
+
+
 def test_run_rm_eof_aborts(tmp_path: Path) -> None:
     """run_rm non-interactive path handles EOFError."""
     from ksm.commands.rm import run_rm

@@ -28,7 +28,7 @@ def run_registry_ls(
     lines: list[str] = []
     for entry in registry_index.registries:
         registry_path = Path(entry.local_path)
-        bundles = scan_registry(registry_path)
+        bundles = scan_registry(registry_path, registry_name=entry.name)
         bundle_count = len(bundles)
 
         name_str = bold(entry.name)

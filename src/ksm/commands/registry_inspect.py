@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from ksm.color import bold, dim
+from ksm.errors import format_error
 from ksm.registry import RegistryIndex
 from ksm.scanner import scan_registry
 
@@ -33,14 +34,17 @@ def run_registry_inspect(
     if match is None:
         registered = [e.name for e in registry_index.registries]
         print(
-            f"Error: registry '{name}' not found. "
-            f"Registered: {', '.join(registered)}",
+            format_error(
+                f"Registry '{name}' not found.",
+                f"Registered: {', '.join(registered)}",
+                "Run `ksm registry list` to see" " all registries.",
+            ),
             file=sys.stderr,
         )
         return 1
 
     registry_path = Path(match.local_path)
-    bundles = scan_registry(registry_path)
+    bundles = scan_registry(registry_path, registry_name=match.name)
 
     if not bundles:
         print(
@@ -51,8 +55,10 @@ def run_registry_inspect(
 
     lines: list[str] = []
     lines.append(bold(f"Registry: {name}"))
-    lines.append(dim(f"  Path: {match.local_path}"))
-    lines.append(f"  {len(bundles)} bundle" f"{'s' if len(bundles) != 1 else ''}:")
+    lines.append(f"  URL:     {match.url or '(local)'}")
+    lines.append(dim(f"  Path:    {match.local_path}"))
+    lines.append(f"  Default: {'yes' if match.is_default else 'no'}")
+    lines.append(f"  Bundles: {len(bundles)}")
     lines.append("")
 
     for bundle in bundles:

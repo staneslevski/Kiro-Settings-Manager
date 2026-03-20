@@ -42,10 +42,11 @@ def _make_entry(
 
 
 def _make_args(**kwargs: object) -> argparse.Namespace:
-    defaults = {
+    defaults: dict[str, object] = {
         "bundle_names": [],
         "all": False,
         "yes": False,
+        "dry_run": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -874,3 +875,116 @@ def test_sync_prints_diff_summary(
     captured = capsys.readouterr()
     # Should contain diff symbol for updated file
     assert "~" in captured.err or "updated" in captured.err.lower()
+
+
+def test_sync_non_tty_without_yes_returns_error(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Sync returns 1 when stdin is not a TTY and --yes not given."""
+    from ksm.commands.sync import run_sync
+
+    reg = tmp_path / "reg"
+    _setup_bundle(reg, "aws", {"skills/f.md": b"data"})
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[_make_entry("aws", files=["skills/f.md"])])
+    args = _make_args(bundle_names=["aws"])
+
+    with patch("sys.stdin") as mock_stdin:
+        mock_stdin.isatty.return_value = False
+        code = run_sync(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=tmp_path / "local",
+            target_global=tmp_path / "global",
+        )
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "Error:" in captured.err
+    assert "--yes" in captured.err
+
+
+def test_sync_confirmation_message_global_scope(
+    tmp_path: Path,
+) -> None:
+    """_build_confirmation_message shows ~/.kiro/ for global scope."""
+    from ksm.commands.sync import _build_confirmation_message
+
+    entries = [_make_entry("aws", scope="global", files=["skills/f.md"])]
+    msg = _build_confirmation_message(entries)
+    assert "~/.kiro/" in msg
+    assert ".kiro/ and" not in msg
+
+
+def test_sync_confirmation_message_mixed_scope(
+    tmp_path: Path,
+) -> None:
+    """_build_confirmation_message shows both paths for mixed scopes."""
+    from ksm.commands.sync import _build_confirmation_message
+
+    entries = [
+        _make_entry("aws", scope="local", files=["skills/f.md"]),
+        _make_entry("team", scope="global", files=["steering/s.md"]),
+    ]
+    msg = _build_confirmation_message(entries)
+    assert ".kiro/ and ~/.kiro/" in msg
+
+
+def test_sync_dry_run_prints_preview(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Sync with --dry-run prints preview without modifying files."""
+    from ksm.commands.sync import run_sync
+
+    reg = tmp_path / "reg"
+    _setup_bundle(reg, "aws", {"skills/f.md": b"new"})
+    target = tmp_path / "target" / ".kiro"
+    target.mkdir(parents=True)
+    (target / "skills").mkdir()
+    (target / "skills" / "f.md").write_bytes(b"old")
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[_make_entry("aws", files=["skills/f.md"])])
+    args = _make_args(bundle_names=["aws"], yes=True, dry_run=True)
+    code = run_sync(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target,
+        target_global=tmp_path / "global",
+    )
+
+    assert code == 0
+    # File should remain unchanged (dry run)
+    assert (target / "skills" / "f.md").read_bytes() == b"old"
+    captured = capsys.readouterr()
+    assert "Syncing" in captured.err

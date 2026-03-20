@@ -84,6 +84,42 @@ def test_scan_registry_all_recognised_subdirs(tmp_path: Path) -> None:
     assert set(bundles[0].subdirectories) == set(RECOGNISED_SUBDIRS)
 
 
+def test_scan_registry_ignores_dot_kiro(tmp_path: Path) -> None:
+    """scan_registry skips .kiro even if it contains recognised subdirs."""
+    _make_bundle(tmp_path, "valid", ["skills"])
+    _make_bundle(tmp_path, ".kiro", ["skills", "steering"])
+
+    bundles = scan_registry(tmp_path)
+
+    assert len(bundles) == 1
+    assert bundles[0].name == "valid"
+
+
+def test_scan_registry_ignores_dot_git(tmp_path: Path) -> None:
+    """scan_registry skips .git even if it contains recognised subdirs."""
+    _make_bundle(tmp_path, "valid", ["hooks"])
+    _make_bundle(tmp_path, ".git", ["hooks"])
+
+    bundles = scan_registry(tmp_path)
+
+    assert len(bundles) == 1
+    assert bundles[0].name == "valid"
+
+
+def test_scan_registry_ignores_all_hidden_dirs(
+    tmp_path: Path,
+) -> None:
+    """scan_registry skips any directory whose name starts with a dot."""
+    _make_bundle(tmp_path, "valid", ["agents"])
+    _make_bundle(tmp_path, ".hidden", ["skills"])
+    _make_bundle(tmp_path, ".another", ["steering", "hooks"])
+
+    bundles = scan_registry(tmp_path)
+
+    assert len(bundles) == 1
+    assert bundles[0].name == "valid"
+
+
 def test_bundle_info_has_correct_path(tmp_path: Path) -> None:
     """BundleInfo.path points to the bundle directory."""
     _make_bundle(tmp_path, "mybundle", ["steering"])
@@ -157,3 +193,44 @@ def test_property_scanner_identifies_valid_bundles(
     result_map = {b.name: set(b.subdirectories) for b in results}
 
     assert result_map == expected_bundles
+
+
+# --- Phase 5.2: registry_name population ---
+
+
+def test_scan_registry_with_registry_name(
+    tmp_path: Path,
+) -> None:
+    """scan_registry populates registry_name when provided."""
+    _make_bundle(tmp_path, "aws", ["skills", "steering"])
+    _make_bundle(tmp_path, "git", ["hooks"])
+
+    bundles = scan_registry(tmp_path, registry_name="my-reg")
+
+    for b in bundles:
+        assert b.registry_name == "my-reg"
+
+
+def test_scan_registry_without_registry_name(
+    tmp_path: Path,
+) -> None:
+    """scan_registry leaves registry_name empty when not provided."""
+    _make_bundle(tmp_path, "aws", ["skills"])
+
+    bundles = scan_registry(tmp_path)
+
+    assert bundles[0].registry_name == ""
+
+
+def test_scan_registry_name_on_all_bundles(
+    tmp_path: Path,
+) -> None:
+    """scan_registry sets registry_name on every returned BundleInfo."""
+    _make_bundle(tmp_path, "a", ["skills"])
+    _make_bundle(tmp_path, "b", ["hooks"])
+    _make_bundle(tmp_path, "c", ["agents"])
+
+    bundles = scan_registry(tmp_path, registry_name="team")
+
+    assert len(bundles) == 3
+    assert all(b.registry_name == "team" for b in bundles)

@@ -1,9 +1,9 @@
 """Registry rm command for ksm.
 
-Handles `ksm registry rm <name>` — removes a named registry,
+Handles `ksm registry remove <name>` — removes a named registry,
 blocks removal of the default registry, and cleans its cache.
 
-Requirements: 8.2, 8.3
+Requirements: 3.1, 3.2, 3.3, 3.4, 8.2, 8.3
 """
 
 import argparse
@@ -11,7 +11,23 @@ import shutil
 import sys
 from pathlib import Path
 
-from ksm.registry import RegistryIndex, save_registry_index
+from ksm.errors import format_error, format_warning
+from ksm.registry import (
+    RegistryEntry,
+    RegistryIndex,
+    save_registry_index,
+)
+
+
+def _find_registry(
+    name: str,
+    registry_index: RegistryIndex,
+) -> RegistryEntry | None:
+    """Find a registry entry by name."""
+    for entry in registry_index.registries:
+        if entry.name == name:
+            return entry
+    return None
 
 
 def run_registry_rm(
@@ -23,41 +39,60 @@ def run_registry_rm(
     """Remove a named registry. Returns exit code."""
     name: str = args.registry_name
 
-    # Find the registry entry
-    match = None
-    for entry in registry_index.registries:
-        if entry.name == name:
-            match = entry
-            break
+    match = _find_registry(name, registry_index)
 
     if match is None:
         registered = [e.name for e in registry_index.registries]
         print(
-            f"Error: registry '{name}' not found. "
-            f"Registered: {', '.join(registered)}",
+            format_error(
+                f"Registry '{name}' not found.",
+                f"Registered registries:" f" {', '.join(registered)}",
+                "Run `ksm registry list`" " to see all registries.",
+            ),
             file=sys.stderr,
         )
         return 1
 
-    # Block removal of default registry
     if match.is_default:
         print(
-            "Error: cannot remove the default registry.",
+            format_error(
+                "Cannot remove the default registry.",
+                f"'{name}' is the built-in" " default registry.",
+                "Only user-added registries" " can be removed.",
+            ),
             file=sys.stderr,
         )
         return 1
 
-    # Clean cache directory
-    cache_path = Path(match.local_path)
-    if cache_path.exists():
-        shutil.rmtree(cache_path, ignore_errors=True)
-
-    # Remove from index and save
+    # Remove from index first
     registry_index.registries = [e for e in registry_index.registries if e.name != name]
     save_registry_index(registry_index, registry_index_path)
 
-    print(
-        f"Removed registry '{name}'.",
-        file=sys.stderr,
-    )
+    # Clean cache directory (Req 3.1–3.3)
+    cache_path = Path(match.local_path)
+    if cache_path.exists():
+        try:
+            shutil.rmtree(cache_path)
+            print(
+                f"Removed registry '{name}'."
+                f" Cache directory cleaned:"
+                f" {cache_path}",
+                file=sys.stderr,
+            )
+        except PermissionError:
+            print(
+                format_warning(
+                    f"Could not remove cache" f" directory: {cache_path}",
+                    "Permission denied."
+                    " The registry was removed"
+                    " but the cache remains.",
+                ),
+                file=sys.stderr,
+            )
+    else:
+        print(
+            f"Removed registry '{name}'." " Cache directory was already absent.",
+            file=sys.stderr,
+        )
+
     return 0
