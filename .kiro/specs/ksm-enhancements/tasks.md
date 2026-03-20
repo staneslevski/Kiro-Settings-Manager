@@ -268,24 +268,24 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
         - [x] 5.3.3 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 5.4 Selector qualified name display
+    - [x] 5.4 Selector qualified name display
 
-        - [ ] 5.4.1 Write tests for ambiguous name display in `tests/test_selector.py`
+        - [x] 5.4.1 Write tests for ambiguous name display in `tests/test_selector.py`
             - Ambiguous bundles show `registry/bundle` format
             - Unique bundles show plain name
             → Agent: general-task-execution
             _Requirements: 4.1, 4.2, 10.5, 10.6_
 
-        - [ ] 5.4.2 Write property test for selector qualification
+        - [x] 5.4.2 Write property test for selector qualification
             → Agent: hypothesis-test-writer
             **Property 6: Selector qualifies ambiguous bundle names and leaves unique names unqualified**
             _Requirements: 4.1, 4.2, 10.5, 10.6_
 
-        - [ ] 5.4.3 Refactor `render_add_selector()` in `src/ksm/selector.py` to detect ambiguous names and display qualified format
+        - [x] 5.4.3 Refactor `render_add_selector()` in `src/ksm/selector.py` to detect ambiguous names and display qualified format
             → Agent: general-task-execution
             _Requirements: 4.1, 4.2, 10.5, 10.6_
 
-        - [ ] 5.4.4 Run tests and verify all pass
+        - [x] 5.4.4 Run tests and verify all pass
             → Agent: kiro
 
     - [ ] 5.5 Checkpoint — Run full test suite, verify all tests pass
