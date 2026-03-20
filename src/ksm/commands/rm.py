@@ -10,6 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from ksm.errors import format_deprecation
 from ksm.manifest import Manifest, ManifestEntry, save_manifest
 from ksm.remover import RemovalResult, remove_bundle
 from ksm.selector import interactive_removal_select
@@ -109,8 +110,34 @@ def run_rm(
     yes_flag: bool = getattr(args, "yes", False)
     dry_run: bool = getattr(args, "dry_run", False)
 
-    # Handle --interactive mode (also triggered by --display alias)
-    if getattr(args, "interactive", False):
+    # Handle --display deprecation (Req 5.6)
+    display = getattr(args, "display", False)
+    interactive = getattr(args, "interactive", False)
+    if display:
+        print(
+            format_deprecation(
+                "--display",
+                "-i/--interactive",
+                "v0.2.0",
+                "v1.0.0",
+            ),
+            file=sys.stderr,
+        )
+        interactive = True
+
+    # Determine bundle_name early for -i ignore check
+    bundle_name: str | None = getattr(args, "bundle_name", None)
+
+    # If bundle_name provided AND -i, ignore -i (Req 5.10)
+    if bundle_name and interactive:
+        print(
+            "Warning: -i ignored because a bundle" " was specified.",
+            file=sys.stderr,
+        )
+        interactive = False
+
+    # Handle --interactive mode
+    if interactive:
         if not manifest.entries:
             print("No bundles currently installed.")
             return 0
@@ -146,7 +173,6 @@ def run_rm(
         return 0
 
     # Determine scope and target
-    bundle_name: str | None = getattr(args, "bundle_name", None)
     if bundle_name is None:
         print("Error: no bundle specified", file=sys.stderr)
         return 1

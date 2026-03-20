@@ -729,6 +729,297 @@ class TestRegistryInspect:
         captured = capsys.readouterr()
         assert "no bundles" in captured.err.lower()
 
+    def test_inspect_output_contains_url(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Inspect output shows URL field (Req 14.1)."""
+        from ksm.commands.registry_inspect import (
+            run_registry_inspect,
+        )
+
+        reg_path = tmp_path / "my-reg"
+        _make_bundle_tree(reg_path, ["bundle-a"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "my-reg",
+                    "https://example.com/r.git",
+                    str(reg_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="my-reg")
+        code = run_registry_inspect(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "https://example.com/r.git" in out
+
+    def test_inspect_output_shows_local_when_no_url(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Inspect output shows '(local)' when URL is None (Req 14.1)."""
+        from ksm.commands.registry_inspect import (
+            run_registry_inspect,
+        )
+
+        reg_path = tmp_path / "local-reg"
+        _make_bundle_tree(reg_path, ["bundle-a"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "local-reg",
+                    None,
+                    str(reg_path),
+                    is_default=True,
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="local-reg")
+        code = run_registry_inspect(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "(local)" in out
+
+    def test_inspect_output_contains_default_status(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Inspect output shows default status (Req 14.1)."""
+        from ksm.commands.registry_inspect import (
+            run_registry_inspect,
+        )
+
+        reg_path = tmp_path / "def-reg"
+        _make_bundle_tree(reg_path, ["bundle-a"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "def-reg",
+                    None,
+                    str(reg_path),
+                    is_default=True,
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="def-reg")
+        code = run_registry_inspect(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "yes" in out.lower()
+
+    def test_inspect_output_default_no(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Non-default registry shows 'no' for default status."""
+        from ksm.commands.registry_inspect import (
+            run_registry_inspect,
+        )
+
+        reg_path = tmp_path / "non-def"
+        _make_bundle_tree(reg_path, ["bundle-a"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "non-def",
+                    "https://example.com/r.git",
+                    str(reg_path),
+                    is_default=False,
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="non-def")
+        code = run_registry_inspect(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        # Should contain "Default: no" or similar
+        assert "no" in out.lower()
+
+    def test_inspect_output_contains_path(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Inspect output shows local cache path (Req 14.1)."""
+        from ksm.commands.registry_inspect import (
+            run_registry_inspect,
+        )
+
+        reg_path = tmp_path / "path-reg"
+        _make_bundle_tree(reg_path, ["bundle-a"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "path-reg",
+                    "https://example.com/r.git",
+                    str(reg_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="path-reg")
+        code = run_registry_inspect(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert str(reg_path) in out
+
+    def test_inspect_output_lists_bundles_with_subdirs(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Inspect lists bundle names with subdirectory types (Req 14.2)."""
+        from ksm.commands.registry_inspect import (
+            run_registry_inspect,
+        )
+
+        reg_path = tmp_path / "multi-reg"
+        _make_bundle_tree(reg_path, ["bundle-a", "bundle-b"])
+        # Add hooks to bundle-b
+        hooks_dir = reg_path / "bundle-b" / "hooks"
+        hooks_dir.mkdir()
+        (hooks_dir / "h.json").write_bytes(b"{}")
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "multi-reg",
+                    "https://example.com/r.git",
+                    str(reg_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="multi-reg")
+        code = run_registry_inspect(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "bundle-a" in out
+        assert "bundle-b" in out
+        assert "skills/" in out
+        assert "hooks/" in out
+
+    def test_inspect_not_found_lists_available_registries(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Not-found error lists available registries (Req 14.4)."""
+        from ksm.commands.registry_inspect import (
+            run_registry_inspect,
+        )
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry("alpha", None, str(tmp_path), True),
+                _make_registry_entry(
+                    "beta",
+                    "https://example.com/b.git",
+                    str(tmp_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="nope")
+        code = run_registry_inspect(args, registry_index=idx)
+
+        assert code == 1
+        captured = capsys.readouterr()
+        assert "alpha" in captured.err
+        assert "beta" in captured.err
+
+    # Feature: ksm-enhancements, Property 15:
+    # Registry inspect output contains all required fields and bundles
+    @given(
+        reg_name=st.from_regex(r"[a-z]{3,8}", fullmatch=True),
+        url=st.one_of(
+            st.none(),
+            st.from_regex(
+                r"https://[a-z]{3,8}\.com/[a-z]{3,8}\.git",
+                fullmatch=True,
+            ),
+        ),
+        is_default=st.booleans(),
+        bundle_names=st.lists(
+            st.from_regex(r"[a-z]{3,8}", fullmatch=True),
+            min_size=1,
+            max_size=3,
+            unique=True,
+        ),
+    )
+    def test_property_inspect_output_completeness(
+        self,
+        reg_name: str,
+        url: str | None,
+        is_default: bool,
+        bundle_names: list[str],
+    ) -> None:
+        """Property 15: Inspect output contains all required
+        fields and bundles."""
+        import tempfile
+
+        from ksm.commands.registry_inspect import (
+            run_registry_inspect,
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            reg_path = Path(td) / reg_name
+            _make_bundle_tree(reg_path, bundle_names)
+
+            idx = RegistryIndex(
+                registries=[
+                    _make_registry_entry(
+                        reg_name,
+                        url,
+                        str(reg_path),
+                        is_default,
+                    ),
+                ]
+            )
+            args = argparse.Namespace(registry_name=reg_name)
+
+            import io
+            from contextlib import redirect_stdout
+
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = run_registry_inspect(args, registry_index=idx)
+
+            assert code == 0
+            out = buf.getvalue()
+
+            # Must contain registry name
+            assert reg_name in out
+            # Must contain URL or "(local)"
+            if url is not None:
+                assert url in out
+            else:
+                assert "(local)" in out
+            # Must contain path
+            assert str(reg_path) in out
+            # Must contain default status
+            if is_default:
+                assert "yes" in out.lower()
+            else:
+                assert "no" in out.lower()
+            # Must contain all bundle names
+            for bname in bundle_names:
+                assert bname in out
+
 
 # ── registry add — cache conflict handling ───────────────────
 

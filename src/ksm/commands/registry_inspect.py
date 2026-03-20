@@ -51,8 +51,10 @@ def run_registry_inspect(
 
     lines: list[str] = []
     lines.append(bold(f"Registry: {name}"))
-    lines.append(dim(f"  Path: {match.local_path}"))
-    lines.append(f"  {len(bundles)} bundle" f"{'s' if len(bundles) != 1 else ''}:")
+    lines.append(f"  URL:     {match.url or '(local)'}")
+    lines.append(dim(f"  Path:    {match.local_path}"))
+    lines.append(f"  Default: {'yes' if match.is_default else 'no'}")
+    lines.append(f"  Bundles: {len(bundles)}")
     lines.append("")
 
     for bundle in bundles:

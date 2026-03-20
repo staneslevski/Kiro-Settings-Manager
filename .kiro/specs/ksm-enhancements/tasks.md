@@ -291,7 +291,7 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
     - [x] 5.5 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
-- [-] 6. --only consolidation and deprecation wiring
+- [x] 6. --only consolidation and deprecation wiring
 
     - [x] 6.1 --only flag parsing and validation
 
@@ -325,63 +325,63 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
         - [x] 6.1.6 Run tests and verify all pass
             → Agent: kiro
 
-    - [-] 6.2 Checkpoint — Run full test suite, verify all tests pass
+    - [x] 6.2 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
-- [ ] 7. Legacy wrapper, rm -i handling, and inspect output
+- [x] 7. Legacy wrapper, rm -i handling, and inspect output
 
-    - [ ] 7.1 Legacy add-registry deprecation wrapper
+    - [x] 7.1 Legacy add-registry deprecation wrapper
 
-        - [ ] 7.1.1 Write tests for legacy `add-registry` deprecation in `tests/test_add_registry.py`
+        - [x] 7.1.1 Write tests for legacy `add-registry` deprecation in `tests/test_add_registry.py`
             - Prints deprecation warning with version numbers, delegates to `run_registry_add`, retains backward compatibility
             → Agent: general-task-execution
             _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-        - [ ] 7.1.2 Refactor `run_add_registry()` in `src/ksm/commands/add_registry.py` to be a thin wrapper
+        - [x] 7.1.2 Refactor `run_add_registry()` in `src/ksm/commands/add_registry.py` to be a thin wrapper
             - Print `format_deprecation` then delegate to `registry_add.run_registry_add`
             → Agent: general-task-execution
             _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-        - [ ] 7.1.3 Run tests and verify all pass
+        - [x] 7.1.3 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 7.2 Remove command -i handling
+    - [x] 7.2 Remove command -i handling
 
-        - [ ] 7.2.1 Write tests for rm `-i`/`--display` deprecation in `tests/test_rm.py`
+        - [x] 7.2.1 Write tests for rm `-i`/`--display` deprecation in `tests/test_rm.py`
             - `--display` prints deprecation, `-i` launches selector, `-i` ignored when bundle_name provided (with stderr message)
             → Agent: general-task-execution
             _Requirements: 5.2, 5.6, 5.8, 5.10_
 
-        - [ ] 7.2.2 Refactor `run_rm()` in `src/ksm/commands/rm.py` to handle `-i`/`--display` deprecation
+        - [x] 7.2.2 Refactor `run_rm()` in `src/ksm/commands/rm.py` to handle `-i`/`--display` deprecation
             - Same pattern as add.py: check --display → deprecation warning, -i ignored when bundle_name provided
             → Agent: general-task-execution
             _Requirements: 5.2, 5.6, 5.8, 5.10_
 
-        - [ ] 7.2.3 Run tests and verify all pass
+        - [x] 7.2.3 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 7.3 Registry inspect enhanced output
+    - [x] 7.3 Registry inspect enhanced output
 
-        - [ ] 7.3.1 Write tests for inspect output fields in `tests/test_registry_commands.py`
+        - [x] 7.3.1 Write tests for inspect output fields in `tests/test_registry_commands.py`
             - Output contains name, URL (or "(local)"), path, default status, bundle names with subdirectory types
             - Not-found error lists available registries
             → Agent: general-task-execution
             _Requirements: 14.1, 14.2, 14.3, 14.4_
 
-        - [ ] 7.3.2 Write property test for inspect output completeness
+        - [x] 7.3.2 Write property test for inspect output completeness
             → Agent: hypothesis-test-writer
             **Property 15: Registry inspect output contains all required fields and bundles**
             _Requirements: 14.1, 14.2, 14.4_
 
-        - [ ] 7.3.3 Refactor `run_registry_inspect()` in `src/ksm/commands/registry_inspect.py`
+        - [x] 7.3.3 Refactor `run_registry_inspect()` in `src/ksm/commands/registry_inspect.py`
             - Add URL, default status fields per design section 9
             → Agent: general-task-execution
             _Requirements: 14.1, 14.2, 14.3, 14.4_
 
-        - [ ] 7.3.4 Run tests and verify all pass
+        - [x] 7.3.4 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 7.4 Checkpoint — Run full test suite, verify all tests pass
+    - [x] 7.4 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
 - [ ] 8. Final integration and cleanup
