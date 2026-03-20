@@ -255,4 +255,4 @@ source .venv/bin/activate && HYPOTHESIS_PROFILE=ci pytest
 
 ## License
 
-MIT
+Apache 2.0 — see [LICENSE](LICENSE) for details.

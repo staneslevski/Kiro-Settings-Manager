@@ -37,6 +37,8 @@ def scan_registry(registry_path: Path) -> list[BundleInfo]:
     for entry in sorted(registry_path.iterdir()):
         if not entry.is_dir():
             continue
+        if entry.name.startswith("."):
+            continue
 
         recognised = [
             sd.name
