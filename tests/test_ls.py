@@ -54,7 +54,7 @@ def test_ls_output_contains_required_fields(
 def test_ls_empty_manifest_prints_message(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """ls with empty manifest prints 'no bundles installed'."""
+    """ls with empty manifest prints 'no bundles installed' to stderr."""
     from ksm.commands.ls import run_ls
 
     manifest = Manifest(entries=[])
@@ -63,7 +63,8 @@ def test_ls_empty_manifest_prints_message(
 
     assert code == 0
     captured = capsys.readouterr()
-    assert "no bundles" in captured.out.lower()
+    assert "no bundles" in captured.err.lower()
+    assert captured.out == ""
 
 
 # --- Property-based tests ---
@@ -105,3 +106,34 @@ def test_property_ls_displays_all_entries(
         assert entry.bundle_name in output
         assert entry.scope in output
         assert entry.source_registry in output
+
+
+# Feature: ux-review-fixes, Property 37: Informational messages go to
+# stderr not stdout
+@given(
+    entries=st.lists(_entry_strategy, min_size=0, max_size=0),
+)
+def test_property_ls_empty_message_goes_to_stderr(
+    entries: list[ManifestEntry],
+) -> None:
+    """Feature: ux-review-fixes, Property 37: ls empty-list message
+    goes to stderr, not stdout."""
+    from io import StringIO
+    from unittest.mock import patch
+
+    from ksm.commands.ls import run_ls
+
+    manifest = Manifest(entries=entries)
+    args = argparse.Namespace()
+
+    stdout = StringIO()
+    stderr = StringIO()
+
+    with patch("sys.stdout", stdout), patch("sys.stderr", stderr):
+        code = run_ls(args, manifest=manifest)
+
+    assert code == 0
+    # stdout must be empty — no data output
+    assert stdout.getvalue() == ""
+    # stderr must contain the informational message
+    assert "no bundles" in stderr.getvalue().lower()

@@ -30,9 +30,11 @@ def _make_entry(
 def _make_args(**kwargs: object) -> argparse.Namespace:
     defaults = {
         "bundle_name": "aws",
-        "display": False,
+        "interactive": False,
         "local": False,
         "global_": False,
+        "yes": True,
+        "dry_run": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -139,11 +141,11 @@ def test_run_rm_display_launches_removal_selector(
     entry = _make_entry("aws", files=["skills/f.md"])
     manifest = Manifest(entries=[entry])
 
-    args = _make_args(bundle_name=None, display=True)
+    args = _make_args(bundle_name=None, interactive=True)
 
     with patch(
         "ksm.commands.rm.interactive_removal_select",
-        return_value=entry,
+        return_value=[entry],
     ) as mock_sel:
         code = run_rm(
             args,
@@ -196,7 +198,7 @@ def test_run_rm_display_no_bundles_prints_message(
 
     manifest = Manifest(entries=[])
 
-    args = _make_args(bundle_name=None, display=True)
+    args = _make_args(bundle_name=None, interactive=True)
     code = run_rm(
         args,
         manifest=manifest,
@@ -217,7 +219,7 @@ def test_run_rm_display_quit_exits_zero(
     from ksm.commands.rm import run_rm
 
     manifest = Manifest(entries=[_make_entry("aws", "local", "default")])
-    args = _make_args(display=True)
+    args = _make_args(interactive=True)
 
     with patch(
         "ksm.commands.rm.interactive_removal_select",
@@ -339,3 +341,441 @@ def test_property_rm_scope_flag_determines_target(
         assert code == 0
         assert not (target / "skills" / "f.md").exists()
         assert len(manifest.entries) == 0
+
+
+# Feature: ux-review-fixes, Property 1: Confirmation prompt contains all required
+# information (bundle name, scope, file count, all file paths)
+@given(
+    bundle_name=st.from_regex(r"[a-z]{3,10}", fullmatch=True),
+    scope=st.sampled_from(["local", "global"]),
+    files=st.lists(
+        st.from_regex(r"[a-z]+/[a-z]+\.md", fullmatch=True),
+        min_size=1,
+        max_size=5,
+        unique=True,
+    ),
+)
+def test_property_confirmation_prompt_contains_required_info(
+    bundle_name: str,
+    scope: str,
+    files: list[str],
+) -> None:
+    """Property 1: Confirmation prompt contains bundle name, scope, file count,
+    and all file paths."""
+    from ksm.commands.rm import _format_confirmation
+
+    entry = ManifestEntry(
+        bundle_name=bundle_name,
+        source_registry="default",
+        scope=scope,
+        installed_files=files,
+        installed_at="2025-01-01T00:00:00Z",
+        updated_at="2025-01-01T00:00:00Z",
+    )
+
+    prompt = _format_confirmation(entry)
+
+    # Must contain bundle name
+    assert bundle_name in prompt
+    # Must contain scope
+    assert scope in prompt
+    # Must contain file count
+    assert str(len(files)) in prompt
+    # Must contain all file paths
+    for f in files:
+        assert f in prompt
+
+
+# Feature: ux-review-fixes, Property 2: Non-"y" input aborts removal
+# (manifest unchanged)
+@given(
+    response=st.text(min_size=0, max_size=10).filter(lambda s: s.strip() != "y"),
+)
+def test_property_non_y_input_aborts_removal(
+    response: str,
+) -> None:
+    """Property 2: Non-"y" input aborts removal, manifest unchanged."""
+    import tempfile
+
+    from ksm.commands.rm import run_rm
+
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td)
+        target = base / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = base / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        entry = _make_entry("bundle", scope="local", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+        original_count = len(manifest.entries)
+
+        args = _make_args(bundle_name="bundle", yes=False)
+
+        with (
+            patch("sys.stdin.isatty", return_value=True),
+            patch("builtins.input", return_value=response),
+        ):
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target,
+                target_global=base / "home" / ".kiro",
+            )
+
+        assert code == 0
+        assert len(manifest.entries) == original_count
+        assert (target / "skills" / "f.md").exists()
+
+
+# Feature: ux-review-fixes, Property 3: Removal result formatting
+# (correct counts in output)
+@given(
+    bundle_name=st.from_regex(r"[a-z]{3,10}", fullmatch=True),
+    scope=st.sampled_from(["local", "global"]),
+    removed=st.lists(
+        st.from_regex(r"[a-z]+/[a-z]+\.md", fullmatch=True),
+        min_size=0,
+        max_size=5,
+        unique=True,
+    ),
+    skipped=st.lists(
+        st.from_regex(r"[a-z]+/[a-z]+\.md", fullmatch=True),
+        min_size=0,
+        max_size=5,
+        unique=True,
+    ),
+)
+def test_property_removal_result_formatting(
+    bundle_name: str,
+    scope: str,
+    removed: list[str],
+    skipped: list[str],
+) -> None:
+    """Property 3: Removal result formatting shows correct counts."""
+    from ksm.commands.rm import _format_result
+    from ksm.remover import RemovalResult
+
+    result = RemovalResult(removed_files=removed, skipped_files=skipped)
+    output = _format_result(bundle_name, scope, result)
+
+    # Must contain bundle name and scope
+    assert bundle_name in output
+    assert scope in output
+
+    # Must contain correct counts
+    if len(removed) > 0:
+        assert str(len(removed)) in output
+    if len(skipped) > 0:
+        assert str(len(skipped)) in output or "missing" in output.lower()
+
+
+# Feature: ux-review-fixes, Property 36: TTY check blocks prompt when stdin
+# is not TTY (rm path)
+@given(
+    bundle_name=st.from_regex(r"[a-z]{3,10}", fullmatch=True),
+)
+@h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_property_tty_check_blocks_prompt_rm(
+    bundle_name: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Property 36: TTY check blocks prompt when stdin is not TTY (rm path)."""
+    import tempfile
+
+    from ksm.commands.rm import run_rm
+
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td)
+        target = base / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = base / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        entry = _make_entry(bundle_name, scope="local", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+        original_count = len(manifest.entries)
+
+        args = _make_args(bundle_name=bundle_name, yes=False)
+
+        with patch("sys.stdin.isatty", return_value=False):
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target,
+                target_global=base / "home" / ".kiro",
+            )
+
+        assert code == 1
+        assert len(manifest.entries) == original_count
+        assert (target / "skills" / "f.md").exists()
+        captured = capsys.readouterr()
+        assert "terminal" in captured.err.lower()
+        assert "--yes" in captured.err
+
+
+# Feature: ux-review-fixes, Property 15: Dry-run does not modify state (rm path)
+@given(
+    bundle_name=st.from_regex(r"[a-z]{3,10}", fullmatch=True),
+    scope=st.sampled_from(["local", "global"]),
+)
+@h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_property_dry_run_rm_does_not_modify_state(
+    bundle_name: str,
+    scope: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Feature: ux-review-fixes, Property 15: Dry-run does not modify
+    state (rm path)."""
+    import tempfile
+
+    from ksm.commands.rm import run_rm
+
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td)
+        target_local = base / "workspace" / ".kiro"
+        target_global = base / "home" / ".kiro"
+        target = target_global if scope == "global" else target_local
+
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = base / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        entry = _make_entry(bundle_name, scope=scope, files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+        original_count = len(manifest.entries)
+
+        args = _make_args(
+            bundle_name=bundle_name,
+            global_=(scope == "global"),
+            local=(scope == "local"),
+            yes=True,
+            dry_run=True,
+        )
+
+        code = run_rm(
+            args,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=target_global,
+        )
+
+        assert code == 0
+        # File must still exist
+        assert (target / "skills" / "f.md").exists()
+        # Manifest must be unchanged
+        assert len(manifest.entries) == original_count
+        # Preview printed to stderr
+        captured = capsys.readouterr()
+        assert "would remove" in captured.err.lower()
+        assert bundle_name in captured.err
+
+
+def test_run_rm_interactive_confirmation_y(
+    tmp_path: Path,
+) -> None:
+    """run_rm --interactive without --yes prompts and accepts y."""
+    from ksm.commands.rm import run_rm
+
+    target = tmp_path / "workspace" / ".kiro"
+    (target / "skills").mkdir(parents=True)
+    (target / "skills" / "f.md").write_bytes(b"data")
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    entry = _make_entry("aws", files=["skills/f.md"])
+    manifest = Manifest(entries=[entry])
+
+    args = _make_args(bundle_name=None, interactive=True, yes=False)
+
+    with (
+        patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ),
+        patch("sys.stdin.isatty", return_value=True),
+        patch("builtins.input", return_value="y"),
+    ):
+        code = run_rm(
+            args,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target,
+            target_global=tmp_path / "home" / ".kiro",
+        )
+
+    assert code == 0
+    assert not (target / "skills" / "f.md").exists()
+
+
+def test_run_rm_interactive_confirmation_n(
+    tmp_path: Path,
+) -> None:
+    """run_rm --interactive without --yes aborts on n."""
+    from ksm.commands.rm import run_rm
+
+    target = tmp_path / "workspace" / ".kiro"
+    (target / "skills").mkdir(parents=True)
+    (target / "skills" / "f.md").write_bytes(b"data")
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    entry = _make_entry("aws", files=["skills/f.md"])
+    manifest = Manifest(entries=[entry])
+
+    args = _make_args(bundle_name=None, interactive=True, yes=False)
+
+    with (
+        patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ),
+        patch("sys.stdin.isatty", return_value=True),
+        patch("builtins.input", return_value="n"),
+    ):
+        code = run_rm(
+            args,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target,
+            target_global=tmp_path / "home" / ".kiro",
+        )
+
+    assert code == 0
+    assert (target / "skills" / "f.md").exists()
+
+
+def test_run_rm_interactive_confirmation_eof(
+    tmp_path: Path,
+) -> None:
+    """run_rm --interactive without --yes handles EOFError."""
+    from ksm.commands.rm import run_rm
+
+    entry = _make_entry("aws", files=["skills/f.md"])
+    manifest = Manifest(entries=[entry])
+
+    args = _make_args(bundle_name=None, interactive=True, yes=False)
+
+    with (
+        patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ),
+        patch("sys.stdin.isatty", return_value=True),
+        patch("builtins.input", side_effect=EOFError),
+    ):
+        code = run_rm(
+            args,
+            manifest=manifest,
+            manifest_path=tmp_path / "manifest.json",
+            target_local=tmp_path / "local",
+            target_global=tmp_path / "global",
+        )
+
+    assert code == 0
+
+
+def test_run_rm_interactive_tty_check_blocks(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """run_rm --interactive blocks when stdin is not TTY."""
+    from ksm.commands.rm import run_rm
+
+    entry = _make_entry("aws", files=["skills/f.md"])
+    manifest = Manifest(entries=[entry])
+
+    args = _make_args(bundle_name=None, interactive=True, yes=False)
+
+    with (
+        patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ),
+        patch("sys.stdin.isatty", return_value=False),
+    ):
+        code = run_rm(
+            args,
+            manifest=manifest,
+            manifest_path=tmp_path / "manifest.json",
+            target_local=tmp_path / "local",
+            target_global=tmp_path / "global",
+        )
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "--yes" in captured.err
+
+
+def test_run_rm_interactive_dry_run(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """run_rm --interactive --dry-run previews without modifying."""
+    from ksm.commands.rm import run_rm
+
+    target = tmp_path / "workspace" / ".kiro"
+    (target / "skills").mkdir(parents=True)
+    (target / "skills" / "f.md").write_bytes(b"data")
+
+    entry = _make_entry("aws", files=["skills/f.md"])
+    manifest = Manifest(entries=[entry])
+
+    args = _make_args(bundle_name=None, interactive=True, yes=True, dry_run=True)
+
+    with patch(
+        "ksm.commands.rm.interactive_removal_select",
+        return_value=[entry],
+    ):
+        code = run_rm(
+            args,
+            manifest=manifest,
+            manifest_path=tmp_path / "manifest.json",
+            target_local=target,
+            target_global=tmp_path / "home" / ".kiro",
+        )
+
+    assert code == 0
+    assert (target / "skills" / "f.md").exists()
+    captured = capsys.readouterr()
+    assert "would remove" in captured.err.lower()
+
+
+def test_run_rm_eof_aborts(tmp_path: Path) -> None:
+    """run_rm non-interactive path handles EOFError."""
+    from ksm.commands.rm import run_rm
+
+    target = tmp_path / "workspace" / ".kiro"
+    (target / "skills").mkdir(parents=True)
+    (target / "skills" / "f.md").write_bytes(b"data")
+
+    entry = _make_entry("aws", files=["skills/f.md"])
+    manifest = Manifest(entries=[entry])
+
+    args = _make_args(bundle_name="aws", yes=False)
+
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("builtins.input", side_effect=EOFError),
+    ):
+        code = run_rm(
+            args,
+            manifest=manifest,
+            manifest_path=tmp_path / "manifest.json",
+            target_local=target,
+            target_global=tmp_path / "home" / ".kiro",
+        )
+
+    assert code == 0
+    assert (target / "skills" / "f.md").exists()

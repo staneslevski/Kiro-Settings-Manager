@@ -1,7 +1,7 @@
 """Add command for ksm.
 
-Handles `ksm add <bundle_spec>` with flags -l, -g, --display,
---from, --skills-only, --agents-only, --steering-only, --hooks-only.
+Handles ``ksm add <bundle_spec>`` with flags ``-l``, ``-g``,
+``--interactive``/``-i``, ``--from``, ``--only <type>``.
 """
 
 import argparse
@@ -30,17 +30,26 @@ from ksm.selector import interactive_select
 def _build_subdirectory_filter(
     args: argparse.Namespace,
 ) -> set[str] | None:
-    """Build subdirectory filter set from CLI flags."""
-    filters: set[str] = set()
-    if getattr(args, "skills_only", False):
-        filters.add("skills")
-    if getattr(args, "agents_only", False):
-        filters.add("agents")
-    if getattr(args, "steering_only", False):
-        filters.add("steering")
-    if getattr(args, "hooks_only", False):
-        filters.add("hooks")
-    return filters if filters else None
+    """Build subdirectory filter set from --only flags (Req 5)."""
+    only: list[str] | None = getattr(args, "only", None)
+    if only:
+        return set(only)
+    return None
+
+
+def _format_dry_run_add(
+    bundle_name: str,
+    scope: str,
+    target_dir: Path,
+    subdirectory_filter: set[str] | None,
+) -> str:
+    """Build dry-run preview for add command (Req 12.1)."""
+    scope_desc = ".kiro/" if scope == "local" else "~/.kiro/"
+    lines = [f"Would install '{bundle_name}' to {scope_desc} ({scope} scope)"]
+    if subdirectory_filter:
+        lines.append(f"  Subdirectories: {', '.join(sorted(subdirectory_filter))}")
+    lines.append(f"  Target: {target_dir}")
+    return "\n".join(lines)
 
 
 def run_add(
@@ -59,8 +68,8 @@ def run_add(
     bundle_spec: str | None = getattr(args, "bundle_spec", None)
     dot_selection: DotSelection | None = None
 
-    # Handle --display mode
-    if getattr(args, "display", False):
+    # Handle --interactive mode (also triggered by --display alias)
+    if getattr(args, "interactive", False):
         bundle_name = _handle_display(registry_index, manifest)
         if bundle_name is None:
             return 0
@@ -92,6 +101,15 @@ def run_add(
     # Determine scope
     scope = "global" if getattr(args, "global_", False) else "local"
     target_dir = target_global if scope == "global" else target_local
+    dry_run: bool = getattr(args, "dry_run", False)
+
+    # Dry-run: preview without modifying (Req 12.1)
+    if dry_run:
+        print(
+            _format_dry_run_add(bundle_spec, scope, target_dir, subdirectory_filter),
+            file=sys.stderr,
+        )
+        return 0
 
     # Handle --from ephemeral registry
     from_url: str | None = getattr(args, "from_url", None)
@@ -166,7 +184,10 @@ def _handle_display(
         all_bundles.extend(bundles)
 
     installed_names = {e.bundle_name for e in manifest.entries}
-    return interactive_select(all_bundles, installed_names)
+    result = interactive_select(all_bundles, installed_names)
+    if result is None:
+        return None
+    return result[0] if result else None
 
 
 def _handle_ephemeral(
