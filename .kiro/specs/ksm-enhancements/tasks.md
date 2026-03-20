@@ -233,21 +233,21 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
         - [x] 5.1.5 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 5.2 Scanner registry_name population
+    - [x] 5.2 Scanner registry_name population
 
-        - [ ] 5.2.1 Write tests verifying `scan_registry` populates `registry_name` on each BundleInfo when called with a registry name parameter in `tests/test_scanner.py`
+        - [x] 5.2.1 Write tests verifying `scan_registry` populates `registry_name` on each BundleInfo when called with a registry name parameter in `tests/test_scanner.py`
             → Agent: general-task-execution
             _Requirements: 4.5_
 
-        - [ ] 5.2.2 Refactor `scan_registry()` in `src/ksm/scanner.py` to accept an optional `registry_name` parameter and populate it on each BundleInfo
+        - [x] 5.2.2 Refactor `scan_registry()` in `src/ksm/scanner.py` to accept an optional `registry_name` parameter and populate it on each BundleInfo
             → Agent: general-task-execution
             _Requirements: 4.5_
 
-        - [ ] 5.2.3 Update callers of `scan_registry()` to pass registry name where available (resolver.py, registry_inspect.py, registry_ls.py, add.py)
+        - [x] 5.2.3 Update callers of `scan_registry()` to pass registry name where available (resolver.py, registry_inspect.py, registry_ls.py, add.py)
             → Agent: general-task-execution
             _Requirements: 4.5_
 
-        - [ ] 5.2.4 Run tests and verify all pass
+        - [x] 5.2.4 Run tests and verify all pass
             → Agent: kiro
 
     - [ ] 5.3 Add command qualified name and ambiguity handling

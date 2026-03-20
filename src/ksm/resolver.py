@@ -43,7 +43,9 @@ def resolve_bundle(
     for entry in registry_index.registries:
         result.searched.append(entry.name)
         registry_path = Path(entry.local_path)
-        bundles = scan_registry(registry_path)
+        bundles = scan_registry(
+            registry_path, registry_name=entry.name
+        )
         for bundle in bundles:
             if bundle.name == bundle_name:
                 result.matches.append(
@@ -103,7 +105,9 @@ def resolve_qualified_bundle(
 
     # Scan the registry for the bundle
     registry_path = Path(entry.local_path)
-    bundles = scan_registry(registry_path)
+    bundles = scan_registry(
+        registry_path, registry_name=entry.name
+    )
     for bundle in bundles:
         if bundle.name == bundle_name:
             return ResolvedBundle(

@@ -153,7 +153,7 @@ def run_registry_add(
         return 1
 
     # 6. Scan for bundles
-    scan_registry(target)
+    scan_registry(target, registry_name=name)
 
     # 7. Register — remove old entry if --force re-add
     if force:

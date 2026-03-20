@@ -271,9 +271,9 @@ def _handle_display(
     all_bundles = []
     for entry in registry_index.registries:
         registry_path = Path(entry.local_path)
-        bundles = scan_registry(registry_path)
-        for bundle in bundles:
-            bundle.registry_name = entry.name
+        bundles = scan_registry(
+            registry_path, registry_name=entry.name
+        )
         all_bundles.extend(bundles)
 
     installed_names = {e.bundle_name for e in manifest.entries}

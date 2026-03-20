@@ -53,7 +53,7 @@ def run_add_registry(
         return 1
 
     # Validate the repo has at least one valid config bundle
-    bundles = scan_registry(target)
+    bundles = scan_registry(target, registry_name=name)
     if not bundles:
         print(
             f"Error: no valid config bundles found in {git_url}",
