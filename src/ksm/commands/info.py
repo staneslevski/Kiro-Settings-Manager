@@ -10,7 +10,6 @@ import argparse
 import sys
 
 from ksm.color import bold, dim
-from ksm.errors import BundleNotFoundError
 from ksm.manifest import Manifest
 from ksm.registry import RegistryIndex
 from ksm.resolver import resolve_bundle
@@ -25,11 +24,15 @@ def run_info(
     """Display bundle metadata. Returns exit code."""
     bundle_name: str = args.bundle_name
 
-    try:
-        resolved = resolve_bundle(bundle_name, registry_index)
-    except BundleNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
+    result = resolve_bundle(bundle_name, registry_index)
+    if not result.matches:
+        searched = ", ".join(result.searched) if result.searched else "none"
+        print(
+            f"Error: Bundle '{bundle_name}' not found.\n" f"  Searched: {searched}",
+            file=sys.stderr,
+        )
         return 1
+    resolved = result.matches[0]
 
     # Check installed status
     installed_scopes = [

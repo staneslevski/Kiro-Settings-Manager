@@ -16,9 +16,9 @@ from ksm.dot_notation import (
 )
 from ksm.copier import format_diff_summary
 from ksm.errors import (
-    BundleNotFoundError,
     GitError,
     InvalidSubdirectoryError,
+    format_error,
 )
 from ksm.git_ops import (
     checkout_version,
@@ -173,11 +173,31 @@ def run_add(
             )
 
         # Resolve bundle from registered registries
-        try:
-            resolved = resolve_bundle(bundle_spec, registry_index)
-        except BundleNotFoundError as e:
-            print(f"Error: {e}", file=sys.stderr)
+        result = resolve_bundle(bundle_spec, registry_index)
+        if not result.matches:
+            print(
+                format_error(
+                    f"Bundle '{bundle_spec}' not found.",
+                    f"Searched {len(result.searched)}"
+                    f" {'registry' if len(result.searched) == 1 else 'registries'}"
+                    f": {', '.join(result.searched)}",
+                    "Run `ksm registry list` to see" " available registries.",
+                ),
+                file=sys.stderr,
+            )
             return 1
+        if len(result.matches) > 1:
+            registries = [m.registry_name for m in result.matches]
+            print(
+                format_error(
+                    f"Bundle '{bundle_spec}' found in" " multiple registries.",
+                    f"Found in: {', '.join(registries)}",
+                    "Use qualified name:" f" ksm add <registry>/{bundle_spec}",
+                ),
+                file=sys.stderr,
+            )
+            return 1
+        resolved = result.matches[0]
 
         # Handle versioned install
         if version is not None:
@@ -291,11 +311,14 @@ def _handle_ephemeral(
             ]
         )
 
-        try:
-            resolved = resolve_bundle(bundle_name, temp_idx)
-        except BundleNotFoundError as e:
-            print(f"Error: {e}", file=sys.stderr)
+        result = resolve_bundle(bundle_name, temp_idx)
+        if not result.matches:
+            print(
+                f"Error: Bundle '{bundle_name}' not found" f" in {from_url}",
+                file=sys.stderr,
+            )
             return 1
+        resolved = result.matches[0]
 
         # Check dot notation item exists
         if dot_selection is not None:

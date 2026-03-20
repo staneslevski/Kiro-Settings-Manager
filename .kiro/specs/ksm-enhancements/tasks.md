@@ -204,9 +204,9 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
 
 - [-] 5. Bundle resolution and qualified names
 
-    - [ ] 5.1 Multi-match resolver and qualified name parsing
+    - [x] 5.1 Multi-match resolver and qualified name parsing
 
-        - [ ] 5.1.1 Write unit tests for `ResolvedBundleResult`, `resolve_bundle` multi-match, and `parse_qualified_name` in `tests/test_resolver.py`
+        - [x] 5.1.1 Write unit tests for `ResolvedBundleResult`, `resolve_bundle` multi-match, and `parse_qualified_name` in `tests/test_resolver.py`
             - Zero matches → empty result
             - Single match → one-element list
             - Multiple matches → all collected
@@ -216,21 +216,21 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
             → Agent: general-task-execution
             _Requirements: 4.6, 10.1, 10.2, 10.3, 10.4_
 
-        - [ ] 5.1.2 Write property test for qualified name round-trip
+        - [x] 5.1.2 Write property test for qualified name round-trip
             → Agent: hypothesis-test-writer
             **Property 8: Qualified name round-trip parsing**
             _Requirements: 10.2_
 
-        - [ ] 5.1.3 Write property test for ambiguous resolution error
+        - [x] 5.1.3 Write property test for ambiguous resolution error
             → Agent: hypothesis-test-writer
             **Property 7: Ambiguous bundle resolution error lists all registries and suggests qualified syntax**
             _Requirements: 4.3, 4.4, 4.6_
 
-        - [ ] 5.1.4 Refactor `src/ksm/resolver.py` to add `ResolvedBundleResult`, change `resolve_bundle` to return all matches, add `parse_qualified_name` and `resolve_qualified_bundle`
+        - [x] 5.1.4 Refactor `src/ksm/resolver.py` to add `ResolvedBundleResult`, change `resolve_bundle` to return all matches, add `parse_qualified_name` and `resolve_qualified_bundle`
             → Agent: general-task-execution
             _Requirements: 4.6, 10.1, 10.2, 10.3, 10.4_
 
-        - [ ] 5.1.5 Run tests and verify all pass
+        - [x] 5.1.5 Run tests and verify all pass
             → Agent: kiro
 
     - [ ] 5.2 Scanner registry_name population

@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 
 from ksm.copier import format_diff_summary
-from ksm.errors import BundleNotFoundError
 from ksm.git_ops import pull_repo
 from ksm.installer import install_bundle
 from ksm.manifest import Manifest, ManifestEntry, save_manifest
@@ -168,11 +167,16 @@ def _sync_entry(
     """Re-install a single bundle from its source registry."""
     target_dir = target_global if entry.scope == "global" else target_local
 
-    try:
-        resolved = resolve_bundle(entry.bundle_name, registry_index)
-    except BundleNotFoundError as e:
-        print(f"Warning: {e}", file=sys.stderr)
+    result = resolve_bundle(entry.bundle_name, registry_index)
+    if not result.matches:
+        searched = ", ".join(result.searched)
+        print(
+            f"Warning: Bundle '{entry.bundle_name}' not found"
+            f" in registries: {searched}",
+            file=sys.stderr,
+        )
         return
+    resolved = result.matches[0]
 
     try:
         results = install_bundle(
