@@ -10,6 +10,7 @@ Requirements: 4.1–4.4, 8.1–8.5, 17, 18, 19, 20, 21
 
 import argparse
 import sys
+import textwrap
 from pathlib import Path
 
 from ksm import __version__
@@ -29,20 +30,20 @@ def _add_list_args(parser: argparse.ArgumentParser) -> None:
         "-v",
         "--verbose",
         action="store_true",
-        help="Show installed files",
+        help="Show installed file paths under each bundle",
     )
     parser.add_argument(
         "--scope",
         choices=["local", "global"],
         default=None,
-        help="Filter by scope",
+        help="Show only bundles in this scope (local or global)",
     )
     parser.add_argument(
         "--format",
         dest="output_format",
         choices=["text", "json"],
         default="text",
-        help="Output format",
+        help="Output format: text (default, grouped by scope) or json",
     )
 
 
@@ -161,7 +162,34 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # --- list (primary) with ls as hidden alias ---
-    list_p = sub.add_parser("list", help="List installed bundles (ls)")
+    _list_desc = (
+        "Show all bundles currently tracked in the manifest.\n"
+        "\n"
+        "Reads ~/.kiro/ksm/manifest.json and prints every installed\n"
+        "bundle grouped by scope (local first, then global). Each\n"
+        "entry shows the bundle name, source registry, and a\n"
+        "relative timestamp of the last install or sync.\n"
+        "\n"
+        "With --verbose, the individual files that belong to each\n"
+        "bundle are listed underneath it. Use --scope to restrict\n"
+        "output to a single scope, and --format json to get\n"
+        "machine-readable output suitable for piping to jq."
+    )
+    _list_epilog = textwrap.dedent("""\
+        examples:
+          ksm list                  List all installed bundles
+          ksm list -v               Include installed file paths
+          ksm list --scope local    Show only workspace-level bundles
+          ksm list --scope global   Show only user-level bundles
+          ksm list --format json    Output as JSON (pipe to jq)
+    """)
+    list_p = sub.add_parser(
+        "list",
+        help="List installed bundles (ls)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=_list_desc,
+        epilog=_list_epilog,
+    )
     _add_list_args(list_p)
 
     ls_p = sub.add_parser("ls", help=argparse.SUPPRESS)
