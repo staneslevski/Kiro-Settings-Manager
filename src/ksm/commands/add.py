@@ -18,6 +18,7 @@ from ksm.copier import format_diff_summary
 from ksm.errors import (
     GitError,
     InvalidSubdirectoryError,
+    format_deprecation,
     format_error,
 )
 from ksm.git_ops import (
@@ -28,7 +29,11 @@ from ksm.git_ops import (
 from ksm.installer import install_bundle
 from ksm.manifest import Manifest, save_manifest
 from ksm.registry import RegistryEntry, RegistryIndex
-from ksm.resolver import resolve_bundle
+from ksm.resolver import (
+    parse_qualified_name,
+    resolve_bundle,
+    resolve_qualified_bundle,
+)
 from ksm.scanner import scan_registry
 from ksm.selector import interactive_select
 from ksm.signal_handler import unregister_temp_dir
@@ -97,9 +102,30 @@ def run_add(
     bundle_spec: str | None = getattr(args, "bundle_spec", None)
     dot_selection: DotSelection | None = None
 
-    # Handle --interactive mode (also triggered by --display alias)
-    display = getattr(args, "display", False) or getattr(args, "interactive", False)
+    # Handle --display deprecation (Req 5.7)
+    display = getattr(args, "display", False)
+    interactive = getattr(args, "interactive", False)
     if display:
+        print(
+            format_deprecation(
+                "--display",
+                "-i/--interactive",
+                "v0.2.0",
+                "v1.0.0",
+            ),
+            file=sys.stderr,
+        )
+        interactive = True
+
+    # If bundle_spec provided AND -i, ignore -i (Req 5.9)
+    if bundle_spec and interactive:
+        print(
+            "Warning: -i ignored because a bundle" " was specified.",
+            file=sys.stderr,
+        )
+        interactive = False
+
+    if interactive:
         bundle_name = _handle_display(registry_index, manifest)
         if bundle_name is None:
             return 0
@@ -172,32 +198,53 @@ def run_add(
                 manifest_path=manifest_path,
             )
 
-        # Resolve bundle from registered registries
-        result = resolve_bundle(bundle_spec, registry_index)
-        if not result.matches:
-            print(
-                format_error(
-                    f"Bundle '{bundle_spec}' not found.",
-                    f"Searched {len(result.searched)}"
-                    f" {'registry' if len(result.searched) == 1 else 'registries'}"
-                    f": {', '.join(result.searched)}",
-                    "Run `ksm registry list` to see" " available registries.",
-                ),
-                file=sys.stderr,
-            )
-            return 1
-        if len(result.matches) > 1:
-            registries = [m.registry_name for m in result.matches]
-            print(
-                format_error(
-                    f"Bundle '{bundle_spec}' found in" " multiple registries.",
-                    f"Found in: {', '.join(registries)}",
-                    "Use qualified name:" f" ksm add <registry>/{bundle_spec}",
-                ),
-                file=sys.stderr,
-            )
-            return 1
-        resolved = result.matches[0]
+        # Parse qualified name (Req 10)
+        reg_name, bare_name = parse_qualified_name(bundle_spec)
+
+        if reg_name is not None:
+            # Qualified: resolve from specific registry
+            from ksm.errors import BundleNotFoundError
+
+            try:
+                resolved = resolve_qualified_bundle(bundle_spec, registry_index)
+            except BundleNotFoundError as exc:
+                print(
+                    format_error(
+                        str(exc),
+                        "Check the registry and bundle" " names.",
+                        "Run `ksm registry list` to see" " available registries.",
+                    ),
+                    file=sys.stderr,
+                )
+                return 1
+        else:
+            # Unqualified: resolve across all registries
+            result = resolve_bundle(bare_name, registry_index)
+            if not result.matches:
+                print(
+                    format_error(
+                        f"Bundle '{bare_name}' not found.",
+                        f"Searched {len(result.searched)}"
+                        " "
+                        f"{'registry' if len(result.searched) == 1 else 'registries'}"
+                        f": {', '.join(result.searched)}",
+                        "Run `ksm registry list` to see" " available registries.",
+                    ),
+                    file=sys.stderr,
+                )
+                return 1
+            if len(result.matches) > 1:
+                registries = [m.registry_name for m in result.matches]
+                print(
+                    format_error(
+                        f"Bundle '{bare_name}' found in" " multiple registries.",
+                        "Found in:" f" {', '.join(registries)}",
+                        "Use qualified name:" " ksm add" f" <registry>/{bare_name}",
+                    ),
+                    file=sys.stderr,
+                )
+                return 1
+            resolved = result.matches[0]
 
         # Handle versioned install
         if version is not None:
@@ -271,9 +318,7 @@ def _handle_display(
     all_bundles = []
     for entry in registry_index.registries:
         registry_path = Path(entry.local_path)
-        bundles = scan_registry(
-            registry_path, registry_name=entry.name
-        )
+        bundles = scan_registry(registry_path, registry_name=entry.name)
         all_bundles.extend(bundles)
 
     installed_names = {e.bundle_name for e in manifest.entries}

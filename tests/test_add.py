@@ -1385,3 +1385,209 @@ def test_run_add_versioned_install_error_no_available(
     captured = capsys.readouterr()
     assert "v999" in captured.err
     assert "no versions available" in captured.err.lower()
+
+
+# --- 5.3 Qualified name and ambiguity tests ---
+
+
+def test_run_add_qualified_name_resolves(
+    tmp_path: Path,
+) -> None:
+    """run_add with registry/bundle syntax resolves correctly."""
+    from ksm.commands.add import run_add
+
+    reg1 = tmp_path / "reg1"
+    (reg1 / "aws" / "skills").mkdir(parents=True)
+    (reg1 / "aws" / "skills" / "S.md").write_bytes(b"s1")
+
+    reg2 = tmp_path / "reg2"
+    (reg2 / "aws" / "steering").mkdir(parents=True)
+    (reg2 / "aws" / "steering" / "T.md").write_bytes(b"s2")
+
+    target_local = tmp_path / "workspace" / ".kiro"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="first",
+                url=None,
+                local_path=str(reg1),
+                is_default=True,
+            ),
+            RegistryEntry(
+                name="second",
+                url=None,
+                local_path=str(reg2),
+                is_default=False,
+            ),
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec="first/aws")
+    code = run_add(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    # Should install from first registry (skills)
+    assert (target_local / "skills" / "S.md").exists()
+    # Should NOT install from second registry (steering)
+    assert not (target_local / "steering").exists()
+
+
+def test_run_add_ambiguous_unqualified_name_error(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """run_add with ambiguous unqualified name prints error."""
+    from ksm.commands.add import run_add
+
+    reg1 = tmp_path / "reg1"
+    (reg1 / "aws" / "skills").mkdir(parents=True)
+    (reg1 / "aws" / "skills" / "S.md").write_bytes(b"s1")
+
+    reg2 = tmp_path / "reg2"
+    (reg2 / "aws" / "steering").mkdir(parents=True)
+    (reg2 / "aws" / "steering" / "T.md").write_bytes(b"s2")
+
+    target_local = tmp_path / "workspace" / ".kiro"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="first",
+                url=None,
+                local_path=str(reg1),
+                is_default=True,
+            ),
+            RegistryEntry(
+                name="second",
+                url=None,
+                local_path=str(reg2),
+                is_default=False,
+            ),
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec="aws")
+    code = run_add(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "multiple registries" in captured.err.lower()
+    assert "first" in captured.err
+    assert "second" in captured.err
+    assert "<registry>/aws" in captured.err
+
+
+def test_run_add_interactive_ignored_when_bundle_spec(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """-i is ignored when bundle_spec is provided."""
+    from ksm.commands.add import run_add
+
+    reg = _setup_registry(
+        tmp_path,
+        {"aws": {"skills": {"S.md": b"s"}}},
+    )
+    target_local = tmp_path / "workspace" / ".kiro"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec="aws", interactive=True)
+    code = run_add(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    assert "-i ignored" in captured.err.lower() or (
+        "-i" in captured.err and "ignored" in captured.err.lower()
+    )
+    # Bundle should still be installed
+    assert (target_local / "skills" / "S.md").exists()
+
+
+def test_run_add_display_prints_deprecation(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--display prints deprecation warning and behaves as -i."""
+    from ksm.commands.add import run_add
+
+    reg = _setup_registry(
+        tmp_path,
+        {"aws": {"skills": {"S.md": b"s"}}},
+    )
+    target_local = tmp_path / "workspace" / ".kiro"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec=None, display=True)
+
+    with patch(
+        "ksm.commands.add.interactive_select",
+        return_value=["aws"],
+    ):
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=tmp_path / "global" / ".kiro",
+        )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    assert "deprecated" in captured.err.lower()
+    assert "--display" in captured.err
+    assert (target_local / "skills" / "S.md").exists()

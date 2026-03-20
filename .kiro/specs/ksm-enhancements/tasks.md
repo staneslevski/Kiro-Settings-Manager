@@ -250,9 +250,9 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
         - [x] 5.2.4 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 5.3 Add command qualified name and ambiguity handling
+    - [x] 5.3 Add command qualified name and ambiguity handling
 
-        - [ ] 5.3.1 Write tests for qualified name install and ambiguity error in `tests/test_add.py`
+        - [x] 5.3.1 Write tests for qualified name install and ambiguity error in `tests/test_add.py`
             - `registry/bundle` syntax resolves correctly
             - Ambiguous unqualified name → error listing registries with suggestion
             - `-i` ignored when bundle_spec provided (with stderr message)
@@ -260,12 +260,12 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
             → Agent: general-task-execution
             _Requirements: 4.3, 4.4, 5.5, 5.7, 5.9, 10.1, 10.3, 10.4_
 
-        - [ ] 5.3.2 Refactor `run_add()` in `src/ksm/commands/add.py`
+        - [x] 5.3.2 Refactor `run_add()` in `src/ksm/commands/add.py`
             - Use `parse_qualified_name`, handle multi-match with `format_error`, add `-i`/`--display` deprecation logic
             → Agent: general-task-execution
             _Requirements: 4.3, 4.4, 5.5, 5.7, 5.9, 10.1, 10.3, 10.4_
 
-        - [ ] 5.3.3 Run tests and verify all pass
+        - [x] 5.3.3 Run tests and verify all pass
             → Agent: kiro
 
     - [ ] 5.4 Selector qualified name display
