@@ -104,11 +104,11 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
     - [x] 2.5 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
-- [ ] 3. Registry add improvements
+- [-] 3. Registry add improvements
 
-    - [ ] 3.1 Cache conflict handling, --force, and --name
+    - [x] 3.1 Cache conflict handling, --force, and --name
 
-        - [ ] 3.1.1 Write unit tests for cache conflict scenarios in `tests/test_registry_commands.py`
+        - [x] 3.1.1 Write unit tests for cache conflict scenarios in `tests/test_registry_commands.py`
             - Same-URL re-add without --force → error with path and --force suggestion
             - Different-URL collision → error with --name suggestion, no --force
             - --force removes cache and re-clones
@@ -117,56 +117,56 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
             → Agent: general-task-execution
             _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7_
 
-        - [ ] 3.1.2 Write property test for same-URL cache conflict error
+        - [x] 3.1.2 Write property test for same-URL cache conflict error
             → Agent: hypothesis-test-writer
             **Property 1: Cache conflict same-URL error contains path and --force suggestion**
             _Requirements: 1.1, 1.2, 1.3_
 
-        - [ ] 3.1.3 Write property test for different-URL cache conflict error
+        - [x] 3.1.3 Write property test for different-URL cache conflict error
             → Agent: hypothesis-test-writer
             **Property 2: Cache conflict different-URL error suggests --name and omits --force**
             _Requirements: 1.4_
 
-        - [ ] 3.1.4 Write property test for cache namespace
+        - [x] 3.1.4 Write property test for cache namespace
             → Agent: hypothesis-test-writer
             **Property 16: Cache directory uses registry name as namespace**
             _Requirements: 1.8_
 
-        - [ ] 3.1.5 Refactor `run_registry_add()` in `src/ksm/commands/registry_add.py`
+        - [x] 3.1.5 Refactor `run_registry_add()` in `src/ksm/commands/registry_add.py`
             - Add `_find_entry_by_cache()`, --force logic, cache conflict detection, --name support per design section 4
             → Agent: general-task-execution
             _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8_
 
-        - [ ] 3.1.6 Run tests and verify all pass
+        - [x] 3.1.6 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 3.2 Duplicate URL detection and custom name
+    - [x] 3.2 Duplicate URL detection and custom name
 
-        - [ ] 3.2.1 Write unit tests for duplicate URL detection and --name in `tests/test_registry_commands.py`
+        - [x] 3.2.1 Write unit tests for duplicate URL detection and --name in `tests/test_registry_commands.py`
             - Duplicate URL → prints existing name, exit 0
             - --name overrides derived name
             - --name collision with existing registry → error exit 1
             → Agent: general-task-execution
             _Requirements: 2.1, 2.2, 11.2, 11.3, 11.4_
 
-        - [ ] 3.2.2 Write property test for duplicate URL detection
+        - [x] 3.2.2 Write property test for duplicate URL detection
             → Agent: hypothesis-test-writer
             **Property 3: Duplicate URL detection returns existing name and exit code 0**
             _Requirements: 2.1, 2.2_
 
-        - [ ] 3.2.3 Write property test for _derive_name idempotence
+        - [x] 3.2.3 Write property test for _derive_name idempotence
             → Agent: hypothesis-test-writer
             **Property 10: _derive_name produces consistent URL-derived names**
             _Requirements: 11.3_
 
-        - [ ] 3.2.4 Refactor `run_registry_add()` to use `format_error` for duplicate URL message and support `--name` flag
+        - [x] 3.2.4 Refactor `run_registry_add()` to use `format_error` for duplicate URL message and support `--name` flag
             → Agent: general-task-execution
             _Requirements: 2.1, 2.2, 11.2, 11.3, 11.4_
 
-        - [ ] 3.2.5 Run tests and verify all pass
+        - [x] 3.2.5 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 3.3 Checkpoint — Run full test suite, verify all tests pass
+    - [-] 3.3 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
 - [ ] 4. Registry remove improvements
