@@ -10,8 +10,10 @@ from ksm.errors import GitError
 from ksm.registry import RegistryEntry, RegistryIndex
 
 
-def _make_args(**kwargs: object) -> argparse.Namespace:
-    defaults = {"git_url": "https://github.com/org/repo.git"}
+def _make_args(**kwargs: str) -> argparse.Namespace:
+    defaults: dict[str, str] = {
+        "git_url": "https://github.com/org/repo.git",
+    }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
 
@@ -153,3 +155,119 @@ def test_scanned_bundles_registered_from_cloned_repo(
     assert code == 0
     # Registry entry is added (bundles are discovered via scanner)
     assert len(idx.registries) == 1
+
+
+def test_no_valid_bundles_errors(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """add-registry errors when cloned repo has no valid bundles."""
+    from ksm.commands.add_registry import run_add_registry
+
+    cache_dir = tmp_path / "cache"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    def fake_clone(url: str, target: Path) -> None:
+        # Create dirs that are NOT valid config bundles
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "docs").mkdir()
+        (target / "docs" / "readme.md").write_bytes(b"r")
+        (target / "src").mkdir()
+        (target / "src" / "main.py").write_bytes(b"x")
+
+    idx = RegistryIndex(registries=[])
+    args = _make_args()
+
+    with patch(
+        "ksm.commands.add_registry.clone_repo",
+        side_effect=fake_clone,
+    ):
+        code = run_add_registry(
+            args,
+            registry_index=idx,
+            registry_index_path=ksm_dir / "registries.json",
+            cache_dir=cache_dir,
+        )
+
+    assert code == 1
+    assert len(idx.registries) == 0
+    captured = capsys.readouterr()
+    assert "no valid config bundles" in captured.err.lower()
+
+
+def test_registry_is_additive_not_replacing(
+    tmp_path: Path,
+) -> None:
+    """Adding a registry does not remove existing registries."""
+    from ksm.commands.add_registry import run_add_registry
+
+    cache_dir = tmp_path / "cache"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    def fake_clone(url: str, target: Path) -> None:
+        bundle = target / "my-bundle" / "steering"
+        bundle.mkdir(parents=True)
+        (bundle / "f.md").write_bytes(b"x")
+
+    default_entry = RegistryEntry(
+        name="default",
+        url=None,
+        local_path=str(tmp_path / "config_bundles"),
+        is_default=True,
+    )
+    idx = RegistryIndex(registries=[default_entry])
+    args = _make_args(git_url="https://github.com/org/other-repo.git")
+
+    with patch(
+        "ksm.commands.add_registry.clone_repo",
+        side_effect=fake_clone,
+    ):
+        code = run_add_registry(
+            args,
+            registry_index=idx,
+            registry_index_path=ksm_dir / "registries.json",
+            cache_dir=cache_dir,
+        )
+
+    assert code == 0
+    assert len(idx.registries) == 2
+    assert idx.registries[0].name == "default"
+    assert idx.registries[0].is_default is True
+    assert idx.registries[1].name == "other-repo"
+    assert idx.registries[1].is_default is False
+
+
+def test_empty_cloned_repo_errors(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """add-registry errors when cloned repo is completely empty."""
+    from ksm.commands.add_registry import run_add_registry
+
+    cache_dir = tmp_path / "cache"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    def fake_clone(url: str, target: Path) -> None:
+        target.mkdir(parents=True, exist_ok=True)
+
+    idx = RegistryIndex(registries=[])
+    args = _make_args()
+
+    with patch(
+        "ksm.commands.add_registry.clone_repo",
+        side_effect=fake_clone,
+    ):
+        code = run_add_registry(
+            args,
+            registry_index=idx,
+            registry_index_path=ksm_dir / "registries.json",
+            cache_dir=cache_dir,
+        )
+
+    assert code == 1
+    assert len(idx.registries) == 0
+    captured = capsys.readouterr()
+    assert "no valid config bundles" in captured.err.lower()

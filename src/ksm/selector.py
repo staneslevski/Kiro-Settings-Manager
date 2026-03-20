@@ -27,14 +27,16 @@ def render_add_selector(
 
     Bundles are sorted alphabetically (case-insensitive).
     The selected line gets a ``>`` prefix; installed bundles
-    get an ``[installed]`` label.
+    get an ``[installed]`` label. Each line shows the registry
+    name in parentheses.
     """
     sorted_bundles = sorted(bundles, key=lambda b: b.name.lower())
     lines: list[str] = []
     for i, bundle in enumerate(sorted_bundles):
         prefix = ">" if i == selected else " "
         label = " [installed]" if bundle.name in installed_names else ""
-        lines.append(f"{prefix} {bundle.name}{label}")
+        registry = f" ({bundle.registry_name})" if bundle.registry_name else ""
+        lines.append(f"{prefix} {bundle.name}{registry}{label}")
     return lines
 
 
