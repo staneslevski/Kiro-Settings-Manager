@@ -169,7 +169,7 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
     - [x] 3.3 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
-- [-] 4. Registry remove improvements
+- [x] 4. Registry remove improvements
 
     - [x] 4.1 Improved feedback messages
 
@@ -199,10 +199,10 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
         - [x] 4.1.5 Run tests and verify all pass
             → Agent: kiro
 
-    - [-] 4.2 Checkpoint — Run full test suite, verify all tests pass
+    - [x] 4.2 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
-- [ ] 5. Bundle resolution and qualified names
+- [-] 5. Bundle resolution and qualified names
 
     - [ ] 5.1 Multi-match resolver and qualified name parsing
 
