@@ -83,7 +83,11 @@ def test_sync_aborts_on_non_y_input(
 
     args = _make_args(bundle_names=["aws"])
 
-    with patch("builtins.input", return_value="n"):
+    with (
+        patch("builtins.input", return_value="n"),
+        patch("sys.stdin") as mock_stdin,
+    ):
+        mock_stdin.isatty.return_value = True
         code = run_sync(
             args,
             registry_index=idx,
@@ -459,7 +463,11 @@ def test_sync_eoferror_aborts(
     manifest = Manifest(entries=[_make_entry("aws", "local", "default")])
     args = _make_args(bundle_names=["aws"])
 
-    with patch("builtins.input", side_effect=EOFError):
+    with (
+        patch("builtins.input", side_effect=EOFError),
+        patch("sys.stdin") as mock_stdin,
+    ):
+        mock_stdin.isatty.return_value = True
         code = run_sync(
             args,
             registry_index=idx,
@@ -648,7 +656,11 @@ def test_property_sync_aborts_on_non_y(
 
         args = _make_args(bundle_names=["b"])
 
-        with patch("builtins.input", return_value=response):
+        with (
+            patch("builtins.input", return_value=response),
+            patch("sys.stdin") as mock_stdin,
+        ):
+            mock_stdin.isatty.return_value = True
             code = run_sync(
                 args,
                 registry_index=idx,

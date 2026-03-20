@@ -319,8 +319,15 @@ def test_property_ls_scope_filter(
     ]
     output_lines = [ln.strip() for ln in output.splitlines()]
     for entry in non_matching:
-        # No line should start with this bundle name
-        assert not any(ln.startswith(entry.bundle_name) for ln in output_lines)
+        # No line should start with this exact bundle name
+        # followed by a non-alphanumeric char (space, etc.)
+        # to avoid substring false positives like "a" matching "aa"
+        name = entry.bundle_name
+        assert not any(
+            ln.startswith(name)
+            and (len(ln) == len(name) or not ln[len(name)].isalnum())
+            for ln in output_lines
+        )
 
 
 # Property 10: ls JSON output round-trips

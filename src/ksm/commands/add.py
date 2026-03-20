@@ -41,7 +41,17 @@ def _build_subdirectory_filter(
     only: list[str] | None = getattr(args, "only", None)
     if only:
         return set(only)
-    return None
+    # Support individual *_only flags from CLI
+    result: set[str] = set()
+    if getattr(args, "skills_only", False):
+        result.add("skills")
+    if getattr(args, "steering_only", False):
+        result.add("steering")
+    if getattr(args, "hooks_only", False):
+        result.add("hooks")
+    if getattr(args, "agents_only", False):
+        result.add("agents")
+    return result if result else None
 
 
 def _format_dry_run_add(
@@ -88,7 +98,8 @@ def run_add(
     dot_selection: DotSelection | None = None
 
     # Handle --interactive mode (also triggered by --display alias)
-    if getattr(args, "interactive", False):
+    display = getattr(args, "display", False) or getattr(args, "interactive", False)
+    if display:
         bundle_name = _handle_display(registry_index, manifest)
         if bundle_name is None:
             return 0

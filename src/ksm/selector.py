@@ -133,7 +133,12 @@ def render_add_selector(
             check = "[✓] " if i in multi_selected else "[ ] "
         padded = bundle.name.ljust(max_name)
         label = " [installed]" if bundle.name in installed_names else ""
-        lines.append(f"{prefix} {check}{padded}{label}")
+        reg_label = (
+            f" ({bundle.registry_name})"
+            if getattr(bundle, "registry_name", None)
+            else ""
+        )
+        lines.append(f"{prefix} {check}{padded}{label}{reg_label}")
     return lines
 
 
