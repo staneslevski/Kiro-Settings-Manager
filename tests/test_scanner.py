@@ -84,6 +84,42 @@ def test_scan_registry_all_recognised_subdirs(tmp_path: Path) -> None:
     assert set(bundles[0].subdirectories) == set(RECOGNISED_SUBDIRS)
 
 
+def test_scan_registry_ignores_dot_kiro(tmp_path: Path) -> None:
+    """scan_registry skips .kiro even if it contains recognised subdirs."""
+    _make_bundle(tmp_path, "valid", ["skills"])
+    _make_bundle(tmp_path, ".kiro", ["skills", "steering"])
+
+    bundles = scan_registry(tmp_path)
+
+    assert len(bundles) == 1
+    assert bundles[0].name == "valid"
+
+
+def test_scan_registry_ignores_dot_git(tmp_path: Path) -> None:
+    """scan_registry skips .git even if it contains recognised subdirs."""
+    _make_bundle(tmp_path, "valid", ["hooks"])
+    _make_bundle(tmp_path, ".git", ["hooks"])
+
+    bundles = scan_registry(tmp_path)
+
+    assert len(bundles) == 1
+    assert bundles[0].name == "valid"
+
+
+def test_scan_registry_ignores_all_hidden_dirs(
+    tmp_path: Path,
+) -> None:
+    """scan_registry skips any directory whose name starts with a dot."""
+    _make_bundle(tmp_path, "valid", ["agents"])
+    _make_bundle(tmp_path, ".hidden", ["skills"])
+    _make_bundle(tmp_path, ".another", ["steering", "hooks"])
+
+    bundles = scan_registry(tmp_path)
+
+    assert len(bundles) == 1
+    assert bundles[0].name == "valid"
+
+
 def test_bundle_info_has_correct_path(tmp_path: Path) -> None:
     """BundleInfo.path points to the bundle directory."""
     _make_bundle(tmp_path, "mybundle", ["steering"])

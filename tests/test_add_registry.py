@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+from ksm.commands.add_registry import _derive_name
 from ksm.errors import GitError
 from ksm.registry import RegistryEntry, RegistryIndex
 
@@ -16,6 +17,33 @@ def _make_args(**kwargs: str) -> argparse.Namespace:
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
+
+
+# --- _derive_name tests ---
+
+
+class TestDeriveName:
+    """Tests for _derive_name URL-to-registry-name derivation."""
+
+    def test_strips_dot_git_suffix(self) -> None:
+        """Removes .git suffix from URL."""
+        assert _derive_name("https://github.com/org/repo.git") == "repo"
+
+    def test_no_dot_git_suffix(self) -> None:
+        """Works when URL has no .git suffix."""
+        assert _derive_name("https://github.com/org/my-bundles") == "my-bundles"
+
+    def test_strips_trailing_slash(self) -> None:
+        """Strips trailing slash before extracting name."""
+        assert _derive_name("https://github.com/org/repo/") == "repo"
+
+    def test_trailing_slash_and_dot_git(self) -> None:
+        """Handles trailing slash followed by .git suffix."""
+        assert _derive_name("https://github.com/org/repo.git/") == "repo"
+
+    def test_bare_name(self) -> None:
+        """Handles a bare name with no path separators."""
+        assert _derive_name("my-repo.git") == "my-repo"
 
 
 def test_clone_new_repo_and_register(tmp_path: Path) -> None:
@@ -271,3 +299,76 @@ def test_empty_cloned_repo_errors(
     assert len(idx.registries) == 0
     captured = capsys.readouterr()
     assert "no valid config bundles" in captured.err.lower()
+
+
+def test_registry_index_persisted_to_disk(tmp_path: Path) -> None:
+    """add-registry writes the updated registry index to disk."""
+    import json
+
+    from ksm.commands.add_registry import run_add_registry
+
+    cache_dir = tmp_path / "cache"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+    index_path = ksm_dir / "registries.json"
+
+    def fake_clone(url: str, target: Path) -> None:
+        bundle = target / "my-bundle" / "hooks"
+        bundle.mkdir(parents=True)
+        (bundle / "h.json").write_bytes(b"{}")
+
+    idx = RegistryIndex(registries=[])
+    args = _make_args()
+
+    with patch(
+        "ksm.commands.add_registry.clone_repo",
+        side_effect=fake_clone,
+    ):
+        code = run_add_registry(
+            args,
+            registry_index=idx,
+            registry_index_path=index_path,
+            cache_dir=cache_dir,
+        )
+
+    assert code == 0
+    assert index_path.exists()
+    data = json.loads(index_path.read_text())
+    assert len(data["registries"]) == 1
+    assert data["registries"][0]["name"] == "repo"
+
+
+def test_success_message_to_stdout(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """add-registry prints success message to stdout."""
+    from ksm.commands.add_registry import run_add_registry
+
+    cache_dir = tmp_path / "cache"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    def fake_clone(url: str, target: Path) -> None:
+        bundle = target / "b" / "agents"
+        bundle.mkdir(parents=True)
+        (bundle / "a.md").write_bytes(b"x")
+
+    idx = RegistryIndex(registries=[])
+    args = _make_args(git_url="https://github.com/org/cool-stuff.git")
+
+    with patch(
+        "ksm.commands.add_registry.clone_repo",
+        side_effect=fake_clone,
+    ):
+        code = run_add_registry(
+            args,
+            registry_index=idx,
+            registry_index_path=ksm_dir / "registries.json",
+            cache_dir=cache_dir,
+        )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    assert "cool-stuff" in captured.out
+    assert "registered" in captured.out.lower()
