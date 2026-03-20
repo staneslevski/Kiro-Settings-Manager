@@ -40,9 +40,7 @@ def run_registry_inspect(
         return 1
 
     registry_path = Path(match.local_path)
-    bundles = scan_registry(
-        registry_path, registry_name=match.name
-    )
+    bundles = scan_registry(registry_path, registry_name=match.name)
 
     if not bundles:
         print(
