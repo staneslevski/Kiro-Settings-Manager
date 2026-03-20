@@ -13,27 +13,27 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
             → Agent: context-gatherer
             _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-    - [ ] 1.2 Add format helpers to errors.py
+    - [x] 1.2 Add format helpers to errors.py
 
-        - [ ] 1.2.1 Write unit tests for `format_error`, `format_warning`, `format_deprecation` in `tests/test_errors.py`
+        - [x] 1.2.1 Write unit tests for `format_error`, `format_warning`, `format_deprecation` in `tests/test_errors.py`
             - Test three-line format, prefix correctness, version string inclusion, stderr output
             → Agent: general-task-execution
             _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-        - [ ] 1.2.2 Write property test for message formatters
+        - [x] 1.2.2 Write property test for message formatters
             → Agent: hypothesis-test-writer
             **Property 14: Message formatters produce correctly prefixed output**
             _Requirements: 13.1, 13.3, 13.4, 13.5_
 
-        - [ ] 1.2.3 Implement `format_error`, `format_warning`, `format_deprecation` in `src/ksm/errors.py`
+        - [x] 1.2.3 Implement `format_error`, `format_warning`, `format_deprecation` in `src/ksm/errors.py`
             - Add three helper functions per design section 2
             → Agent: general-task-execution
             _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-        - [ ] 1.2.4 Run tests and verify all pass
+        - [x] 1.2.4 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 1.3 Checkpoint — Run full test suite, verify all tests pass
+    - [-] 1.3 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
 - [ ] 2. CLI parser restructuring
