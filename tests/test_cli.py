@@ -789,7 +789,7 @@ class TestDispatchIntegration:
     @patch("ksm.cli.load_registry_index")
     @patch("ksm.cli.ensure_ksm_dir")
     @patch(
-        "ksm.commands.add_registry.run_add_registry",
+        "ksm.commands.registry_add.run_registry_add",
         return_value=0,
     )
     def test_dispatch_registry_add_wires_correctly(

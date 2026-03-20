@@ -10,7 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from ksm.errors import format_deprecation
+from ksm.errors import format_deprecation, format_error, format_warning
 from ksm.manifest import Manifest, ManifestEntry, save_manifest
 from ksm.remover import RemovalResult, remove_bundle
 from ksm.selector import interactive_removal_select
@@ -26,8 +26,11 @@ def _check_tty_for_prompt(yes_flag: bool) -> bool:
     """
     if not sys.stdin.isatty():
         print(
-            "Error: confirmation required but stdin is not a terminal.\n"
-            "  Use --yes to skip confirmation in non-interactive mode.",
+            format_error(
+                "Confirmation required but stdin is" " not a terminal.",
+                "Non-interactive mode detected.",
+                "Use --yes to skip confirmation.",
+            ),
             file=sys.stderr,
         )
         return False
@@ -131,7 +134,10 @@ def run_rm(
     # If bundle_name provided AND -i, ignore -i (Req 5.10)
     if bundle_name and interactive:
         print(
-            "Warning: -i ignored because a bundle" " was specified.",
+            format_warning(
+                "-i ignored because a bundle" " was specified.",
+                "Proceeding with the specified bundle.",
+            ),
             file=sys.stderr,
         )
         interactive = False
@@ -174,7 +180,14 @@ def run_rm(
 
     # Determine scope and target
     if bundle_name is None:
-        print("Error: no bundle specified", file=sys.stderr)
+        print(
+            format_error(
+                "No bundle specified.",
+                "Provide a bundle name or use -i" " for interactive mode.",
+                "Example: ksm rm <bundle_name>",
+            ),
+            file=sys.stderr,
+        )
         return 1
 
     scope = "global" if getattr(args, "global_", False) else "local"
@@ -187,7 +200,11 @@ def run_rm(
 
     if not matches:
         print(
-            f"Error: bundle '{bundle_name}' is not installed " f"at {scope} scope",
+            format_error(
+                f"Bundle '{bundle_name}' is not installed" f" at {scope} scope.",
+                "The bundle may be installed at a" " different scope.",
+                "Run `ksm list` to see installed" " bundles.",
+            ),
             file=sys.stderr,
         )
         return 1

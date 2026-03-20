@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from ksm.color import bold, dim
+from ksm.errors import format_error
 from ksm.registry import RegistryIndex
 from ksm.scanner import scan_registry
 
@@ -33,8 +34,11 @@ def run_registry_inspect(
     if match is None:
         registered = [e.name for e in registry_index.registries]
         print(
-            f"Error: registry '{name}' not found. "
-            f"Registered: {', '.join(registered)}",
+            format_error(
+                f"Registry '{name}' not found.",
+                f"Registered: {', '.join(registered)}",
+                "Run `ksm registry list` to see" " all registries.",
+            ),
             file=sys.stderr,
         )
         return 1

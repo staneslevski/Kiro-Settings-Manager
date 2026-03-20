@@ -384,32 +384,32 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
     - [x] 7.4 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
-- [ ] 8. Final integration and cleanup
+- [-] 8. Final integration and cleanup
 
-    - [ ] 8.1 Wire dispatch table and cross-module integration
+    - [x] 8.1 Wire dispatch table and cross-module integration
 
-        - [ ] 8.1.1 Write integration tests verifying end-to-end flows in `tests/test_integration.py`
+        - [x] 8.1.1 Write integration tests verifying end-to-end flows in `tests/test_integration.py`
             - `registry add` with --force, `registry remove` with feedback, `add` with qualified name
             - `_dispatch_registry` handles `remove`/`list` canonical names
             - Legacy `add-registry` delegates correctly with --force and --name
             → Agent: general-task-execution
             _Requirements: 1.5, 3.1, 4.3, 7.6, 8.2, 10.1_
 
-        - [ ] 8.1.2 Update `_dispatch_registry()` and `_dispatch_add_registry()` in `src/ksm/cli.py`
+        - [x] 8.1.2 Update `_dispatch_registry()` and `_dispatch_add_registry()` in `src/ksm/cli.py`
             - Ensure `registry add` dispatches to `registry_add.run_registry_add`
             - Pass `--force` and `--name` args through
             - Ensure `add-registry` dispatches to legacy wrapper
             → Agent: argparse-cli-refactorer
             _Requirements: 7.1, 7.6, 8.1, 8.2_
 
-        - [ ] 8.1.3 Migrate remaining ad-hoc error messages across all commands to use `format_error`/`format_warning`/`format_deprecation` helpers
+        - [x] 8.1.3 Migrate remaining ad-hoc error messages across all commands to use `format_error`/`format_warning`/`format_deprecation` helpers
             → Agent: general-task-execution
             _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-        - [ ] 8.1.4 Run tests and verify all pass
+        - [x] 8.1.4 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 8.2 Final checkpoint — Run full test suite, verify all tests pass, lint with black and flake8
+    - [x] 8.2 Final checkpoint — Run full test suite, verify all tests pass, lint with black and flake8
         → Agent: kiro
 
     - [ ] 8.3 Create pull request

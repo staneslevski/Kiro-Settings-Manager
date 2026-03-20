@@ -20,6 +20,7 @@ from ksm.errors import (
     InvalidSubdirectoryError,
     format_deprecation,
     format_error,
+    format_warning,
 )
 from ksm.git_ops import (
     checkout_version,
@@ -154,7 +155,10 @@ def run_add(
     # If bundle_spec provided AND -i, ignore -i (Req 5.9)
     if bundle_spec and interactive:
         print(
-            "Warning: -i ignored because a bundle" " was specified.",
+            format_warning(
+                "-i ignored because a bundle" " was specified.",
+                "Proceeding with the specified bundle.",
+            ),
             file=sys.stderr,
         )
         interactive = False
@@ -174,7 +178,11 @@ def run_add(
             bundle_spec = bundle_name
         else:
             print(
-                "Error: no bundle specified",
+                format_error(
+                    "No bundle specified.",
+                    "Provide a bundle name or use -i" " for interactive mode.",
+                    "Example: ksm add <bundle_name>",
+                ),
                 file=sys.stderr,
             )
             return 1
@@ -185,7 +193,14 @@ def run_add(
         try:
             validate_dot_selection(dot_selection)
         except InvalidSubdirectoryError as e:
-            print(f"Error: {e}", file=sys.stderr)
+            print(
+                format_error(
+                    f"Invalid subdirectory: {e}",
+                    "Check the dot notation syntax.",
+                    "Valid types: skills, agents," " steering, hooks",
+                ),
+                file=sys.stderr,
+            )
             return 1
         bundle_spec = dot_selection.bundle_name
 
@@ -196,8 +211,12 @@ def run_add(
     # Check mutual exclusion: dot notation + subdirectory filter
     if dot_selection is not None and subdirectory_filter is not None:
         print(
-            "Error: dot notation and subdirectory filter "
-            "flags are mutually exclusive",
+            format_error(
+                "Dot notation and --only are mutually" " exclusive.",
+                "Use one or the other, not both.",
+                "Example: ksm add bundle.skills.item"
+                " OR ksm add bundle --only skills",
+            ),
             file=sys.stderr,
         )
         return 1
@@ -289,14 +308,20 @@ def run_add(
                 available = list_versions(registry_path)
                 if available:
                     print(
-                        f"Error: version '{version}' not found. "
-                        f"Available: {', '.join(available)}",
+                        format_error(
+                            f"Version '{version}' not found.",
+                            f"Available:" f" {', '.join(available)}",
+                            "Use one of the listed versions.",
+                        ),
                         file=sys.stderr,
                     )
                 else:
                     print(
-                        f"Error: version '{version}' not found "
-                        f"and no versions available.",
+                        format_error(
+                            f"Version '{version}' not found.",
+                            "No versions available in this" " registry.",
+                            "Omit the @version to install" " the latest.",
+                        ),
                         file=sys.stderr,
                     )
                 return 1
@@ -308,9 +333,13 @@ def run_add(
             )
             if not item_path.exists():
                 print(
-                    f"Error: item '{dot_selection.item_name}' "
-                    f"not found in "
-                    f"{dot_selection.subdirectory}/",
+                    format_error(
+                        f"Item '{dot_selection.item_name}'"
+                        f" not found in"
+                        f" {dot_selection.subdirectory}/.",
+                        "Check the item name and" " subdirectory.",
+                        "Run `ksm info <bundle>` to see" " available items.",
+                    ),
                     file=sys.stderr,
                 )
                 return 1
@@ -393,7 +422,11 @@ def _handle_ephemeral(
         result = resolve_bundle(bundle_name, temp_idx)
         if not result.matches:
             print(
-                f"Error: Bundle '{bundle_name}' not found" f" in {from_url}",
+                format_error(
+                    f"Bundle '{bundle_name}' not found" f" in {from_url}.",
+                    "The repository may not contain" " this bundle.",
+                    "Check the URL and bundle name.",
+                ),
                 file=sys.stderr,
             )
             return 1
@@ -406,9 +439,13 @@ def _handle_ephemeral(
             )
             if not item_path.exists():
                 print(
-                    f"Error: item '{dot_selection.item_name}' "
-                    f"not found in "
-                    f"{dot_selection.subdirectory}/",
+                    format_error(
+                        f"Item '{dot_selection.item_name}'"
+                        f" not found in"
+                        f" {dot_selection.subdirectory}/.",
+                        "Check the item name and" " subdirectory.",
+                        "Run `ksm info <bundle>` to see" " available items.",
+                    ),
                     file=sys.stderr,
                 )
                 return 1

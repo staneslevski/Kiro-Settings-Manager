@@ -10,6 +10,7 @@ import argparse
 import sys
 
 from ksm.color import bold, dim
+from ksm.errors import format_error
 from ksm.manifest import Manifest
 from ksm.registry import RegistryIndex
 from ksm.resolver import resolve_bundle
@@ -28,7 +29,11 @@ def run_info(
     if not result.matches:
         searched = ", ".join(result.searched) if result.searched else "none"
         print(
-            f"Error: Bundle '{bundle_name}' not found.\n" f"  Searched: {searched}",
+            format_error(
+                f"Bundle '{bundle_name}' not found.",
+                f"Searched: {searched}",
+                "Run `ksm search <query>` to find" " available bundles.",
+            ),
             file=sys.stderr,
         )
         return 1

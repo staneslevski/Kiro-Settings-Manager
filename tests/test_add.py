@@ -1853,3 +1853,137 @@ def test_property_deprecated_only_flags_equivalence(
         flag_name = f"--{f.replace('_', '-')}"
         assert flag_name in captured.err
         assert "deprecated" in captured.err.lower()
+
+
+def test_run_add_dry_run_prints_preview(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """run_add with --dry-run prints preview without installing."""
+    from ksm.commands.add import run_add
+
+    reg = tmp_path / "reg"
+    (reg / "aws" / "skills").mkdir(parents=True)
+    (reg / "aws" / "skills" / "S.md").write_bytes(b"data")
+
+    target_local = tmp_path / "workspace" / ".kiro"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    args = _make_args(bundle_spec="aws", dry_run=True)
+    code = run_add(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    # Should NOT install anything
+    assert not (target_local / "skills").exists()
+    captured = capsys.readouterr()
+    assert "Would install" in captured.err
+
+
+def test_run_add_dry_run_with_subdirectory_filter(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """run_add dry-run shows subdirectory filter in preview."""
+    from ksm.commands.add import run_add
+
+    reg = tmp_path / "reg"
+    (reg / "aws" / "skills").mkdir(parents=True)
+    (reg / "aws" / "skills" / "S.md").write_bytes(b"data")
+
+    target_local = tmp_path / "workspace" / ".kiro"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    args = _make_args(
+        bundle_spec="aws",
+        dry_run=True,
+        only=["skills"],
+    )
+    code = run_add(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    assert "Subdirectories:" in captured.err
+    assert "skills" in captured.err
+
+
+def test_run_add_qualified_name_not_found_error(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """run_add with qualified name for missing bundle prints error."""
+    from ksm.commands.add import run_add
+
+    reg = tmp_path / "reg"
+    (reg / "aws" / "skills").mkdir(parents=True)
+    (reg / "aws" / "skills" / "S.md").write_bytes(b"data")
+
+    target_local = tmp_path / "workspace" / ".kiro"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+
+    # Use a qualified name where the registry exists but bundle doesn't
+    args = _make_args(bundle_spec="default/nonexistent")
+    code = run_add(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "Error:" in captured.err

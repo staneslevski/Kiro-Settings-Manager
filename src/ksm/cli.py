@@ -298,15 +298,15 @@ def _build_parser() -> argparse.ArgumentParser:
     # Hide short aliases from the top-level choices metavar
     # so help shows only full-word primaries.
     _hidden = {"ls", "rm"}
-    for action in parser._subparsers._actions:
-        if isinstance(action, argparse._SubParsersAction):
-            action._choices_actions = [
-                a for a in action._choices_actions if a.dest not in _hidden
-            ]
-            # Also strip from the {choices} metavar line
-            visible = [k for k in action.choices if k not in _hidden]
-            action.metavar = "{" + ",".join(visible) + "}"
-            break
+    if parser._subparsers is not None:
+        for action in parser._subparsers._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                action._choices_actions = [
+                    a for a in action._choices_actions if a.dest not in _hidden
+                ]
+                visible = [k for k in action.choices if k not in _hidden]
+                action.metavar = "{" + ",".join(visible) + "}"
+                break
 
     return parser
 
@@ -420,9 +420,9 @@ def _dispatch_registry(args: argparse.Namespace) -> int:
         return run_registry_inspect(args, registry_index=registry_index)
 
     if subcmd == "add":
-        from ksm.commands.add_registry import run_add_registry
+        from ksm.commands.registry_add import run_registry_add
 
-        return run_add_registry(
+        return run_registry_add(
             args,
             registry_index=registry_index,
             registry_index_path=REGISTRIES_FILE,

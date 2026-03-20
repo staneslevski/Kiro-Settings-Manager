@@ -9,6 +9,8 @@ Requirements: 21.1, 21.2, 21.3
 import argparse
 import sys
 
+from ksm.errors import format_error
+
 _BASH_COMPLETION = """\
 _ksm_completions() {
     local cur prev commands
@@ -114,7 +116,11 @@ def run_completions(args: argparse.Namespace) -> int:
     script = _SCRIPTS.get(shell)
     if script is None:
         print(
-            f"Error: unsupported shell '{shell}'. " f"Supported: bash, zsh, fish",
+            format_error(
+                f"Unsupported shell '{shell}'.",
+                "Supported: bash, zsh, fish",
+                "Example: ksm completions bash",
+            ),
             file=sys.stderr,
         )
         return 1
