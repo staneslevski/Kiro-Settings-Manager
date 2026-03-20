@@ -23,6 +23,7 @@ def install_bundle(
     dot_selection: DotSelection | None,
     manifest: Manifest,
     source_label: str,
+    version: str | None = None,
 ) -> list[CopyResult]:
     """Install bundle files and update manifest.
 
@@ -36,6 +37,7 @@ def install_bundle(
             dot_selection,
             manifest,
             source_label,
+            version=version,
         )
 
     subdirs_to_copy = _resolve_subdirs(bundle, subdirectory_filter)
@@ -54,6 +56,7 @@ def install_bundle(
         source_label,
         scope,
         rel_paths,
+        version=version,
     )
     return results
 
@@ -65,6 +68,7 @@ def _install_dot_selection(
     dot_selection: DotSelection,
     manifest: Manifest,
     source_label: str,
+    version: str | None = None,
 ) -> list[CopyResult]:
     """Install a single item via dot notation."""
     src_item = bundle.path / dot_selection.subdirectory / dot_selection.item_name
@@ -86,6 +90,7 @@ def _install_dot_selection(
         source_label,
         scope,
         rel_paths,
+        version=version,
     )
     return results
 
@@ -131,6 +136,7 @@ def _update_manifest(
     source_registry: str,
     scope: str,
     installed_files: list[str],
+    version: str | None = None,
 ) -> None:
     """Add or update a manifest entry for the installed bundle."""
     now = datetime.now(timezone.utc).isoformat()
@@ -144,6 +150,7 @@ def _update_manifest(
         entry.installed_files = installed_files
         entry.updated_at = now
         entry.source_registry = source_registry
+        entry.version = version
     else:
         manifest.entries.append(
             ManifestEntry(
@@ -153,5 +160,6 @@ def _update_manifest(
                 installed_files=installed_files,
                 installed_at=now,
                 updated_at=now,
+                version=version,
             )
         )

@@ -17,9 +17,14 @@ from ksm.dot_notation import (
 from ksm.copier import format_diff_summary
 from ksm.errors import (
     BundleNotFoundError,
+    GitError,
     InvalidSubdirectoryError,
 )
-from ksm.git_ops import clone_ephemeral
+from ksm.git_ops import (
+    checkout_version,
+    clone_ephemeral,
+    list_versions,
+)
 from ksm.installer import install_bundle
 from ksm.manifest import Manifest, save_manifest
 from ksm.registry import RegistryEntry, RegistryIndex
@@ -42,6 +47,18 @@ def _build_subdirectory_filter(
     if getattr(args, "hooks_only", False):
         filters.add("hooks")
     return filters if filters else None
+
+
+def parse_version_spec(spec: str) -> tuple[str, str | None]:
+    """Parse 'bundle@version' syntax.
+
+    Returns (bundle_spec, version) where version is None if
+    no '@' is present.
+    """
+    if "@" in spec:
+        parts = spec.rsplit("@", 1)
+        return parts[0], parts[1] if parts[1] else None
+    return spec, None
 
 
 def run_add(
@@ -91,6 +108,10 @@ def run_add(
             return 1
         bundle_spec = dot_selection.bundle_name
 
+    # Parse version spec (bundle@version)
+    version: str | None = None
+    bundle_spec, version = parse_version_spec(bundle_spec)
+
     # Check mutual exclusion: dot notation + subdirectory filter
     if dot_selection is not None and subdirectory_filter is not None:
         print(
@@ -128,6 +149,27 @@ def run_add(
             print(f"Error: {e}", file=sys.stderr)
             return 1
 
+        # Handle versioned install
+        if version is not None:
+            registry_path = Path(resolved.path).parent
+            try:
+                checkout_version(registry_path, version)
+            except GitError:
+                available = list_versions(registry_path)
+                if available:
+                    print(
+                        f"Error: version '{version}' not found. "
+                        f"Available: {', '.join(available)}",
+                        file=sys.stderr,
+                    )
+                else:
+                    print(
+                        f"Error: version '{version}' not found "
+                        f"and no versions available.",
+                        file=sys.stderr,
+                    )
+                return 1
+
         # Check dot notation item exists
         if dot_selection is not None:
             item_path = (
@@ -151,6 +193,7 @@ def run_add(
                 dot_selection=dot_selection,
                 manifest=manifest,
                 source_label=resolved.registry_name,
+                version=version,
             )
         except SystemExit:
             return 1

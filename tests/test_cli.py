@@ -24,12 +24,23 @@ class TestHelp:
         assert exc_info.value.code == 0
 
     def test_help_lists_all_commands(self, capsys: pytest.CaptureFixture) -> None:
-        """--help output contains all five subcommands."""
+        """--help output contains all subcommands."""
         with pytest.raises(SystemExit):
             with patch("sys.argv", ["ksm", "--help"]):
                 main()
         captured = capsys.readouterr()
-        for cmd in ("add", "ls", "sync", "add-registry", "rm"):
+        for cmd in (
+            "add",
+            "ls",
+            "sync",
+            "add-registry",
+            "rm",
+            "registry",
+            "init",
+            "info",
+            "search",
+            "completions",
+        ):
             assert cmd in captured.out
 
 
@@ -65,7 +76,18 @@ class TestUnknownCommand:
                 main()
         captured = capsys.readouterr()
         combined = captured.out + captured.err
-        for cmd in ("add", "ls", "sync", "add-registry", "rm"):
+        for cmd in (
+            "add",
+            "ls",
+            "sync",
+            "add-registry",
+            "rm",
+            "registry",
+            "init",
+            "info",
+            "search",
+            "completions",
+        ):
             assert cmd in combined
 
 
@@ -121,6 +143,82 @@ class TestSubcommandDispatch:
         mock_dispatch.return_value = 0
         with pytest.raises(SystemExit) as exc_info:
             with patch("sys.argv", ["ksm", "rm", "mybundle"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_init")
+    def test_init_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm init' dispatches to init handler."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "init"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_info")
+    def test_info_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm info mybundle' dispatches to info handler."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "info", "mybundle"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_search")
+    def test_search_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm search query' dispatches to search handler."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "search", "myquery"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_completions")
+    def test_completions_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm completions bash' dispatches to completions."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "completions", "bash"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_registry")
+    def test_registry_ls_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm registry ls' dispatches to registry handler."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "registry", "ls"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_registry")
+    def test_registry_rm_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm registry rm myname' dispatches to registry."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch(
+                "sys.argv",
+                ["ksm", "registry", "rm", "myname"],
+            ):
+                main()
+        assert exc_info.value.code == 0
+        mock_dispatch.assert_called_once()
+
+    @patch("ksm.cli._dispatch_registry")
+    def test_registry_inspect_dispatches(self, mock_dispatch: MagicMock) -> None:
+        """'ksm registry inspect myname' dispatches."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit) as exc_info:
+            with patch(
+                "sys.argv",
+                ["ksm", "registry", "inspect", "myname"],
+            ):
                 main()
         assert exc_info.value.code == 0
         mock_dispatch.assert_called_once()
@@ -265,7 +363,21 @@ class TestProperty20:
             ),
             min_size=1,
             max_size=20,
-        ).filter(lambda s: s not in ("add", "ls", "sync", "add-registry", "rm"))
+        ).filter(
+            lambda s: s
+            not in (
+                "add",
+                "ls",
+                "sync",
+                "add-registry",
+                "rm",
+                "registry",
+                "init",
+                "info",
+                "search",
+                "completions",
+            )
+        )
     )
     def test_unknown_command_produces_error(self, cmd: str) -> None:
         import io
@@ -285,6 +397,11 @@ class TestProperty20:
             "sync",
             "add-registry",
             "rm",
+            "registry",
+            "init",
+            "info",
+            "search",
+            "completions",
         ):
             assert valid_cmd in combined
 
@@ -417,6 +534,218 @@ class TestDispatchIntegration:
         assert exc_info.value.code == 2
         captured = capsys.readouterr()
         assert "add" in captured.out
+
+    @patch("ksm.commands.init.run_init", return_value=0)
+    @patch("ksm.cli.load_manifest")
+    @patch("ksm.cli.load_registry_index")
+    def test_dispatch_init_wires_correctly(
+        self,
+        mock_load_reg: MagicMock,
+        mock_load_man: MagicMock,
+        mock_run_init: MagicMock,
+    ) -> None:
+        from ksm.manifest import Manifest
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+        mock_load_man.return_value = Manifest(entries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "init"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_run_init.assert_called_once()
+
+    @patch("ksm.cli.load_manifest")
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.commands.info.run_info", return_value=0)
+    def test_dispatch_info_wires_correctly(
+        self,
+        mock_run_info: MagicMock,
+        mock_load_reg: MagicMock,
+        mock_load_man: MagicMock,
+    ) -> None:
+        from ksm.manifest import Manifest
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+        mock_load_man.return_value = Manifest(entries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "info", "mybundle"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_run_info.assert_called_once()
+
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.commands.search.run_search", return_value=0)
+    def test_dispatch_search_wires_correctly(
+        self,
+        mock_run_search: MagicMock,
+        mock_load_reg: MagicMock,
+    ) -> None:
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "search", "myquery"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_run_search.assert_called_once()
+
+    @patch(
+        "ksm.commands.completions.run_completions",
+        return_value=0,
+    )
+    def test_dispatch_completions_wires_correctly(
+        self,
+        mock_run_comp: MagicMock,
+    ) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "completions", "bash"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_run_comp.assert_called_once()
+
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch(
+        "ksm.commands.registry_ls.run_registry_ls",
+        return_value=0,
+    )
+    def test_dispatch_registry_ls_wires_correctly(
+        self,
+        mock_run_rls: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+    ) -> None:
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "registry", "ls"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_ensure.assert_called_once()
+        mock_run_rls.assert_called_once()
+
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch(
+        "ksm.commands.registry_rm.run_registry_rm",
+        return_value=0,
+    )
+    def test_dispatch_registry_rm_wires_correctly(
+        self,
+        mock_run_rrm: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+    ) -> None:
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch(
+                "sys.argv",
+                ["ksm", "registry", "rm", "myname"],
+            ):
+                main()
+        assert exc_info.value.code == 0
+        mock_ensure.assert_called_once()
+        mock_run_rrm.assert_called_once()
+
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch(
+        "ksm.commands.registry_inspect.run_registry_inspect",
+        return_value=0,
+    )
+    def test_dispatch_registry_inspect_wires_correctly(
+        self,
+        mock_run_ri: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+    ) -> None:
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch(
+                "sys.argv",
+                ["ksm", "registry", "inspect", "myname"],
+            ):
+                main()
+        assert exc_info.value.code == 0
+        mock_ensure.assert_called_once()
+        mock_run_ri.assert_called_once()
+
+    def test_registry_no_subcommand_exits_2(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        """'ksm registry' with no subcommand exits 2."""
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "registry"]):
+                main()
+        assert exc_info.value.code == 2
+
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch(
+        "ksm.commands.add_registry.run_add_registry",
+        return_value=0,
+    )
+    def test_dispatch_registry_add_wires_correctly(
+        self,
+        mock_run_ra: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+    ) -> None:
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+
+        with pytest.raises(SystemExit):
+            with patch(
+                "sys.argv",
+                [
+                    "ksm",
+                    "registry",
+                    "add",
+                    "https://x.com/r.git",
+                ],
+            ):
+                main()
+        mock_ensure.assert_called_once()
+
+    @patch("ksm.commands.init.run_init", return_value=0)
+    @patch(
+        "ksm.cli.load_manifest",
+        side_effect=Exception("no manifest"),
+    )
+    @patch(
+        "ksm.cli.load_registry_index",
+        side_effect=FileNotFoundError("no reg"),
+    )
+    def test_dispatch_init_handles_missing_files(
+        self,
+        mock_load_reg: MagicMock,
+        mock_load_man: MagicMock,
+        mock_run_init: MagicMock,
+    ) -> None:
+        """Init works even when registry/manifest don't exist."""
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "init"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_run_init.assert_called_once()
+        # Verify None was passed for both
+        call_kwargs = mock_run_init.call_args[1]
+        assert call_kwargs["registry_index"] is None
+        assert call_kwargs["manifest"] is None
 
 
 class TestErrorClasses:

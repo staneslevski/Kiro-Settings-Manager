@@ -265,61 +265,61 @@ Implements 35 requirements from the ksm CLI UX and engineering reviews across 8 
 
   - [x] 6.4 Checkpoint — Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. New Commands — Registry ls/rm/inspect, init, info, search, completions, versioned install
+- [x] 7. New Commands — Registry ls/rm/inspect, init, info, search, completions, versioned install
 
-  - [ ] 7.1 Registry management commands — _Agent: cli-engineer_
+  - [x] 7.1 Registry management commands — _Agent: cli-engineer_
 
-    - [ ] 7.1.1 Create `commands/registry_ls.py` — list registries with name, URL, path, bundle count
+    - [x] 7.1.1 Create `commands/registry_ls.py` — list registries with name, URL, path, bundle count
       - _Requirements: 8.1_
 
-    - [ ] 7.1.2 Create `commands/registry_rm.py` — remove named registry, block default removal, clean cache
+    - [x] 7.1.2 Create `commands/registry_rm.py` — remove named registry, block default removal, clean cache
       - _Requirements: 8.2, 8.3_
 
-    - [ ] 7.1.3 Create `commands/registry_inspect.py` — list bundles in a registry with subdirectory contents
+    - [x] 7.1.3 Create `commands/registry_inspect.py` — list bundles in a registry with subdirectory contents
       - _Requirements: 8.4, 8.5_
 
-    - [ ] 7.1.4 Write property tests for registry commands
+    - [x] 7.1.4 Write property tests for registry commands
       - **Property 23: Registry ls output contains all metadata**
       - **Property 24: Registry rm removes exactly the named registry**
       - **Property 25: Registry not-found error lists registered names**
       - **Validates: Requirements 8.1, 8.2, 8.3, 8.4, 8.5**
 
-  - [ ] 7.2 init, info, search commands — _Agent: cli-engineer_
+  - [x] 7.2 init, info, search commands — _Agent: cli-engineer_
 
-    - [ ] 7.2.1 Create `commands/init.py` — create `.kiro/` dir, success message, offer interactive selector on TTY
+    - [x] 7.2.1 Create `commands/init.py` — create `.kiro/` dir, success message, offer interactive selector on TTY
       - _Requirements: 17.1, 17.2, 17.3, 17.4_
 
-    - [ ] 7.2.2 Create `commands/info.py` — display bundle metadata, subdirectory breakdown, installed status
+    - [x] 7.2.2 Create `commands/info.py` — display bundle metadata, subdirectory breakdown, installed status
       - _Requirements: 18.1, 18.2, 18.3_
 
-    - [ ] 7.2.3 Create `commands/search.py` — case-insensitive name search across registries
+    - [x] 7.2.3 Create `commands/search.py` — case-insensitive name search across registries
       - _Requirements: 19.1, 19.2, 19.3_
 
-    - [ ] 7.2.4 Write property tests for init, info, search
+    - [x] 7.2.4 Write property tests for init, info, search
       - **Property 27: Init creates .kiro/ directory**
       - **Property 21: Info output contains bundle metadata**
       - **Property 20: Search returns exactly matching bundles**
       - **Validates: Requirements 17, 18, 19**
 
-  - [ ] 7.3 Completions and versioned install — _Agent: cli-engineer_
+  - [x] 7.3 Completions and versioned install — _Agent: cli-engineer_
 
-    - [ ] 7.3.1 Create `commands/completions.py` — generate shell completion scripts for bash/zsh/fish
+    - [x] 7.3.1 Create `commands/completions.py` — generate shell completion scripts for bash/zsh/fish
       - _Requirements: 21.1, 21.2, 21.3_
 
-    - [ ] 7.3.2 Implement versioned install: parse `bundle@version` syntax in `run_add()`, add `checkout_version()` and `list_versions()` to `git_ops.py`, add `version` field to `ManifestEntry`
+    - [x] 7.3.2 Implement versioned install: parse `bundle@version` syntax in `run_add()`, add `checkout_version()` and `list_versions()` to `git_ops.py`, add `version` field to `ManifestEntry`
       - _Requirements: 20.1, 20.2, 20.3_
 
-    - [ ] 7.3.3 Write tests for completions and versioned install
+    - [x] 7.3.3 Write tests for completions and versioned install
       - **Property 26: Version recorded in manifest after versioned install**
       - Test `ksm completions bash/zsh/fish` produces non-empty output
       - Test non-existent version produces error with available versions
       - **Validates: Requirements 20, 21**
 
-  - [ ] 7.4 Wire all new commands into `cli.py` dispatch table — _Agent: cli-engineer_
+  - [x] 7.4 Wire all new commands into `cli.py` dispatch table — _Agent: cli-engineer_
     - Add dispatch functions for init, info, search, completions, registry ls/rm/inspect
     - _Requirements: 4.1, 17, 18, 19, 20, 21_
 
-  - [ ] 7.5 Checkpoint — Ensure all tests pass, ask the user if questions arise.
+  - [x] 7.5 Checkpoint — Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 8. Cleanup & Polish — Empty dir cleanup, signal handler integration, final validation
 
