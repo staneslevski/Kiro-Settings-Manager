@@ -94,3 +94,44 @@ class MutualExclusionError(Exception):
         self.option_a = option_a
         self.option_b = option_b
         super().__init__(f"{option_a} and {option_b} are mutually exclusive")
+
+
+# ------------------------------------------------------------------
+# Standardised message formatting helpers (Req 13)
+# ------------------------------------------------------------------
+
+
+def format_error(what: str, why: str, fix: str) -> str:
+    """Format a three-line error message.
+
+    Returns:
+        Error: {what}
+          {why}
+          {fix}
+    """
+    return f"Error: {what}\n  {why}\n  {fix}"
+
+
+def format_warning(what: str, detail: str) -> str:
+    """Format a two-line warning message.
+
+    Returns:
+        Warning: {what}
+          {detail}
+    """
+    return f"Warning: {what}\n  {detail}"
+
+
+def format_deprecation(old: str, new: str, since: str, removal: str) -> str:
+    """Format a two-line deprecation message.
+
+    Returns:
+        Deprecated: `{old}` is deprecated, use `{new}` instead.
+          Deprecated in {since}, will be removed in {removal}.
+    """
+    return (
+        f"Deprecated: `{old}` is deprecated,"
+        f" use `{new}` instead.\n"
+        f"  Deprecated in {since},"
+        f" will be removed in {removal}."
+    )
