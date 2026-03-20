@@ -23,11 +23,18 @@ class BundleInfo:
     registry_name: str = ""
 
 
-def scan_registry(registry_path: Path) -> list[BundleInfo]:
+def scan_registry(
+    registry_path: Path,
+    registry_name: str = "",
+) -> list[BundleInfo]:
     """Return all valid bundles found in a registry directory.
 
     A valid bundle is a top-level subdirectory of registry_path that
     contains at least one recognised subdirectory.
+
+    Args:
+        registry_path: Path to the registry directory.
+        registry_name: Optional name to populate on each BundleInfo.
     """
     bundles: list[BundleInfo] = []
 
@@ -36,6 +43,8 @@ def scan_registry(registry_path: Path) -> list[BundleInfo]:
 
     for entry in sorted(registry_path.iterdir()):
         if not entry.is_dir():
+            continue
+        if entry.name.startswith("."):
             continue
 
         recognised = [
@@ -50,6 +59,7 @@ def scan_registry(registry_path: Path) -> list[BundleInfo]:
                     name=entry.name,
                     path=entry,
                     subdirectories=recognised,
+                    registry_name=registry_name,
                 )
             )
 

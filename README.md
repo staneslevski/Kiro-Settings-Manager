@@ -104,18 +104,46 @@ Subdirectory filter flags: `--skills-only`, `--steering-only`, `--hooks-only`, `
 
 ### ksm ls
 
-List all installed bundles with their scope and source registry.
+List all installed bundles tracked in the manifest (`~/.kiro/ksm/manifest.json`). Output is grouped by scope — local (workspace `.kiro/`) bundles first, then global (`~/.kiro/`) bundles. Each entry shows the bundle name, source registry, and a relative timestamp of the last install or sync.
 
 ```bash
+# List all installed bundles
 ksm ls
+
+# Include the file paths installed by each bundle
+ksm ls -v
+
+# Show only workspace-level bundles
+ksm ls --scope local
+
+# Show only user-level bundles
+ksm ls --scope global
+
+# Machine-readable JSON output (pipe to jq, etc.)
+ksm ls --format json
 ```
 
 Example output:
 
 ```
-python_dev  [global]  (source: default)
-git_and_github  [local]  (source: default)
+Local bundles:
+  git_and_github  (default)  2 days ago
+
+Global bundles:
+  python_dev      (default)  5 minutes ago
+  aws             (default)  1 week ago
 ```
+
+With `-v` (verbose), installed file paths appear under each bundle:
+
+```
+Local bundles:
+  git_and_github  (default)  2 days ago
+    steering/git-branching.md
+    skills/github-pr/SKILL.md
+```
+
+If no bundles are installed, a message is printed to stderr and the command exits 0.
 
 ### ksm sync
 
@@ -255,4 +283,4 @@ source .venv/bin/activate && HYPOTHESIS_PROFILE=ci pytest
 
 ## License
 
-MIT
+Apache 2.0 — see [LICENSE](LICENSE) for details.

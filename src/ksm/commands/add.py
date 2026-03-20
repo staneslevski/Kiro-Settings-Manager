@@ -16,9 +16,11 @@ from ksm.dot_notation import (
 )
 from ksm.copier import format_diff_summary
 from ksm.errors import (
-    BundleNotFoundError,
     GitError,
     InvalidSubdirectoryError,
+    format_deprecation,
+    format_error,
+    format_warning,
 )
 from ksm.git_ops import (
     checkout_version,
@@ -28,29 +30,67 @@ from ksm.git_ops import (
 from ksm.installer import install_bundle
 from ksm.manifest import Manifest, save_manifest
 from ksm.registry import RegistryEntry, RegistryIndex
-from ksm.resolver import resolve_bundle
+from ksm.resolver import (
+    parse_qualified_name,
+    resolve_bundle,
+    resolve_qualified_bundle,
+)
 from ksm.scanner import scan_registry
 from ksm.selector import interactive_select
 from ksm.signal_handler import unregister_temp_dir
+
+VALID_ONLY_VALUES = {"skills", "agents", "steering", "hooks"}
 
 
 def _build_subdirectory_filter(
     args: argparse.Namespace,
 ) -> set[str] | None:
-    """Build subdirectory filter set from --only flags (Req 5)."""
-    only: list[str] | None = getattr(args, "only", None)
-    if only:
-        return set(only)
-    # Support individual *_only flags from CLI
+    """Build subdirectory filter from --only or deprecated flags.
+
+    Handles comma-separated values, repeated --only flags,
+    validation, and deprecated --*-only flag migration.
+    """
+    only_raw: list[str] | None = getattr(args, "only", None)
     result: set[str] = set()
-    if getattr(args, "skills_only", False):
-        result.add("skills")
-    if getattr(args, "steering_only", False):
-        result.add("steering")
-    if getattr(args, "hooks_only", False):
-        result.add("hooks")
-    if getattr(args, "agents_only", False):
-        result.add("agents")
+
+    if only_raw:
+        for item in only_raw:
+            for val in item.split(","):
+                val = val.strip()
+                if val not in VALID_ONLY_VALUES:
+                    print(
+                        format_error(
+                            f"Invalid --only value: '{val}'",
+                            "Valid values: " + ", ".join(sorted(VALID_ONLY_VALUES)),
+                            "Example: --only skills,hooks",
+                        ),
+                        file=sys.stderr,
+                    )
+                    raise SystemExit(2)
+                result.add(val)
+        return result
+
+    # Deprecated --*-only flags (Req 12.7)
+    deprecated_map = {
+        "skills_only": "skills",
+        "steering_only": "steering",
+        "hooks_only": "hooks",
+        "agents_only": "agents",
+    }
+    for attr, value in deprecated_map.items():
+        if getattr(args, attr, False):
+            flag = f"--{attr.replace('_', '-')}"
+            print(
+                format_deprecation(
+                    flag,
+                    f"--only {value}",
+                    "v0.2.0",
+                    "v1.0.0",
+                ),
+                file=sys.stderr,
+            )
+            result.add(value)
+
     return result if result else None
 
 
@@ -97,9 +137,33 @@ def run_add(
     bundle_spec: str | None = getattr(args, "bundle_spec", None)
     dot_selection: DotSelection | None = None
 
-    # Handle --interactive mode (also triggered by --display alias)
-    display = getattr(args, "display", False) or getattr(args, "interactive", False)
+    # Handle --display deprecation (Req 5.7)
+    display = getattr(args, "display", False)
+    interactive = getattr(args, "interactive", False)
     if display:
+        print(
+            format_deprecation(
+                "--display",
+                "-i/--interactive",
+                "v0.2.0",
+                "v1.0.0",
+            ),
+            file=sys.stderr,
+        )
+        interactive = True
+
+    # If bundle_spec provided AND -i, ignore -i (Req 5.9)
+    if bundle_spec and interactive:
+        print(
+            format_warning(
+                "-i ignored because a bundle" " was specified.",
+                "Proceeding with the specified bundle.",
+            ),
+            file=sys.stderr,
+        )
+        interactive = False
+
+    if interactive:
         bundle_name = _handle_display(registry_index, manifest)
         if bundle_name is None:
             return 0
@@ -114,7 +178,11 @@ def run_add(
             bundle_spec = bundle_name
         else:
             print(
-                "Error: no bundle specified",
+                format_error(
+                    "No bundle specified.",
+                    "Provide a bundle name or use -i" " for interactive mode.",
+                    "Example: ksm add <bundle_name>",
+                ),
                 file=sys.stderr,
             )
             return 1
@@ -125,7 +193,14 @@ def run_add(
         try:
             validate_dot_selection(dot_selection)
         except InvalidSubdirectoryError as e:
-            print(f"Error: {e}", file=sys.stderr)
+            print(
+                format_error(
+                    f"Invalid subdirectory: {e}",
+                    "Check the dot notation syntax.",
+                    "Valid types: skills, agents," " steering, hooks",
+                ),
+                file=sys.stderr,
+            )
             return 1
         bundle_spec = dot_selection.bundle_name
 
@@ -136,8 +211,12 @@ def run_add(
     # Check mutual exclusion: dot notation + subdirectory filter
     if dot_selection is not None and subdirectory_filter is not None:
         print(
-            "Error: dot notation and subdirectory filter "
-            "flags are mutually exclusive",
+            format_error(
+                "Dot notation and --only are mutually" " exclusive.",
+                "Use one or the other, not both.",
+                "Example: ksm add bundle.skills.item"
+                " OR ksm add bundle --only skills",
+            ),
             file=sys.stderr,
         )
         return 1
@@ -172,12 +251,53 @@ def run_add(
                 manifest_path=manifest_path,
             )
 
-        # Resolve bundle from registered registries
-        try:
-            resolved = resolve_bundle(bundle_spec, registry_index)
-        except BundleNotFoundError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            return 1
+        # Parse qualified name (Req 10)
+        reg_name, bare_name = parse_qualified_name(bundle_spec)
+
+        if reg_name is not None:
+            # Qualified: resolve from specific registry
+            from ksm.errors import BundleNotFoundError
+
+            try:
+                resolved = resolve_qualified_bundle(bundle_spec, registry_index)
+            except BundleNotFoundError as exc:
+                print(
+                    format_error(
+                        str(exc),
+                        "Check the registry and bundle" " names.",
+                        "Run `ksm registry list` to see" " available registries.",
+                    ),
+                    file=sys.stderr,
+                )
+                return 1
+        else:
+            # Unqualified: resolve across all registries
+            result = resolve_bundle(bare_name, registry_index)
+            if not result.matches:
+                print(
+                    format_error(
+                        f"Bundle '{bare_name}' not found.",
+                        f"Searched {len(result.searched)}"
+                        " "
+                        f"{'registry' if len(result.searched) == 1 else 'registries'}"
+                        f": {', '.join(result.searched)}",
+                        "Run `ksm registry list` to see" " available registries.",
+                    ),
+                    file=sys.stderr,
+                )
+                return 1
+            if len(result.matches) > 1:
+                registries = [m.registry_name for m in result.matches]
+                print(
+                    format_error(
+                        f"Bundle '{bare_name}' found in" " multiple registries.",
+                        "Found in:" f" {', '.join(registries)}",
+                        "Use qualified name:" " ksm add" f" <registry>/{bare_name}",
+                    ),
+                    file=sys.stderr,
+                )
+                return 1
+            resolved = result.matches[0]
 
         # Handle versioned install
         if version is not None:
@@ -188,14 +308,20 @@ def run_add(
                 available = list_versions(registry_path)
                 if available:
                     print(
-                        f"Error: version '{version}' not found. "
-                        f"Available: {', '.join(available)}",
+                        format_error(
+                            f"Version '{version}' not found.",
+                            f"Available:" f" {', '.join(available)}",
+                            "Use one of the listed versions.",
+                        ),
                         file=sys.stderr,
                     )
                 else:
                     print(
-                        f"Error: version '{version}' not found "
-                        f"and no versions available.",
+                        format_error(
+                            f"Version '{version}' not found.",
+                            "No versions available in this" " registry.",
+                            "Omit the @version to install" " the latest.",
+                        ),
                         file=sys.stderr,
                     )
                 return 1
@@ -207,9 +333,13 @@ def run_add(
             )
             if not item_path.exists():
                 print(
-                    f"Error: item '{dot_selection.item_name}' "
-                    f"not found in "
-                    f"{dot_selection.subdirectory}/",
+                    format_error(
+                        f"Item '{dot_selection.item_name}'"
+                        f" not found in"
+                        f" {dot_selection.subdirectory}/.",
+                        "Check the item name and" " subdirectory.",
+                        "Run `ksm info <bundle>` to see" " available items.",
+                    ),
                     file=sys.stderr,
                 )
                 return 1
@@ -251,9 +381,7 @@ def _handle_display(
     all_bundles = []
     for entry in registry_index.registries:
         registry_path = Path(entry.local_path)
-        bundles = scan_registry(registry_path)
-        for bundle in bundles:
-            bundle.registry_name = entry.name
+        bundles = scan_registry(registry_path, registry_name=entry.name)
         all_bundles.extend(bundles)
 
     installed_names = {e.bundle_name for e in manifest.entries}
@@ -291,11 +419,18 @@ def _handle_ephemeral(
             ]
         )
 
-        try:
-            resolved = resolve_bundle(bundle_name, temp_idx)
-        except BundleNotFoundError as e:
-            print(f"Error: {e}", file=sys.stderr)
+        result = resolve_bundle(bundle_name, temp_idx)
+        if not result.matches:
+            print(
+                format_error(
+                    f"Bundle '{bundle_name}' not found" f" in {from_url}.",
+                    "The repository may not contain" " this bundle.",
+                    "Check the URL and bundle name.",
+                ),
+                file=sys.stderr,
+            )
             return 1
+        resolved = result.matches[0]
 
         # Check dot notation item exists
         if dot_selection is not None:
@@ -304,9 +439,13 @@ def _handle_ephemeral(
             )
             if not item_path.exists():
                 print(
-                    f"Error: item '{dot_selection.item_name}' "
-                    f"not found in "
-                    f"{dot_selection.subdirectory}/",
+                    format_error(
+                        f"Item '{dot_selection.item_name}'"
+                        f" not found in"
+                        f" {dot_selection.subdirectory}/.",
+                        "Check the item name and" " subdirectory.",
+                        "Run `ksm info <bundle>` to see" " available items.",
+                    ),
                     file=sys.stderr,
                 )
                 return 1

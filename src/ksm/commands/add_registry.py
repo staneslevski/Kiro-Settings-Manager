@@ -1,30 +1,18 @@
-"""Add-registry command for ksm.
+"""Legacy add-registry command for ksm.
 
-Handles `ksm add-registry <git_url>` — clones a git repository
-and registers it as a bundle source.
+Handles ``ksm add-registry <git_url>`` — deprecated thin wrapper
+that prints a deprecation warning and delegates to
+``registry_add.run_registry_add``.
+
+Requirements: 8.1, 8.2, 8.3, 8.4
 """
 
 import argparse
 import sys
 from pathlib import Path
-from posixpath import basename
 
-from ksm.errors import GitError
-from ksm.git_ops import clone_repo
-from ksm.registry import (
-    RegistryEntry,
-    RegistryIndex,
-    save_registry_index,
-)
-from ksm.scanner import scan_registry
-
-
-def _derive_name(url: str) -> str:
-    """Derive a registry name from a git URL."""
-    name = basename(url.rstrip("/"))
-    if name.endswith(".git"):
-        name = name[:-4]
-    return name
+from ksm.errors import format_deprecation
+from ksm.registry import RegistryIndex
 
 
 def run_add_registry(
@@ -34,43 +22,21 @@ def run_add_registry(
     registry_index_path: Path,
     cache_dir: Path,
 ) -> int:
-    """Clone a git repo and register it. Returns exit code."""
-    git_url: str = args.git_url
-
-    # Check for duplicate
-    for entry in registry_index.registries:
-        if entry.url == git_url:
-            print(f"Registry already registered: {git_url}")
-            return 0
-
-    name = _derive_name(git_url)
-    target = cache_dir / name
-
-    try:
-        clone_repo(git_url, target)
-    except GitError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-
-    # Validate the repo has at least one valid config bundle
-    bundles = scan_registry(target)
-    if not bundles:
-        print(
-            f"Error: no valid config bundles found in {git_url}",
-            file=sys.stderr,
-        )
-        return 1
-
-    # Register
-    registry_index.registries.append(
-        RegistryEntry(
-            name=name,
-            url=git_url,
-            local_path=str(target),
-            is_default=False,
-        )
+    """Legacy add-registry command. Delegates to registry_add."""
+    print(
+        format_deprecation(
+            "ksm add-registry",
+            "ksm registry add",
+            "v0.2.0",
+            "v1.0.0",
+        ),
+        file=sys.stderr,
     )
-    save_registry_index(registry_index, registry_index_path)
+    from ksm.commands.registry_add import run_registry_add
 
-    print(f"Registered registry '{name}' from {git_url}")
-    return 0
+    return run_registry_add(
+        args,
+        registry_index=registry_index,
+        registry_index_path=registry_index_path,
+        cache_dir=cache_dir,
+    )

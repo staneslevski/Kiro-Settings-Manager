@@ -10,6 +10,7 @@ Requirements: 4.1–4.4, 8.1–8.5, 17, 18, 19, 20, 21
 
 import argparse
 import sys
+import textwrap
 from pathlib import Path
 
 from ksm import __version__
@@ -21,6 +22,64 @@ from ksm.persistence import (
     REGISTRIES_FILE,
 )
 from ksm.registry import load_registry_index
+
+
+def _add_list_args(parser: argparse.ArgumentParser) -> None:
+    """Add shared arguments for list/ls subcommands."""
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Show installed file paths under each bundle",
+    )
+    parser.add_argument(
+        "--scope",
+        choices=["local", "global"],
+        default=None,
+        help="Show only bundles in this scope (local or global)",
+    )
+    parser.add_argument(
+        "--format",
+        dest="output_format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format: text (default, grouped by scope) or json",
+    )
+
+
+def _add_rm_args(parser: argparse.ArgumentParser) -> None:
+    """Add shared arguments for remove/rm subcommands."""
+    parser.add_argument(
+        "bundle_name",
+        nargs="?",
+        default=None,
+        help="Bundle name to remove",
+    )
+    parser.add_argument(
+        "-l",
+        "--local",
+        dest="local",
+        action="store_true",
+        help="Remove from local scope",
+    )
+    parser.add_argument(
+        "-g",
+        "--global",
+        dest="global_",
+        action="store_true",
+        help="Remove from global scope",
+    )
+    parser.add_argument(
+        "-i",
+        "--interactive",
+        action="store_true",
+        help="Launch interactive removal selector",
+    )
+    parser.add_argument(
+        "--display",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -60,9 +119,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Install globally",
     )
     add_p.add_argument(
-        "--display",
+        "-i",
+        "--interactive",
         action="store_true",
         help="Launch interactive selector",
+    )
+    add_p.add_argument(
+        "--display",
+        action="store_true",
+        help=argparse.SUPPRESS,
     )
     add_p.add_argument(
         "--from",
@@ -71,47 +136,64 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Ephemeral git URL to install from",
     )
     add_p.add_argument(
+        "--only",
+        default=None,
+        help="Install only specified subdirectories (comma-separated)",
+    )
+    add_p.add_argument(
         "--skills-only",
         action="store_true",
-        help="Install only skills",
+        help=argparse.SUPPRESS,
     )
     add_p.add_argument(
         "--agents-only",
         action="store_true",
-        help="Install only agents",
+        help=argparse.SUPPRESS,
     )
     add_p.add_argument(
         "--steering-only",
         action="store_true",
-        help="Install only steering",
+        help=argparse.SUPPRESS,
     )
     add_p.add_argument(
         "--hooks-only",
         action="store_true",
-        help="Install only hooks",
+        help=argparse.SUPPRESS,
     )
 
-    # --- ls ---
-    ls_p = sub.add_parser("ls", help="List installed bundles")
-    ls_p.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Show installed files",
+    # --- list (primary) with ls as hidden alias ---
+    _list_desc = (
+        "Show all bundles currently tracked in the manifest.\n"
+        "\n"
+        "Reads ~/.kiro/ksm/manifest.json and prints every installed\n"
+        "bundle grouped by scope (local first, then global). Each\n"
+        "entry shows the bundle name, source registry, and a\n"
+        "relative timestamp of the last install or sync.\n"
+        "\n"
+        "With --verbose, the individual files that belong to each\n"
+        "bundle are listed underneath it. Use --scope to restrict\n"
+        "output to a single scope, and --format json to get\n"
+        "machine-readable output suitable for piping to jq."
     )
-    ls_p.add_argument(
-        "--scope",
-        choices=["local", "global"],
-        default=None,
-        help="Filter by scope",
+    _list_epilog = textwrap.dedent("""\
+        examples:
+          ksm list                  List all installed bundles
+          ksm list -v               Include installed file paths
+          ksm list --scope local    Show only workspace-level bundles
+          ksm list --scope global   Show only user-level bundles
+          ksm list --format json    Output as JSON (pipe to jq)
+    """)
+    list_p = sub.add_parser(
+        "list",
+        help="List installed bundles (ls)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=_list_desc,
+        epilog=_list_epilog,
     )
-    ls_p.add_argument(
-        "--format",
-        dest="output_format",
-        choices=["text", "json"],
-        default="text",
-        help="Output format",
-    )
+    _add_list_args(list_p)
+
+    ls_p = sub.add_parser("ls", help=argparse.SUPPRESS)
+    _add_list_args(ls_p)
 
     # --- sync ---
     sync_p = sub.add_parser("sync", help="Sync installed bundles")
@@ -132,37 +214,27 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip confirmation prompt",
     )
 
-    # --- rm ---
-    rm_p = sub.add_parser("rm", help="Remove an installed bundle")
-    rm_p.add_argument(
-        "bundle_name",
-        nargs="?",
-        default=None,
-        help="Bundle name to remove",
-    )
-    rm_p.add_argument(
-        "-l",
-        "--local",
-        dest="local",
-        action="store_true",
-        help="Remove from local scope",
-    )
-    rm_p.add_argument(
-        "-g",
-        "--global",
-        dest="global_",
-        action="store_true",
-        help="Remove from global scope",
-    )
-    rm_p.add_argument(
-        "--display",
-        action="store_true",
-        help="Launch interactive removal selector",
-    )
+    # --- remove (primary) with rm as hidden alias ---
+    remove_p = sub.add_parser("remove", help="Remove an installed bundle (rm)")
+    _add_rm_args(remove_p)
+
+    rm_p = sub.add_parser("rm", help=argparse.SUPPRESS)
+    _add_rm_args(rm_p)
 
     # --- add-registry ---
     ar_p = sub.add_parser("add-registry", help="Register a git bundle registry")
     ar_p.add_argument("git_url", help="Git URL of the registry")
+    ar_p.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Force re-clone of cached registry",
+    )
+    ar_p.add_argument(
+        "--name",
+        default=None,
+        help="Custom name for the registry",
+    )
 
     # --- registry (subcommand group) ---
     reg_p = sub.add_parser("registry", help="Manage registries")
@@ -170,10 +242,33 @@ def _build_parser() -> argparse.ArgumentParser:
 
     reg_add_p = reg_sub.add_parser("add", help="Add a registry")
     reg_add_p.add_argument("git_url", help="Git URL of the registry")
-    reg_sub.add_parser("ls", help="List registries")
+    reg_add_p.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Force re-clone of cached registry",
+    )
+    reg_add_p.add_argument(
+        "--name",
+        default=None,
+        help="Custom name for the registry",
+    )
 
-    reg_rm_p = reg_sub.add_parser("rm", help="Remove a registry")
-    reg_rm_p.add_argument("registry_name", help="Name of registry to remove")
+    reg_sub.add_parser(
+        "list",
+        aliases=["ls"],
+        help="List registries (ls)",
+    )
+
+    reg_rm_p = reg_sub.add_parser(
+        "remove",
+        aliases=["rm"],
+        help="Remove a registry (rm)",
+    )
+    reg_rm_p.add_argument(
+        "registry_name",
+        help="Name of registry to remove",
+    )
 
     reg_inspect_p = reg_sub.add_parser("inspect", help="Inspect a registry")
     reg_inspect_p.add_argument(
@@ -199,6 +294,19 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["bash", "zsh", "fish"],
         help="Shell type",
     )
+
+    # Hide short aliases from the top-level choices metavar
+    # so help shows only full-word primaries.
+    _hidden = {"ls", "rm"}
+    if parser._subparsers is not None:
+        for action in parser._subparsers._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                action._choices_actions = [
+                    a for a in action._choices_actions if a.dest not in _hidden
+                ]
+                visible = [k for k in action.choices if k not in _hidden]
+                action.metavar = "{" + ",".join(visible) + "}"
+                break
 
     return parser
 
@@ -290,12 +398,12 @@ def _dispatch_registry(args: argparse.Namespace) -> int:
     registry_index = load_registry_index(REGISTRIES_FILE)
     subcmd = getattr(args, "registry_command", None)
 
-    if subcmd == "ls":
+    if subcmd in ("list", "ls"):
         from ksm.commands.registry_ls import run_registry_ls
 
         return run_registry_ls(args, registry_index=registry_index)
 
-    if subcmd == "rm":
+    if subcmd in ("remove", "rm"):
         from ksm.commands.registry_rm import run_registry_rm
 
         return run_registry_rm(
@@ -312,9 +420,9 @@ def _dispatch_registry(args: argparse.Namespace) -> int:
         return run_registry_inspect(args, registry_index=registry_index)
 
     if subcmd == "add":
-        from ksm.commands.add_registry import run_add_registry
+        from ksm.commands.registry_add import run_registry_add
 
-        return run_add_registry(
+        return run_registry_add(
             args,
             registry_index=registry_index,
             registry_index_path=REGISTRIES_FILE,
@@ -323,7 +431,7 @@ def _dispatch_registry(args: argparse.Namespace) -> int:
 
     # No subcommand — print help
     print(
-        "usage: ksm registry {add,ls,rm,inspect}",
+        "usage: ksm registry" " {add,remove,list,inspect}",
         file=sys.stderr,
     )
     return 2
@@ -387,9 +495,11 @@ def _dispatch_completions(args: argparse.Namespace) -> int:
 
 _DISPATCH_NAMES: dict[str, str] = {
     "add": "_dispatch_add",
+    "list": "_dispatch_ls",
     "ls": "_dispatch_ls",
     "sync": "_dispatch_sync",
     "add-registry": "_dispatch_add_registry",
+    "remove": "_dispatch_rm",
     "rm": "_dispatch_rm",
     "registry": "_dispatch_registry",
     "init": "_dispatch_init",

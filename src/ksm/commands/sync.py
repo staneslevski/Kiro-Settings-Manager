@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 from ksm.copier import format_diff_summary
-from ksm.errors import BundleNotFoundError
+from ksm.errors import format_error, format_warning
 from ksm.git_ops import pull_repo
 from ksm.installer import install_bundle
 from ksm.manifest import Manifest, ManifestEntry, save_manifest
@@ -29,8 +29,11 @@ def _check_tty_for_prompt(yes_flag: bool) -> bool:
     """
     if not sys.stdin.isatty():
         print(
-            "Error: confirmation required but stdin is not a terminal.\n"
-            "  Use --yes to skip confirmation in non-interactive mode.",
+            format_error(
+                "Confirmation required but stdin is" " not a terminal.",
+                "Non-interactive mode detected.",
+                "Use --yes to skip confirmation.",
+            ),
             file=sys.stderr,
         )
         return False
@@ -81,7 +84,11 @@ def run_sync(
 
     if not bundle_names and not sync_all:
         print(
-            "Error: specify bundle name(s) or use --all",
+            format_error(
+                "No bundles specified.",
+                "Provide bundle name(s) or use --all.",
+                "Example: ksm sync <bundle> or" " ksm sync --all",
+            ),
             file=sys.stderr,
         )
         return 1
@@ -95,7 +102,11 @@ def run_sync(
             matches = [e for e in manifest.entries if e.bundle_name == name]
             if not matches:
                 print(
-                    f"Error: bundle '{name}' is not installed",
+                    format_error(
+                        f"Bundle '{name}' is not installed.",
+                        "Cannot sync a bundle that is not" " installed.",
+                        "Run `ksm list` to see installed" " bundles.",
+                    ),
                     file=sys.stderr,
                 )
                 continue
@@ -152,7 +163,10 @@ def _pull_custom_registries(
                 pull_repo(Path(reg.local_path))
             except Exception as e:
                 print(
-                    f"Warning: failed to pull {reg.name}: {e}",
+                    format_warning(
+                        f"Failed to pull {reg.name}: {e}",
+                        "Sync will use the local cache.",
+                    ),
                     file=sys.stderr,
                 )
 
@@ -168,11 +182,18 @@ def _sync_entry(
     """Re-install a single bundle from its source registry."""
     target_dir = target_global if entry.scope == "global" else target_local
 
-    try:
-        resolved = resolve_bundle(entry.bundle_name, registry_index)
-    except BundleNotFoundError as e:
-        print(f"Warning: {e}", file=sys.stderr)
+    result = resolve_bundle(entry.bundle_name, registry_index)
+    if not result.matches:
+        searched = ", ".join(result.searched)
+        print(
+            format_warning(
+                f"Bundle '{entry.bundle_name}' not found" f" in registries: {searched}",
+                "Skipping sync for this bundle.",
+            ),
+            file=sys.stderr,
+        )
         return
+    resolved = result.matches[0]
 
     try:
         results = install_bundle(
@@ -186,7 +207,10 @@ def _sync_entry(
         )
     except SystemExit:
         print(
-            f"Warning: failed to sync '{entry.bundle_name}'",
+            format_warning(
+                f"Failed to sync '{entry.bundle_name}'.",
+                "The bundle may have changed upstream.",
+            ),
             file=sys.stderr,
         )
         return

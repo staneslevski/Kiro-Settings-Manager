@@ -31,7 +31,7 @@ def run_search(
     results: list[tuple[str, BundleInfo]] = []
     for entry in registry_index.registries:
         registry_path = Path(entry.local_path)
-        bundles = scan_registry(registry_path)
+        bundles = scan_registry(registry_path, registry_name=entry.name)
         for bundle in bundles:
             if _matches(query, bundle):
                 results.append((entry.name, bundle))

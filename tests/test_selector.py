@@ -75,7 +75,7 @@ def test_render_add_selector_installed_label() -> None:
 
 
 def test_render_add_selector_shows_registry_name() -> None:
-    """Selector shows registry name for each bundle."""
+    """Selector shows qualified name for ambiguous bundles."""
     from ksm.selector import render_add_selector
 
     bundles = [
@@ -86,7 +86,7 @@ def test_render_add_selector_shows_registry_name() -> None:
             registry_name="default",
         ),
         BundleInfo(
-            name="team-tools",
+            name="aws",
             path=Path("/t"),
             subdirectories=["hooks"],
             registry_name="team-repo",
@@ -94,10 +94,9 @@ def test_render_add_selector_shows_registry_name() -> None:
     ]
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
-    aws_line = [ln for ln in lines if "aws" in ln][0]
-    team_line = [ln for ln in lines if "team-tools" in ln][0]
-    assert "(default)" in aws_line
-    assert "(team-repo)" in team_line
+    bundle_lines = lines[3:]
+    assert "default/aws" in bundle_lines[0]
+    assert "team-repo/aws" in bundle_lines[1]
 
 
 def test_render_add_selector_multi_registry_sorted() -> None:
@@ -121,9 +120,7 @@ def test_render_add_selector_multi_registry_sorted() -> None:
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
     assert "alpha" in lines[3]
-    assert "(default)" in lines[3]
     assert "zulu" in lines[4]
-    assert "(team)" in lines[4]
 
 
 def test_navigation_clamps_at_boundaries() -> None:
@@ -2147,3 +2144,150 @@ def test_interactive_removal_toggle_multi_select() -> None:
     assert len(result) == 2
     assert result[0].bundle_name == "aws"
     assert result[1].bundle_name == "git"
+
+
+# --- 5.4 Qualified name display tests ---
+
+
+def test_render_add_selector_ambiguous_shows_qualified() -> None:
+    """Ambiguous bundle names show registry/bundle format."""
+    from ksm.selector import render_add_selector
+
+    bundles = [
+        BundleInfo(
+            name="aws",
+            path=Path("/r1/aws"),
+            subdirectories=["skills"],
+            registry_name="first",
+        ),
+        BundleInfo(
+            name="aws",
+            path=Path("/r2/aws"),
+            subdirectories=["steering"],
+            registry_name="second",
+        ),
+        BundleInfo(
+            name="unique",
+            path=Path("/r1/unique"),
+            subdirectories=["hooks"],
+            registry_name="first",
+        ),
+    ]
+    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+
+    bundle_lines = lines[3:]
+    # "aws" appears in two registries → qualified
+    aws_lines = [ln for ln in bundle_lines if "aws" in ln]
+    assert len(aws_lines) == 2
+    assert "first/aws" in aws_lines[0]
+    assert "second/aws" in aws_lines[1]
+
+    # "unique" appears in one registry → plain name
+    unique_lines = [ln for ln in bundle_lines if "unique" in ln]
+    assert len(unique_lines) == 1
+    assert (
+        "/" not in unique_lines[0].split()[1]
+        if len(unique_lines[0].split()) > 1
+        else True
+    )
+    # More precise: should NOT contain "first/unique"
+    assert "first/unique" not in unique_lines[0]
+
+
+def test_render_add_selector_unique_shows_plain_name() -> None:
+    """Unique bundle names show plain name without registry."""
+    from ksm.selector import render_add_selector
+
+    bundles = [
+        BundleInfo(
+            name="alpha",
+            path=Path("/r1/alpha"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="beta",
+            path=Path("/r2/beta"),
+            subdirectories=["hooks"],
+            registry_name="team",
+        ),
+    ]
+    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+
+    bundle_lines = lines[3:]
+    # Both names are unique → no qualified format
+    alpha_line = [ln for ln in bundle_lines if "alpha" in ln][0]
+    beta_line = [ln for ln in bundle_lines if "beta" in ln][0]
+    assert "default/alpha" not in alpha_line
+    assert "team/beta" not in beta_line
+
+
+# Property 6: Selector qualifies ambiguous bundle names
+# and leaves unique names unqualified (Req 4.1, 4.2, 10.5, 10.6)
+@given(
+    shared_name=st.from_regex(r"[a-z]{2,8}", fullmatch=True),
+    reg_names=st.lists(
+        st.from_regex(r"[a-z]{2,6}", fullmatch=True),
+        min_size=2,
+        max_size=4,
+        unique=True,
+    ),
+    unique_names=st.lists(
+        st.from_regex(r"[a-z]{2,8}", fullmatch=True),
+        min_size=0,
+        max_size=3,
+        unique=True,
+    ),
+)
+def test_property_selector_qualifies_ambiguous_names(
+    shared_name: str,
+    reg_names: list[str],
+    unique_names: list[str],
+) -> None:
+    """Property 6: Ambiguous names qualified, unique unqualified."""
+    from ksm.selector import render_add_selector
+
+    # Filter unique_names to avoid collision with shared_name
+    unique_names = [n for n in unique_names if n != shared_name]
+
+    bundles: list[BundleInfo] = []
+    # Create ambiguous bundles (same name, different registries)
+    for rn in reg_names:
+        bundles.append(
+            BundleInfo(
+                name=shared_name,
+                path=Path(f"/{rn}/{shared_name}"),
+                subdirectories=["skills"],
+                registry_name=rn,
+            )
+        )
+    # Create unique bundles
+    for i, un in enumerate(unique_names):
+        bundles.append(
+            BundleInfo(
+                name=un,
+                path=Path(f"/r/{un}"),
+                subdirectories=["hooks"],
+                registry_name=reg_names[0],
+            )
+        )
+
+    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    bundle_lines = lines[3:]
+
+    # Ambiguous bundles should show registry/name format
+    for rn in reg_names:
+        qualified = f"{rn}/{shared_name}"
+        matching = [ln for ln in bundle_lines if qualified in ln.split()]
+        assert len(matching) == 1, (
+            f"Expected '{qualified}' as token in exactly"
+            f" one line, found {len(matching)}"
+        )
+
+    # Unique bundles should NOT show qualified format
+    for un in unique_names:
+        un_lines = [ln for ln in bundle_lines if un in ln]
+        for ln in un_lines:
+            assert f"/{un}" not in ln or (
+                f"{reg_names[0]}/{un}" not in ln
+            ), f"Unique name '{un}' should not be qualified"

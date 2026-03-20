@@ -118,7 +118,28 @@ def render_add_selector(
     if filter_text:
         ft = filter_text.lower()
         sorted_bundles = [b for b in sorted_bundles if ft in b.name.lower()]
-    max_name = max((len(b.name) for b in sorted_bundles), default=0)
+
+    # Detect ambiguous names (Req 4.1, 4.2)
+    name_counts: dict[str, int] = {}
+    for b in sorted_bundles:
+        name_counts[b.name] = name_counts.get(b.name, 0) + 1
+    ambiguous = {n for n, c in name_counts.items() if c > 1}
+
+    # Build display names
+    display_names: list[str] = []
+    for b in sorted_bundles:
+        if b.name in ambiguous and b.registry_name:
+            display_names.append(f"{b.registry_name}/{b.name}")
+        else:
+            display_names.append(b.name)
+
+    # Re-sort by display name
+    paired = list(zip(display_names, sorted_bundles))
+    paired.sort(key=lambda p: p[0].lower())
+    display_names = [p[0] for p in paired]
+    sorted_bundles = [p[1] for p in paired]
+
+    max_name = max((len(dn) for dn in display_names), default=0)
     lines: list[str] = [
         _ADD_HEADER,
         _ADD_INSTRUCTIONS,
@@ -131,14 +152,9 @@ def render_add_selector(
         check = ""
         if multi_selected is not None:
             check = "[✓] " if i in multi_selected else "[ ] "
-        padded = bundle.name.ljust(max_name)
+        padded = display_names[i].ljust(max_name)
         label = " [installed]" if bundle.name in installed_names else ""
-        reg_label = (
-            f" ({bundle.registry_name})"
-            if getattr(bundle, "registry_name", None)
-            else ""
-        )
-        lines.append(f"{prefix} {check}{padded}{label}{reg_label}")
+        lines.append(f"{prefix} {check}{padded}{label}")
     return lines
 
 
