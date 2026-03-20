@@ -47,9 +47,7 @@ def run_search(
     for reg_name, bundle in results:
         subdirs = ", ".join(bundle.subdirectories)
         lines.append(
-            f"  {bold(bundle.name)}  "
-            f"{dim(f'({reg_name})')}  "
-            f"{dim(subdirs)}"
+            f"  {bold(bundle.name)}  " f"{dim(f'({reg_name})')}  " f"{dim(subdirs)}"
         )
 
     print("\n".join(lines))

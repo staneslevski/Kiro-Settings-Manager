@@ -91,9 +91,7 @@ class TestInit:
 
         idx = RegistryIndex(
             registries=[
-                _make_registry_entry(
-                    "default", str(reg_path)
-                ),
+                _make_registry_entry("default", str(reg_path)),
             ]
         )
         manifest = Manifest(entries=[])
@@ -127,9 +125,7 @@ class TestInit:
 
         idx = RegistryIndex(
             registries=[
-                _make_registry_entry(
-                    "default", str(reg_path)
-                ),
+                _make_registry_entry("default", str(reg_path)),
             ]
         )
         manifest = Manifest(entries=[])
@@ -171,9 +167,7 @@ class TestInfo:
 
         idx = RegistryIndex(
             registries=[
-                _make_registry_entry(
-                    "default", str(reg_path)
-                ),
+                _make_registry_entry("default", str(reg_path)),
             ]
         )
         manifest = Manifest(entries=[])
@@ -204,9 +198,7 @@ class TestInfo:
 
         idx = RegistryIndex(
             registries=[
-                _make_registry_entry(
-                    "default", str(reg_path)
-                ),
+                _make_registry_entry("default", str(reg_path)),
             ]
         )
         manifest = Manifest(
@@ -245,9 +237,7 @@ class TestInfo:
 
         idx = RegistryIndex(
             registries=[
-                _make_registry_entry(
-                    "default", str(reg_path)
-                ),
+                _make_registry_entry("default", str(reg_path)),
             ]
         )
         manifest = Manifest(entries=[])
@@ -278,15 +268,11 @@ class TestSearch:
         from ksm.commands.search import run_search
 
         reg_path = tmp_path / "reg"
-        _make_bundle_tree(
-            reg_path, ["python-linter", "js-linter", "formatter"]
-        )
+        _make_bundle_tree(reg_path, ["python-linter", "js-linter", "formatter"])
 
         idx = RegistryIndex(
             registries=[
-                _make_registry_entry(
-                    "default", str(reg_path)
-                ),
+                _make_registry_entry("default", str(reg_path)),
             ]
         )
 
@@ -311,9 +297,7 @@ class TestSearch:
 
         idx = RegistryIndex(
             registries=[
-                _make_registry_entry(
-                    "default", str(reg_path)
-                ),
+                _make_registry_entry("default", str(reg_path)),
             ]
         )
 
@@ -336,9 +320,7 @@ class TestSearch:
 
         idx = RegistryIndex(
             registries=[
-                _make_registry_entry(
-                    "default", str(reg_path)
-                ),
+                _make_registry_entry("default", str(reg_path)),
             ]
         )
 
@@ -367,18 +349,27 @@ class TestSearch:
 
         from ksm.commands.search import run_search
 
+        # Build a no_match name that cannot contain query
+        # as a substring: use only chars NOT in the query.
+        query_lower = set(query.lower())
+        pool = [c for c in "abcdefghijklmnopqrstuvwxyz" if c not in query_lower]
+        if len(pool) < 3:
+            # Query covers almost all letters; skip
+            # this example — can't build a safe name.
+            from hypothesis import assume
+
+            assume(False)
+        no_match = "".join(pool[:5])
+
         with tempfile.TemporaryDirectory() as td:
             reg_path = Path(td) / "reg"
             # Create bundles: one that matches, one that doesn't
             match_name = f"prefix-{query}-suffix"
-            no_match = "zzz-nomatch-zzz"
             _make_bundle_tree(reg_path, [match_name, no_match])
 
             idx = RegistryIndex(
                 registries=[
-                    _make_registry_entry(
-                        "default", str(reg_path)
-                    ),
+                    _make_registry_entry("default", str(reg_path)),
                 ]
             )
 
@@ -388,9 +379,7 @@ class TestSearch:
             buf = io.StringIO()
             err_buf = io.StringIO()
 
-            def fake_print(
-                *a: object, **kw: object
-            ) -> None:
+            def fake_print(*a: object, **kw: object) -> None:
                 target = kw.get("file", None)
                 import sys
 

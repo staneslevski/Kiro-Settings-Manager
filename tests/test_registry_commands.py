@@ -147,14 +147,15 @@ class TestRegistryLs:
 
             idx = RegistryIndex(
                 registries=[
-                    _make_registry_entry(
-                        name, url, str(reg_path)
-                    ),
+                    _make_registry_entry(name, url, str(reg_path)),
                 ]
             )
             args = argparse.Namespace()
             buf = io.StringIO()
-            with patch("builtins.print", side_effect=lambda *a, **kw: buf.write(str(a[0]) + "\n") if a else None):
+            with patch(
+                "builtins.print",
+                side_effect=lambda *a, **kw: buf.write(str(a[0]) + "\n") if a else None,
+            ):
                 run_registry_ls(args, registry_index=idx)
 
             out = buf.getvalue()
@@ -305,10 +306,7 @@ class TestRegistryRm:
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
             entries = [
-                _make_registry_entry(
-                    n, f"https://{n}", str(tmp / n)
-                )
-                for n in names
+                _make_registry_entry(n, f"https://{n}", str(tmp / n)) for n in names
             ]
             idx = RegistryIndex(registries=list(entries))
             target = names[0]
@@ -379,9 +377,7 @@ class TestRegistryInspect:
 
         idx = RegistryIndex(
             registries=[
-                _make_registry_entry(
-                    "alpha", None, str(tmp_path), True
-                ),
+                _make_registry_entry("alpha", None, str(tmp_path), True),
             ]
         )
         args = argparse.Namespace(registry_name="nope")
@@ -406,9 +402,7 @@ class TestRegistryInspect:
 
         idx = RegistryIndex(
             registries=[
-                _make_registry_entry(
-                    "empty-reg", None, str(reg_path)
-                ),
+                _make_registry_entry("empty-reg", None, str(reg_path)),
             ]
         )
         args = argparse.Namespace(registry_name="empty-reg")

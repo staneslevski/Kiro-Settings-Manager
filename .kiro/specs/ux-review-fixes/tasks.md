@@ -224,7 +224,7 @@ Implements 35 requirements from the ksm CLI UX and engineering reviews across 8 
 
   - [x] 5.4 Checkpoint — Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 6. Output Quality — ls improvements, CopyResult, file-level diff, auto-launch selector
+- [x] 6. Output Quality — ls improvements, CopyResult, file-level diff, auto-launch selector
 
   - [x] 6.1 Copier enhancements — _Agent: general-task-execution_
 
@@ -321,29 +321,29 @@ Implements 35 requirements from the ksm CLI UX and engineering reviews across 8 
 
   - [x] 7.5 Checkpoint — Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Cleanup & Polish — Empty dir cleanup, signal handler integration, final validation
+- [x] 8. Cleanup & Polish — Empty dir cleanup, signal handler integration, final validation
 
-  - [ ] 8.1 Empty directory cleanup — _Agent: general-task-execution_
+  - [x] 8.1 Empty directory cleanup — _Agent: general-task-execution_
 
-    - [ ] 8.1.1 Add `_cleanup_empty_dirs()` to `remover.py`; call it after file deletion in `remove_bundle()`; stop at `.kiro/` boundary
+    - [x] 8.1.1 Add `_cleanup_empty_dirs()` to `remover.py`; call it after file deletion in `remove_bundle()`; stop at `.kiro/` boundary
       - _Requirements: 33.1, 33.2, 33.3_
 
-    - [ ] 8.1.2 Write property test for empty dir cleanup
+    - [x] 8.1.2 Write property test for empty dir cleanup
       - **Property 38: Empty dir cleanup removes only empty dirs up to .kiro/ boundary**
       - **Validates: Requirements 33.1, 33.2, 33.3**
 
-  - [ ] 8.2 Signal handler integration — _Agent: general-task-execution_
+  - [x] 8.2 Signal handler integration — _Agent: general-task-execution_
 
-    - [ ] 8.2.1 Call `install_signal_handler()` in `main()`; add `register_temp_dir()`/`unregister_temp_dir()` calls in `git_ops.py` clone operations and `commands/add.py` ephemeral flow
+    - [x] 8.2.1 Call `install_signal_handler()` in `main()`; add `register_temp_dir()`/`unregister_temp_dir()` calls in `git_ops.py` clone operations and `commands/add.py` ephemeral flow
       - _Requirements: 34.1, 34.2_
 
-  - [ ] 8.3 Final integration and validation
+  - [x] 8.3 Final integration and validation
 
-    - [ ] 8.3.1 Run full test suite, verify ≥95% coverage on all new/modified modules, fix any gaps
+    - [x] 8.3.1 Run full test suite, verify ≥95% coverage on all new/modified modules, fix any gaps
       - Run `black`, `flake8`, `mypy` on all code
       - _Requirements: all_
 
-  - [ ] 8.4 Final checkpoint — Ensure all tests pass, ask the user if questions arise.
+  - [x] 8.4 Final checkpoint — Ensure all tests pass, ask the user if questions arise.
 
 ## Agent Legend
 

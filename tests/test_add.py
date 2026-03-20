@@ -1282,3 +1282,106 @@ def test_run_add_non_tty_no_bundle_prints_error(
     assert code == 1
     captured = capsys.readouterr()
     assert "no bundle specified" in captured.err.lower()
+
+
+def test_run_add_versioned_install_error_with_available(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Versioned install error shows available versions."""
+    from ksm.commands.add import run_add
+    from ksm.errors import GitError
+
+    reg = _setup_registry(
+        tmp_path,
+        {"mybundle": {"skills": {"S.md": b"skill"}}},
+    )
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url="https://example.com",
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    args = _make_args(bundle_spec="mybundle@v999")
+
+    with patch(
+        "ksm.commands.add.checkout_version",
+        side_effect=GitError("not found"),
+    ):
+        with patch(
+            "ksm.commands.add.list_versions",
+            return_value=["v1.0.0", "v2.0.0"],
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=tmp_path / "local" / ".kiro",
+                target_global=tmp_path / "global" / ".kiro",
+            )
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "v999" in captured.err
+    assert "v1.0.0" in captured.err
+    assert "v2.0.0" in captured.err
+
+
+def test_run_add_versioned_install_error_no_available(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Versioned install error with no available versions."""
+    from ksm.commands.add import run_add
+    from ksm.errors import GitError
+
+    reg = _setup_registry(
+        tmp_path,
+        {"mybundle": {"skills": {"S.md": b"skill"}}},
+    )
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url="https://example.com",
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    args = _make_args(bundle_spec="mybundle@v999")
+
+    with patch(
+        "ksm.commands.add.checkout_version",
+        side_effect=GitError("not found"),
+    ):
+        with patch(
+            "ksm.commands.add.list_versions",
+            return_value=[],
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=tmp_path / "local" / ".kiro",
+                target_global=tmp_path / "global" / ".kiro",
+            )
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "v999" in captured.err
+    assert "no versions available" in captured.err.lower()

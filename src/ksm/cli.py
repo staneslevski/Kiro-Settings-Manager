@@ -401,6 +401,10 @@ _DISPATCH_NAMES: dict[str, str] = {
 
 def main() -> None:
     """Parse arguments and dispatch to the appropriate command."""
+    from ksm.signal_handler import install_signal_handler
+
+    install_signal_handler()
+
     parser = _build_parser()
     args = parser.parse_args()
 

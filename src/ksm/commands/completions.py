@@ -114,8 +114,7 @@ def run_completions(args: argparse.Namespace) -> int:
     script = _SCRIPTS.get(shell)
     if script is None:
         print(
-            f"Error: unsupported shell '{shell}'. "
-            f"Supported: bash, zsh, fish",
+            f"Error: unsupported shell '{shell}'. " f"Supported: bash, zsh, fish",
             file=sys.stderr,
         )
         return 1

@@ -18,7 +18,6 @@ from ksm.commands.add import parse_version_spec
 from ksm.errors import GitError
 from ksm.git_ops import checkout_version, list_versions
 
-
 # ── completions ──────────────────────────────────────────────
 
 
@@ -128,9 +127,7 @@ class TestVersionSpec:
             max_size=10,
         ),
     )
-    def test_version_spec_roundtrip(
-        self, name: str, ver: str
-    ) -> None:
+    def test_version_spec_roundtrip(self, name: str, ver: str) -> None:
         spec = f"{name}@{ver}"
         parsed_name, parsed_ver = parse_version_spec(spec)
         assert parsed_name == name
@@ -143,38 +140,24 @@ class TestVersionSpec:
 class TestGitOpsVersions:
     """Tests for list_versions and checkout_version."""
 
-    def test_list_versions_returns_tags(
-        self, tmp_path: Path
-    ) -> None:
-        with patch(
-            "ksm.git_ops.subprocess.run"
-        ) as mock_run:
-            mock_run.return_value.stdout = (
-                "v2.0.0\nv1.0.0\nv0.1.0\n"
-            )
+    def test_list_versions_returns_tags(self, tmp_path: Path) -> None:
+        with patch("ksm.git_ops.subprocess.run") as mock_run:
+            mock_run.return_value.stdout = "v2.0.0\nv1.0.0\nv0.1.0\n"
             mock_run.return_value.returncode = 0
             tags = list_versions(tmp_path)
 
         assert tags == ["v2.0.0", "v1.0.0", "v0.1.0"]
 
-    def test_list_versions_empty(
-        self, tmp_path: Path
-    ) -> None:
-        with patch(
-            "ksm.git_ops.subprocess.run"
-        ) as mock_run:
+    def test_list_versions_empty(self, tmp_path: Path) -> None:
+        with patch("ksm.git_ops.subprocess.run") as mock_run:
             mock_run.return_value.stdout = ""
             mock_run.return_value.returncode = 0
             tags = list_versions(tmp_path)
 
         assert tags == []
 
-    def test_checkout_version_success(
-        self, tmp_path: Path
-    ) -> None:
-        with patch(
-            "ksm.git_ops.subprocess.run"
-        ) as mock_run:
+    def test_checkout_version_success(self, tmp_path: Path) -> None:
+        with patch("ksm.git_ops.subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
             checkout_version(tmp_path, "v1.0.0")
 
@@ -183,30 +166,22 @@ class TestGitOpsVersions:
         assert "checkout" in call_args[0][0]
         assert "v1.0.0" in call_args[0][0]
 
-    def test_checkout_version_failure(
-        self, tmp_path: Path
-    ) -> None:
+    def test_checkout_version_failure(self, tmp_path: Path) -> None:
         import subprocess
 
         with patch(
             "ksm.git_ops.subprocess.run",
-            side_effect=subprocess.CalledProcessError(
-                1, "git", stderr="not found"
-            ),
+            side_effect=subprocess.CalledProcessError(1, "git", stderr="not found"),
         ):
             with pytest.raises(GitError, match="not found"):
                 checkout_version(tmp_path, "v999")
 
-    def test_list_versions_failure(
-        self, tmp_path: Path
-    ) -> None:
+    def test_list_versions_failure(self, tmp_path: Path) -> None:
         import subprocess
 
         with patch(
             "ksm.git_ops.subprocess.run",
-            side_effect=subprocess.CalledProcessError(
-                1, "git", stderr="error"
-            ),
+            side_effect=subprocess.CalledProcessError(1, "git", stderr="error"),
         ):
             with pytest.raises(GitError):
                 list_versions(tmp_path)
@@ -223,7 +198,7 @@ class TestVersionedInstall:
         tmp_path: Path,
     ) -> None:
         """Version is stored in manifest after install."""
-        from ksm.manifest import Manifest, ManifestEntry
+        from ksm.manifest import ManifestEntry
 
         entry = ManifestEntry(
             bundle_name="test",
@@ -249,9 +224,7 @@ class TestVersionedInstall:
         )
         assert entry.version is None
 
-    def test_version_serialization_roundtrip(
-        self, tmp_path: Path
-    ) -> None:
+    def test_version_serialization_roundtrip(self, tmp_path: Path) -> None:
         """Version survives save/load cycle."""
         from ksm.manifest import (
             Manifest,
@@ -279,9 +252,7 @@ class TestVersionedInstall:
 
         assert loaded.entries[0].version == "v2.0.0"
 
-    def test_version_none_not_in_json(
-        self, tmp_path: Path
-    ) -> None:
+    def test_version_none_not_in_json(self, tmp_path: Path) -> None:
         """Version field omitted from JSON when None."""
         from ksm.manifest import (
             Manifest,

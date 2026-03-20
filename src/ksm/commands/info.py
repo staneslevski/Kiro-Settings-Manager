@@ -8,7 +8,6 @@ Requirements: 18.1, 18.2, 18.3
 
 import argparse
 import sys
-from pathlib import Path
 
 from ksm.color import bold, dim
 from ksm.errors import BundleNotFoundError
@@ -34,29 +33,24 @@ def run_info(
 
     # Check installed status
     installed_scopes = [
-        e.scope
-        for e in manifest.entries
-        if e.bundle_name == bundle_name
+        e.scope for e in manifest.entries if e.bundle_name == bundle_name
     ]
 
     lines: list[str] = []
     lines.append(bold(resolved.name))
-    lines.append(
-        f"  Registry: {dim(resolved.registry_name)}"
-    )
+    lines.append(f"  Registry: {dim(resolved.registry_name)}")
     lines.append(f"  Path:     {dim(str(resolved.path))}")
 
     # Subdirectory breakdown
     lines.append("  Contents:")
     for subdir in resolved.subdirectories:
         subdir_path = resolved.path / subdir
-        items = sorted(
-            p.name for p in subdir_path.iterdir()
-        ) if subdir_path.is_dir() else []
-        lines.append(
-            f"    {subdir}/ "
-            f"{dim(f'({len(items)} items)')}"
+        items = (
+            sorted(p.name for p in subdir_path.iterdir())
+            if subdir_path.is_dir()
+            else []
         )
+        lines.append(f"    {subdir}/ " f"{dim(f'({len(items)} items)')}")
 
     # Installed status
     if installed_scopes:

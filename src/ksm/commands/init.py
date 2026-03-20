@@ -40,20 +40,14 @@ def run_init(
         )
 
     # Offer interactive selector if TTY and registries available
-    if (
-        sys.stdin.isatty()
-        and registry_index is not None
-        and manifest is not None
-    ):
+    if sys.stdin.isatty() and registry_index is not None and manifest is not None:
         all_bundles = []
         for entry in registry_index.registries:
             registry_path = Path(entry.local_path)
             all_bundles.extend(scan_registry(registry_path))
 
         if all_bundles:
-            installed = {
-                e.bundle_name for e in manifest.entries
-            }
+            installed = {e.bundle_name for e in manifest.entries}
             interactive_select(all_bundles, installed)
 
     return 0

@@ -53,9 +53,7 @@ def run_registry_rm(
         shutil.rmtree(cache_path, ignore_errors=True)
 
     # Remove from index and save
-    registry_index.registries = [
-        e for e in registry_index.registries if e.name != name
-    ]
+    registry_index.registries = [e for e in registry_index.registries if e.name != name]
     save_registry_index(registry_index, registry_index_path)
 
     print(

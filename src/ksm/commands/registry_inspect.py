@@ -51,13 +51,8 @@ def run_registry_inspect(
 
     lines: list[str] = []
     lines.append(bold(f"Registry: {name}"))
-    lines.append(
-        dim(f"  Path: {match.local_path}")
-    )
-    lines.append(
-        f"  {len(bundles)} bundle"
-        f"{'s' if len(bundles) != 1 else ''}:"
-    )
+    lines.append(dim(f"  Path: {match.local_path}"))
+    lines.append(f"  {len(bundles)} bundle" f"{'s' if len(bundles) != 1 else ''}:")
     lines.append("")
 
     for bundle in bundles:
@@ -66,14 +61,9 @@ def run_registry_inspect(
             # List items in each subdirectory
             subdir_path = bundle.path / subdir
             items = sorted(
-                p.name
-                for p in subdir_path.iterdir()
-                if p.is_dir() or p.is_file()
+                p.name for p in subdir_path.iterdir() if p.is_dir() or p.is_file()
             )
-            lines.append(
-                f"    {subdir}/ "
-                f"{dim(f'({len(items)} items)')}"
-            )
+            lines.append(f"    {subdir}/ " f"{dim(f'({len(items)} items)')}")
             for item in items:
                 lines.append(f"      {dim(item)}")
         lines.append("")

@@ -31,6 +31,7 @@ from ksm.registry import RegistryEntry, RegistryIndex
 from ksm.resolver import resolve_bundle
 from ksm.scanner import scan_registry
 from ksm.selector import interactive_select
+from ksm.signal_handler import unregister_temp_dir
 
 
 def _build_subdirectory_filter(
@@ -210,6 +211,7 @@ def run_add(
     finally:
         if ephemeral_path is not None:
             shutil.rmtree(ephemeral_path, ignore_errors=True)
+            unregister_temp_dir(ephemeral_path)
 
 
 def _handle_display(
@@ -299,3 +301,4 @@ def _handle_ephemeral(
     finally:
         if ephemeral_path is not None:
             shutil.rmtree(ephemeral_path, ignore_errors=True)
+            unregister_temp_dir(ephemeral_path)
