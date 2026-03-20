@@ -1591,3 +1591,265 @@ def test_run_add_display_prints_deprecation(
     assert "deprecated" in captured.err.lower()
     assert "--display" in captured.err
     assert (target_local / "skills" / "S.md").exists()
+
+
+# ── Phase 6: --only consolidation tests ──────────────────────
+
+
+def test_build_subdirectory_filter_only_comma_separated() -> None:
+    """--only with comma-separated values produces correct set."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args(only=["skills,hooks"])
+    result = _build_subdirectory_filter(args)
+    assert result == {"skills", "hooks"}
+
+
+def test_build_subdirectory_filter_only_repeated() -> None:
+    """Repeated --only flags accumulate values."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args(only=["skills", "agents"])
+    result = _build_subdirectory_filter(args)
+    assert result == {"skills", "agents"}
+
+
+def test_build_subdirectory_filter_only_comma_and_repeated() -> None:
+    """Mixed comma-separated and repeated --only flags."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args(only=["skills,hooks", "agents"])
+    result = _build_subdirectory_filter(args)
+    assert result == {"skills", "hooks", "agents"}
+
+
+def test_build_subdirectory_filter_only_invalid_value(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Invalid --only value raises SystemExit(2)."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args(only=["badvalue"])
+    with pytest.raises(SystemExit) as exc_info:
+        _build_subdirectory_filter(args)
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert "badvalue" in captured.err
+    assert "skills" in captured.err
+    assert "agents" in captured.err
+    assert "steering" in captured.err
+    assert "hooks" in captured.err
+
+
+def test_build_subdirectory_filter_only_mixed_valid_invalid(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Comma list with one invalid value raises SystemExit(2)."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args(only=["skills,nope"])
+    with pytest.raises(SystemExit) as exc_info:
+        _build_subdirectory_filter(args)
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert "nope" in captured.err
+
+
+def test_build_subdirectory_filter_deprecated_skills_only(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--skills-only emits deprecation warning and returns {skills}."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args(skills_only=True)
+    result = _build_subdirectory_filter(args)
+    assert result == {"skills"}
+    captured = capsys.readouterr()
+    assert "deprecated" in captured.err.lower()
+    assert "--skills-only" in captured.err
+    assert "--only skills" in captured.err
+
+
+def test_build_subdirectory_filter_deprecated_agents_only(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--agents-only emits deprecation warning and returns {agents}."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args(agents_only=True)
+    result = _build_subdirectory_filter(args)
+    assert result == {"agents"}
+    captured = capsys.readouterr()
+    assert "deprecated" in captured.err.lower()
+    assert "--agents-only" in captured.err
+    assert "--only agents" in captured.err
+
+
+def test_build_subdirectory_filter_deprecated_steering_only(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--steering-only emits deprecation warning."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args(steering_only=True)
+    result = _build_subdirectory_filter(args)
+    assert result == {"steering"}
+    captured = capsys.readouterr()
+    assert "deprecated" in captured.err.lower()
+    assert "--steering-only" in captured.err
+    assert "--only steering" in captured.err
+
+
+def test_build_subdirectory_filter_deprecated_hooks_only(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--hooks-only emits deprecation warning."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args(hooks_only=True)
+    result = _build_subdirectory_filter(args)
+    assert result == {"hooks"}
+    captured = capsys.readouterr()
+    assert "deprecated" in captured.err.lower()
+    assert "--hooks-only" in captured.err
+    assert "--only hooks" in captured.err
+
+
+def test_build_subdirectory_filter_deprecated_multiple(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Multiple deprecated flags combine and each emits warning."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args(skills_only=True, hooks_only=True)
+    result = _build_subdirectory_filter(args)
+    assert result == {"skills", "hooks"}
+    captured = capsys.readouterr()
+    assert "--skills-only" in captured.err
+    assert "--hooks-only" in captured.err
+
+
+def test_build_subdirectory_filter_none_when_no_flags() -> None:
+    """No --only or --*-only flags returns None."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args()
+    result = _build_subdirectory_filter(args)
+    assert result is None
+
+
+def test_run_add_only_with_dot_notation_mutual_exclusion(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--only + dot notation is mutually exclusive (exit 1)."""
+    from ksm.commands.add import run_add
+
+    target_local = tmp_path / "workspace" / ".kiro"
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir()
+
+    idx = RegistryIndex(registries=[])
+    manifest = Manifest(entries=[])
+
+    args = _make_args(
+        bundle_spec="aws.skills.cross",
+        only=["skills"],
+    )
+    code = run_add(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "mutually exclusive" in captured.err.lower()
+
+
+# ── Property 11: --only comma parsing ────────────────────────
+
+
+@given(
+    values=st.lists(
+        st.sampled_from(["skills", "agents", "steering", "hooks"]),
+        min_size=1,
+        max_size=4,
+    ),
+)
+@h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_property_only_comma_parsing_produces_correct_set(
+    values: list[str],
+) -> None:
+    """Property 11: comma-separated --only produces correct set."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    csv_str = ",".join(values)
+    args = _make_args(only=[csv_str])
+    result = _build_subdirectory_filter(args)
+    assert result == set(values)
+
+
+# ── Property 12: --only invalid value rejection ──────────────
+
+
+@given(
+    bad=st.text(min_size=1, max_size=20).filter(
+        lambda s: s.strip() not in {"skills", "agents", "steering", "hooks"}
+        and "," not in s
+    ),
+)
+@h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_property_only_invalid_value_exits_2(
+    bad: str,
+) -> None:
+    """Property 12: invalid --only value raises SystemExit(2)."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    args = _make_args(only=[bad])
+    with pytest.raises(SystemExit) as exc_info:
+        _build_subdirectory_filter(args)
+    assert exc_info.value.code == 2
+
+
+# ── Property 13: deprecated --*-only equivalence ─────────────
+
+_DEPRECATED_FLAG_MAP = {
+    "skills_only": "skills",
+    "agents_only": "agents",
+    "steering_only": "steering",
+    "hooks_only": "hooks",
+}
+
+
+@given(
+    flags=st.lists(
+        st.sampled_from(list(_DEPRECATED_FLAG_MAP.keys())),
+        min_size=1,
+        max_size=4,
+        unique=True,
+    ),
+)
+@h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_property_deprecated_only_flags_equivalence(
+    flags: list[str],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Property 13: deprecated flags produce equivalent filter."""
+    from ksm.commands.add import _build_subdirectory_filter
+
+    kwargs = {f: True for f in flags}
+    args = _make_args(**kwargs)
+    result = _build_subdirectory_filter(args)
+
+    expected = {_DEPRECATED_FLAG_MAP[f] for f in flags}
+    assert result == expected
+
+    captured = capsys.readouterr()
+    for f in flags:
+        flag_name = f"--{f.replace('_', '-')}"
+        assert flag_name in captured.err
+        assert "deprecated" in captured.err.lower()

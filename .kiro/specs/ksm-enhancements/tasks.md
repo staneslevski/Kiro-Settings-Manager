@@ -291,41 +291,41 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
     - [x] 5.5 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
-- [ ] 6. --only consolidation and deprecation wiring
+- [-] 6. --only consolidation and deprecation wiring
 
-    - [ ] 6.1 --only flag parsing and validation
+    - [x] 6.1 --only flag parsing and validation
 
-        - [ ] 6.1.1 Write tests for `_build_subdirectory_filter` with --only in `tests/test_add.py`
+        - [x] 6.1.1 Write tests for `_build_subdirectory_filter` with --only in `tests/test_add.py`
             - Comma-separated parsing, repeated --only, invalid value → exit 2
             - Deprecated --*-only flags → deprecation warning + equivalent filter
             - Mutual exclusion with dot notation (Req 12.8)
             → Agent: general-task-execution
             _Requirements: 12.2, 12.3, 12.4, 12.5, 12.7, 12.8_
 
-        - [ ] 6.1.2 Write property test for --only comma parsing
+        - [x] 6.1.2 Write property test for --only comma parsing
             → Agent: hypothesis-test-writer
             **Property 11: --only comma-separated parsing produces correct filter set**
             _Requirements: 12.2_
 
-        - [ ] 6.1.3 Write property test for --only invalid value rejection
+        - [x] 6.1.3 Write property test for --only invalid value rejection
             → Agent: hypothesis-test-writer
             **Property 12: --only rejects invalid values with exit code 2**
             _Requirements: 12.5_
 
-        - [ ] 6.1.4 Write property test for deprecated --*-only equivalence
+        - [x] 6.1.4 Write property test for deprecated --*-only equivalence
             → Agent: hypothesis-test-writer
             **Property 13: Deprecated --*-only flags produce deprecation warning and equivalent filter**
             _Requirements: 12.7_
 
-        - [ ] 6.1.5 Refactor `_build_subdirectory_filter()` in `src/ksm/commands/add.py`
+        - [x] 6.1.5 Refactor `_build_subdirectory_filter()` in `src/ksm/commands/add.py`
             - Parse --only with comma splitting, validate values, emit deprecation for old flags, enforce mutual exclusion with dot notation
             → Agent: general-task-execution
             _Requirements: 12.2, 12.3, 12.4, 12.5, 12.7, 12.8_
 
-        - [ ] 6.1.6 Run tests and verify all pass
+        - [x] 6.1.6 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 6.2 Checkpoint — Run full test suite, verify all tests pass
+    - [-] 6.2 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
 - [ ] 7. Legacy wrapper, rm -i handling, and inspect output

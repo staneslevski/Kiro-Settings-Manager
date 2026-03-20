@@ -38,24 +38,58 @@ from ksm.scanner import scan_registry
 from ksm.selector import interactive_select
 from ksm.signal_handler import unregister_temp_dir
 
+VALID_ONLY_VALUES = {"skills", "agents", "steering", "hooks"}
+
 
 def _build_subdirectory_filter(
     args: argparse.Namespace,
 ) -> set[str] | None:
-    """Build subdirectory filter set from --only flags (Req 5)."""
-    only: list[str] | None = getattr(args, "only", None)
-    if only:
-        return set(only)
-    # Support individual *_only flags from CLI
+    """Build subdirectory filter from --only or deprecated flags.
+
+    Handles comma-separated values, repeated --only flags,
+    validation, and deprecated --*-only flag migration.
+    """
+    only_raw: list[str] | None = getattr(args, "only", None)
     result: set[str] = set()
-    if getattr(args, "skills_only", False):
-        result.add("skills")
-    if getattr(args, "steering_only", False):
-        result.add("steering")
-    if getattr(args, "hooks_only", False):
-        result.add("hooks")
-    if getattr(args, "agents_only", False):
-        result.add("agents")
+
+    if only_raw:
+        for item in only_raw:
+            for val in item.split(","):
+                val = val.strip()
+                if val not in VALID_ONLY_VALUES:
+                    print(
+                        format_error(
+                            f"Invalid --only value: '{val}'",
+                            "Valid values: " + ", ".join(sorted(VALID_ONLY_VALUES)),
+                            "Example: --only skills,hooks",
+                        ),
+                        file=sys.stderr,
+                    )
+                    raise SystemExit(2)
+                result.add(val)
+        return result
+
+    # Deprecated --*-only flags (Req 12.7)
+    deprecated_map = {
+        "skills_only": "skills",
+        "steering_only": "steering",
+        "hooks_only": "hooks",
+        "agents_only": "agents",
+    }
+    for attr, value in deprecated_map.items():
+        if getattr(args, attr, False):
+            flag = f"--{attr.replace('_', '-')}"
+            print(
+                format_deprecation(
+                    flag,
+                    f"--only {value}",
+                    "v0.2.0",
+                    "v1.0.0",
+                ),
+                file=sys.stderr,
+            )
+            result.add(value)
+
     return result if result else None
 
 

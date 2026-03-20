@@ -2278,9 +2278,10 @@ def test_property_selector_qualifies_ambiguous_names(
     # Ambiguous bundles should show registry/name format
     for rn in reg_names:
         qualified = f"{rn}/{shared_name}"
-        matching = [ln for ln in bundle_lines if qualified in ln]
+        matching = [ln for ln in bundle_lines if qualified in ln.split()]
         assert len(matching) == 1, (
-            f"Expected '{qualified}' in exactly one line," f" found {len(matching)}"
+            f"Expected '{qualified}' as token in exactly"
+            f" one line, found {len(matching)}"
         )
 
     # Unique bundles should NOT show qualified format
