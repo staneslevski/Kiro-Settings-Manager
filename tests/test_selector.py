@@ -120,10 +120,10 @@ def test_render_add_selector_multi_registry_sorted() -> None:
     ]
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
-    assert "alpha" in lines[0]
-    assert "(default)" in lines[0]
-    assert "zulu" in lines[1]
-    assert "(team)" in lines[1]
+    assert "alpha" in lines[3]
+    assert "(default)" in lines[3]
+    assert "zulu" in lines[4]
+    assert "(team)" in lines[4]
 
 
 def test_navigation_clamps_at_boundaries() -> None:
