@@ -285,6 +285,177 @@ class TestRegistryRm:
         assert "default" in captured.err
         assert "extra" in captured.err
 
+    def test_rm_cache_cleaned_message_with_path(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 3.1: cache cleaned → message with path."""
+        from ksm.commands.registry_rm import run_registry_rm
+
+        cache_path = tmp_path / "cache" / "extra"
+        cache_path.mkdir(parents=True)
+        (cache_path / "data.txt").write_bytes(b"x")
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "default",
+                    None,
+                    str(tmp_path / "default"),
+                    is_default=True,
+                ),
+                _make_registry_entry(
+                    "extra",
+                    "https://example.com/extra.git",
+                    str(cache_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="extra")
+        code = run_registry_rm(
+            args,
+            registry_index=idx,
+            registry_index_path=tmp_path / "r.json",
+        )
+
+        assert code == 0
+        assert not cache_path.exists()
+        captured = capsys.readouterr()
+        assert "Cache directory cleaned:" in captured.err
+        assert str(cache_path) in captured.err
+
+    def test_rm_cache_absent_message(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 3.2: cache absent → 'already absent' message."""
+        from ksm.commands.registry_rm import run_registry_rm
+
+        # Point to a path that does NOT exist on disk
+        missing_cache = tmp_path / "cache" / "gone"
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "default",
+                    None,
+                    str(tmp_path / "default"),
+                    is_default=True,
+                ),
+                _make_registry_entry(
+                    "gone",
+                    "https://example.com/gone.git",
+                    str(missing_cache),
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="gone")
+        code = run_registry_rm(
+            args,
+            registry_index=idx,
+            registry_index_path=tmp_path / "r.json",
+        )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "already absent" in captured.err.lower()
+
+    def test_rm_permission_error_warns_and_removes(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 3.3: permission error → warning, removes from index, exit 0."""
+        from ksm.commands.registry_rm import run_registry_rm
+
+        cache_path = tmp_path / "cache" / "locked"
+        cache_path.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "default",
+                    None,
+                    str(tmp_path / "default"),
+                    is_default=True,
+                ),
+                _make_registry_entry(
+                    "locked",
+                    "https://example.com/locked.git",
+                    str(cache_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="locked")
+
+        with patch(
+            "ksm.commands.registry_rm.shutil.rmtree",
+            side_effect=PermissionError("denied"),
+        ):
+            code = run_registry_rm(
+                args,
+                registry_index=idx,
+                registry_index_path=tmp_path / "r.json",
+            )
+
+        assert code == 0
+        # Registry removed from index
+        remaining = [e.name for e in idx.registries]
+        assert "locked" not in remaining
+        # Warning printed
+        captured = capsys.readouterr()
+        assert "Warning:" in captured.err
+        assert "Permission denied" in captured.err or (
+            "permission" in captured.err.lower()
+        )
+
+    def test_rm_not_found_uses_format_error(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 3.4: not-found → three-line format_error with all names."""
+        from ksm.commands.registry_rm import run_registry_rm
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "default",
+                    None,
+                    str(tmp_path),
+                    is_default=True,
+                ),
+                _make_registry_entry(
+                    "alpha",
+                    "https://a.com/a.git",
+                    str(tmp_path / "a"),
+                ),
+                _make_registry_entry(
+                    "beta",
+                    "https://b.com/b.git",
+                    str(tmp_path / "b"),
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="missing")
+        code = run_registry_rm(
+            args,
+            registry_index=idx,
+            registry_index_path=tmp_path / "r.json",
+        )
+
+        assert code == 1
+        captured = capsys.readouterr()
+        # Three-line format_error structure
+        assert "Error:" in captured.err
+        assert "missing" in captured.err
+        # All registered names listed
+        assert "default" in captured.err
+        assert "alpha" in captured.err
+        assert "beta" in captured.err
+
     @given(
         names=st.lists(
             st.text(
@@ -327,6 +498,147 @@ class TestRegistryRm:
             remaining = {e.name for e in idx.registries}
             assert target not in remaining
             assert remaining == set(names[1:])
+
+    @given(
+        name=st.text(
+            alphabet=st.characters(
+                whitelist_categories=("L", "N"),
+            ),
+            min_size=1,
+            max_size=15,
+        ),
+        cache_exists=st.booleans(),
+    )
+    def test_rm_feedback_matches_cache_state_property(
+        self,
+        name: str,
+        cache_exists: bool,
+    ) -> None:
+        """Property 4: Registry remove feedback matches cache state.
+
+        For any registered non-default registry, rm should:
+        (a) if cache existed → message contains
+            "Cache directory cleaned:" and the path
+        (b) if cache was absent → message contains
+            "Cache directory was already absent"
+        In both cases exit code is 0 and registry is removed.
+
+        Validates: Requirements 3.1, 3.2
+        """
+        import tempfile
+
+        from ksm.commands.registry_rm import run_registry_rm
+
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cache_path = tmp / "cache" / name
+            if cache_exists:
+                cache_path.mkdir(parents=True)
+                (cache_path / "f.txt").write_bytes(b"x")
+
+            idx = RegistryIndex(
+                registries=[
+                    _make_registry_entry(
+                        name,
+                        f"https://example.com/{name}.git",
+                        str(cache_path),
+                    ),
+                ]
+            )
+            idx_path = tmp / "r.json"
+            args = argparse.Namespace(registry_name=name)
+
+            import io
+            import sys
+
+            captured = io.StringIO()
+            old_stderr = sys.stderr
+            sys.stderr = captured
+            try:
+                code = run_registry_rm(
+                    args,
+                    registry_index=idx,
+                    registry_index_path=idx_path,
+                )
+            finally:
+                sys.stderr = old_stderr
+
+            assert code == 0
+            assert len(idx.registries) == 0
+
+            output = captured.getvalue()
+            if cache_exists:
+                assert "Cache directory cleaned:" in output
+                assert str(cache_path) in output
+            else:
+                assert "already absent" in output.lower()
+
+    @given(
+        registered=st.lists(
+            st.text(
+                alphabet=st.characters(
+                    whitelist_categories=("L", "N"),
+                ),
+                min_size=1,
+                max_size=10,
+            ),
+            min_size=1,
+            max_size=5,
+            unique=True,
+        ),
+    )
+    def test_rm_not_found_lists_all_names_property(
+        self,
+        registered: list[str],
+    ) -> None:
+        """Property 5: Registry remove not-found error lists all names.
+
+        For any registry name that does not exist in the index,
+        rm should return exit code 1 and the error message should
+        contain every registered registry name.
+
+        Validates: Requirements 3.4
+        """
+        import tempfile
+
+        from ksm.commands.registry_rm import run_registry_rm
+
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            entries = [
+                _make_registry_entry(
+                    n,
+                    f"https://{n}.example.com",
+                    str(tmp / n),
+                )
+                for n in registered
+            ]
+            idx = RegistryIndex(registries=entries)
+
+            # Use a name guaranteed not in the list
+            missing = "ZZZZ_not_registered_ZZZZ"
+            args = argparse.Namespace(registry_name=missing)
+
+            import io
+            import sys
+
+            captured = io.StringIO()
+            old_stderr = sys.stderr
+            sys.stderr = captured
+            try:
+                code = run_registry_rm(
+                    args,
+                    registry_index=idx,
+                    registry_index_path=tmp / "r.json",
+                )
+            finally:
+                sys.stderr = old_stderr
+
+            assert code == 1
+            output = captured.getvalue()
+            assert "Error:" in output
+            for name in registered:
+                assert name in output
 
 
 # ── registry inspect ─────────────────────────────────────────

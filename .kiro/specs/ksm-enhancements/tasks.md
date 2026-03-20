@@ -104,7 +104,7 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
     - [x] 2.5 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
-- [-] 3. Registry add improvements
+- [x] 3. Registry add improvements
 
     - [x] 3.1 Cache conflict handling, --force, and --name
 
@@ -166,14 +166,14 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
         - [x] 3.2.5 Run tests and verify all pass
             → Agent: kiro
 
-    - [-] 3.3 Checkpoint — Run full test suite, verify all tests pass
+    - [x] 3.3 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
-- [ ] 4. Registry remove improvements
+- [-] 4. Registry remove improvements
 
-    - [ ] 4.1 Improved feedback messages
+    - [x] 4.1 Improved feedback messages
 
-        - [ ] 4.1.1 Write unit tests for registry remove feedback in `tests/test_registry_commands.py`
+        - [x] 4.1.1 Write unit tests for registry remove feedback in `tests/test_registry_commands.py`
             - Cache cleaned → message with path
             - Cache absent → "already absent" message
             - Permission error → warning, still removes from index, exit 0
@@ -181,25 +181,25 @@ Refactor existing ksm modules to add CLI restructuring, registry improvements, b
             → Agent: general-task-execution
             _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-        - [ ] 4.1.2 Write property test for remove feedback matching cache state
+        - [x] 4.1.2 Write property test for remove feedback matching cache state
             → Agent: hypothesis-test-writer
             **Property 4: Registry remove feedback matches cache state**
             _Requirements: 3.1, 3.2_
 
-        - [ ] 4.1.3 Write property test for remove not-found error
+        - [x] 4.1.3 Write property test for remove not-found error
             → Agent: hypothesis-test-writer
             **Property 5: Registry remove not-found error lists all registered names**
             _Requirements: 3.4_
 
-        - [ ] 4.1.4 Refactor `run_registry_rm()` in `src/ksm/commands/registry_rm.py`
+        - [x] 4.1.4 Refactor `run_registry_rm()` in `src/ksm/commands/registry_rm.py`
             - Use `format_error`/`format_warning`, add cache state feedback, permission error handling per design section 5
             → Agent: general-task-execution
             _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-        - [ ] 4.1.5 Run tests and verify all pass
+        - [x] 4.1.5 Run tests and verify all pass
             → Agent: kiro
 
-    - [ ] 4.2 Checkpoint — Run full test suite, verify all tests pass
+    - [-] 4.2 Checkpoint — Run full test suite, verify all tests pass
         → Agent: kiro
 
 - [ ] 5. Bundle resolution and qualified names
