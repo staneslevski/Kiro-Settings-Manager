@@ -273,9 +273,7 @@ def scope_select() -> str | None:
         # Numbered-list fallback
         if not sys.stdin.isatty():
             return None
-        sys.stderr.write(
-            f"\n{_SCOPE_HEADER}\n\n"
-        )
+        sys.stderr.write(f"\n{_SCOPE_HEADER}\n\n")
         for i, (_key, label) in enumerate(_SCOPE_OPTIONS, 1):
             sys.stderr.write(f"  {i}. {label}\n")
         sys.stderr.write("\n")
@@ -293,9 +291,7 @@ def scope_select() -> str | None:
                 return "local"
             if answer == "2":
                 return "global"
-            sys.stderr.write(
-                "Invalid input. Enter 1-2 or q.\n"
-            )
+            sys.stderr.write("Invalid input. Enter 1-2 or q.\n")
             sys.stderr.flush()
 
     # Raw mode path — inline rendering
@@ -314,9 +310,7 @@ def scope_select() -> str | None:
                 ),
                 "",
             ]
-            for i, (_key, label) in enumerate(
-                _SCOPE_OPTIONS
-            ):
+            for i, (_key, label) in enumerate(_SCOPE_OPTIONS):
                 prefix = ">" if i == selected else " "
                 text = f"{prefix} {label}"
                 if i == selected:
@@ -328,9 +322,7 @@ def scope_select() -> str | None:
             sys.stderr.flush()
 
             key = _read_key()
-            action, selected = process_key(
-                key, selected, count
-            )
+            action, selected = process_key(key, selected, count)
             if action == "select":
                 return _SCOPE_OPTIONS[selected][0]
             if action == "quit":
@@ -338,9 +330,7 @@ def scope_select() -> str | None:
     except KeyboardInterrupt:
         return None
     finally:
-        termios.tcsetattr(
-            fd, termios.TCSADRAIN, old_settings
-        )
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
 def interactive_select(

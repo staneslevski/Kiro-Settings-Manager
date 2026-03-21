@@ -1422,3 +1422,312 @@ class TestRmConfirmationColor:
         assert "local" in prompt
         assert "2 file(s)" in prompt
         assert "Continue? [y/n]" in prompt
+
+
+# --- Tests for rm -i scope behavior (Reqs 14.1, 14.2, 14.3) ---
+# Feature: color-and-scope-selection
+# **Validates: Requirements 14.1, 14.2, 14.3**
+
+
+class TestRmInteractiveScopeBehavior:
+    """Properties 41 & 42: rm -i uses scope from
+    ManifestEntry and does not present scope selection."""
+
+    def test_rm_interactive_uses_scope_from_entry_local(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 41: rm -i uses scope from selected
+        ManifestEntry (local).
+        **Validates: Requirements 14.1**"""
+        from ksm.commands.rm import run_rm
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        (target_local / "skills").mkdir(parents=True)
+        (target_local / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        args = _make_args(bundle_name=None, interactive=True)
+
+        with patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ):
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        # File removed from local, not global
+        assert not (target_local / "skills" / "f.md").exists()
+
+    def test_rm_interactive_uses_scope_from_entry_global(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 41: rm -i uses scope from selected
+        ManifestEntry (global).
+        **Validates: Requirements 14.1**"""
+        from ksm.commands.rm import run_rm
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        (target_global / "skills").mkdir(parents=True)
+        (target_global / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        entry = _make_entry("aws", scope="global", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        args = _make_args(bundle_name=None, interactive=True)
+
+        with patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ):
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        # File removed from global, not local
+        assert not (target_global / "skills" / "f.md").exists()
+
+    def test_rm_does_not_import_scope_select(
+        self,
+    ) -> None:
+        """Property 42: rm.py does not import or call
+        scope_select.
+        **Validates: Requirements 14.2**"""
+        import inspect
+
+        import ksm.commands.rm as rm_module
+
+        source = inspect.getsource(rm_module)
+        assert "scope_select" not in source
+
+    def test_rm_interactive_no_scope_select_called(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 42: rm -i does not present scope
+        selection step.
+        **Validates: Requirements 14.2**"""
+        from ksm.commands.rm import run_rm
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        args = _make_args(bundle_name=None, interactive=True)
+
+        with (
+            patch(
+                "ksm.commands.rm." "interactive_removal_select",
+                return_value=[entry],
+            ),
+            patch(
+                "ksm.selector.scope_select",
+            ) as mock_scope,
+        ):
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target,
+                target_global=(tmp_path / "home" / ".kiro"),
+            )
+
+        assert code == 0
+        mock_scope.assert_not_called()
+
+    def test_rm_interactive_local_flag_filters_entries(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Req 14.3: -l filters removal list to local
+        bundles only.
+        **Validates: Requirements 14.3**"""
+        from ksm.commands.rm import run_rm
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        (target_local / "skills").mkdir(parents=True)
+        (target_local / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        local_entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        global_entry = _make_entry("cli", scope="global", files=["skills/g.md"])
+        manifest = Manifest(entries=[local_entry, global_entry])
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=True,
+            local=True,
+        )
+
+        with patch(
+            "ksm.commands.rm." "interactive_removal_select",
+            return_value=[local_entry],
+        ) as mock_sel:
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=(tmp_path / "home" / ".kiro"),
+            )
+
+        assert code == 0
+        # Verify only local entries were passed
+        called_entries = mock_sel.call_args[0][0]
+        for e in called_entries:
+            assert e.scope == "local"
+
+    def test_rm_interactive_global_flag_filters_entries(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Req 14.3: -g filters removal list to global
+        bundles only.
+        **Validates: Requirements 14.3**"""
+        from ksm.commands.rm import run_rm
+
+        target_global = tmp_path / "home" / ".kiro"
+        (target_global / "skills").mkdir(parents=True)
+        (target_global / "skills" / "g.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        local_entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        global_entry = _make_entry(
+            "cli",
+            scope="global",
+            files=["skills/g.md"],
+        )
+        manifest = Manifest(entries=[local_entry, global_entry])
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=True,
+            global_=True,
+        )
+
+        with patch(
+            "ksm.commands.rm." "interactive_removal_select",
+            return_value=[global_entry],
+        ) as mock_sel:
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=(tmp_path / "workspace" / ".kiro"),
+                target_global=target_global,
+            )
+
+        assert code == 0
+        # Verify only global entries were passed
+        called_entries = mock_sel.call_args[0][0]
+        for e in called_entries:
+            assert e.scope == "global"
+
+    def test_rm_interactive_no_flag_passes_all_entries(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Req 14.3: Without -l/-g, all entries are shown.
+        **Validates: Requirements 14.3**"""
+        from ksm.commands.rm import run_rm
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        (target_local / "skills").mkdir(parents=True)
+        (target_local / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        local_entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        global_entry = _make_entry("cli", scope="global", files=["skills/g.md"])
+        manifest = Manifest(entries=[local_entry, global_entry])
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=True,
+        )
+
+        with patch(
+            "ksm.commands.rm." "interactive_removal_select",
+            return_value=[local_entry],
+        ) as mock_sel:
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=(tmp_path / "home" / ".kiro"),
+            )
+
+        assert code == 0
+        called_entries = mock_sel.call_args[0][0]
+        scopes = {e.scope for e in called_entries}
+        assert "local" in scopes
+        assert "global" in scopes
+
+    def test_rm_interactive_filter_empty_shows_message(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 14.3: -l with only global bundles shows
+        no-bundles message.
+        **Validates: Requirements 14.3**"""
+        from ksm.commands.rm import run_rm
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        global_entry = _make_entry("cli", scope="global", files=["skills/g.md"])
+        manifest = Manifest(entries=[global_entry])
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=True,
+            local=True,
+        )
+
+        code = run_rm(
+            args,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=(tmp_path / "workspace" / ".kiro"),
+            target_global=(tmp_path / "home" / ".kiro"),
+        )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        combined = captured.out + captured.err
+        assert "no bundles" in combined.lower() or "no matching" in combined.lower()

@@ -114,10 +114,6 @@ def format_diff_summary(
         sym = _STATUS_SYMBOLS[r.status]
         color_fn = _STATUS_COLORS[r.status]
         colored_sym = color_fn(sym, stream=stream)
-        colored_label = color_fn(
-            f"({r.status.value})", stream=stream
-        )
-        lines.append(
-            f"  {colored_sym} {r.path} {colored_label}"
-        )
+        colored_label = color_fn(f"({r.status.value})", stream=stream)
+        lines.append(f"  {colored_sym} {r.path} {colored_label}")
     return "\n".join(lines)

@@ -6,9 +6,9 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
 
 ## Tasks
 
-- [ ] 1. Color Infrastructure — errors.py and copier.py
+- [x] 1. Color Infrastructure — errors.py and copier.py
 
-  - [ ] 1.1 Colorize error/warning/deprecation formatters (errors.py)
+  - [x] 1.1 Colorize error/warning/deprecation formatters (errors.py)
 
     - [x] 1.1.1 Write tests for colorized error, warning, and deprecation formatters with stream parameter
       → Agent: general-task-execution
@@ -28,7 +28,7 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
     - [x] 1.1.3 Run errors tests and verify all pass
       → Agent: kiro
 
-  - [ ] 1.2 Colorize diff summary symbols (copier.py)
+  - [x] 1.2 Colorize diff summary symbols (copier.py)
 
     - [x] 1.2.1 Write tests for colorized format_diff_summary with stream parameter (green +/new, yellow ~/updated, dim =/unchanged)
       → Agent: general-task-execution
@@ -48,9 +48,9 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
   - [x] 1.3 Checkpoint — Run full test suite, verify all tests pass
     → Agent: kiro
 
-- [ ] 2. Color Wiring Across Commands
+- [x] 2. Color Wiring Across Commands
 
-  - [ ] 2.1 Wire stream=sys.stderr into all format_error/format_warning/format_deprecation call sites
+  - [x] 2.1 Wire stream=sys.stderr into all format_error/format_warning/format_deprecation call sites
 
     - [x] 2.1.1 Write tests verifying that command modules pass stream=sys.stderr to error/warning/deprecation formatters (add.py, rm.py, sync.py)
       → Agent: general-task-execution
@@ -63,7 +63,7 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
     - [x] 2.1.3 Run command tests and verify all pass
       → Agent: kiro
 
-  - [ ] 2.2 Colorize success messages (add, rm, sync)
+  - [x] 2.2 Colorize success messages (add, rm, sync)
 
     - [x] 2.2.1 Write tests for green success prefix in add.py ("Installed:"), rm.py ("Removed"), and sync.py ("Synced:")
       → Agent: general-task-execution
@@ -83,7 +83,7 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
     - [x] 2.2.4 Run add, rm, sync tests and verify all pass
       → Agent: kiro
 
-  - [ ] 2.3 Colorize rm confirmation prompt and sync confirmation prompt
+  - [x] 2.3 Colorize rm confirmation prompt and sync confirmation prompt
 
     - [x] 2.3.1 Write tests for colored rm confirmation prompt (dim file paths, bold scope description) and colored sync confirmation (bold bundle names, bold scope)
       → Agent: general-task-execution
@@ -104,7 +104,7 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
     - [x] 2.3.4 Run rm and sync tests and verify all pass
       → Agent: kiro
 
-  - [ ] 2.4 Colorize selector UI elements
+  - [x] 2.4 Colorize selector UI elements
 
     - [x] 2.4.1 Write tests for colored selector elements (bold header, dim instructions, bold highlighted name, dim [installed] badge, dim [scope] label, dim filter prompt)
       → Agent: general-task-execution
@@ -123,7 +123,7 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
     - [x] 2.4.3 Run selector tests and verify all pass
       → Agent: kiro
 
-  - [ ] 2.5 Verify and extend info.py and registry_ls.py color
+  - [x] 2.5 Verify and extend info.py and registry_ls.py color
 
     - [x] 2.5.1 Write tests verifying info.py wraps installed status in green (when installed) and verify existing bold/dim usage; write tests verifying registry_ls.py wraps URLs in dim
       → Agent: general-task-execution
@@ -138,7 +138,7 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
     - [x] 2.5.3 Run info and registry command tests and verify all pass
       → Agent: kiro
 
-  - [ ] 2.6 Verify existing color usage (ls, search, registry_inspect)
+  - [x] 2.6 Verify existing color usage (ls, search, registry_inspect)
 
     - [x] 2.6.1 Verify existing tests cover bold/dim usage in ls.py (Req 5), search.py (Req 9.1), and registry_inspect.py (Req 8.4) — add tests if missing
       → Agent: general-task-execution
@@ -150,9 +150,9 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
   - [x] 2.7 Checkpoint — Run full test suite, verify all tests pass
     → Agent: kiro
 
-- [ ] 3. Scope Selector Implementation
+- [x] 3. Scope Selector Implementation
 
-  - [ ] 3.1 Scope selector core function (selector.py)
+  - [x] 3.1 Scope selector core function (selector.py)
 
     - [x] 3.1.1 Write tests for scope_select() — raw mode navigation, Enter returns highlighted scope, q/Escape aborts, default is "local", SIGINT restores terminal
       → Agent: general-task-execution
@@ -178,7 +178,7 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
     - [x] 3.1.4 Run scope selector tests and verify all pass
       → Agent: kiro
 
-  - [ ] 3.2 Integrate scope selector into add command
+  - [x] 3.2 Integrate scope selector into add command
 
     - [x] 3.2.1 Write tests for scope selection integration in add.py — scope_select called when -l/-g not provided in interactive mode, skipped when -l or -g provided, skipped when stdin not TTY (defaults to "local"), abort returns exit 0
       → Agent: general-task-execution
@@ -193,34 +193,34 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
       → Agent: general-task-execution
       _Requirements: 11.1, 11.5, 11.7, 15.1, 15.2, 15.3, 15.4_
 
-    - [ ] 3.2.3 Run add command tests and verify all pass
+    - [x] 3.2.3 Run add command tests and verify all pass
       → Agent: kiro
 
-  - [ ] 3.3 Verify rm -i scope behavior (no separate scope prompt)
+  - [x] 3.3 Verify rm -i scope behavior (no separate scope prompt)
 
-    - [ ] 3.3.1 Write or verify tests confirming rm -i uses scope from ManifestEntry, no separate scope prompt is shown, and -l/-g filters the removal list
+    - [x] 3.3.1 Write or verify tests confirming rm -i uses scope from ManifestEntry, no separate scope prompt is shown, and -l/-g filters the removal list
       → Agent: general-task-execution
       **Property 41: rm -i uses scope from selected ManifestEntry**
       **Property 42: rm -i does not present scope selection step**
       _Requirements: 14.1, 14.2, 14.3_
 
-    - [ ] 3.3.2 Run rm tests and verify all pass
+    - [x] 3.3.2 Run rm tests and verify all pass
       → Agent: kiro
 
-  - [ ] 3.4 Checkpoint — Run full test suite, verify all tests pass
+  - [x] 3.4 Checkpoint — Run full test suite, verify all tests pass
     → Agent: kiro
 
-- [ ] 4. Integration Verification and Linting
+- [x] 4. Integration Verification and Linting
 
-  - [ ] 4.1 Full verification
+  - [x] 4.1 Full verification
 
-    - [ ] 4.1.1 Run full test suite with coverage, verify ≥95% coverage on modified files (errors.py, copier.py, selector.py, add.py, rm.py, sync.py, info.py, registry_ls.py)
+    - [x] 4.1.1 Run full test suite with coverage, verify ≥95% coverage on modified files (errors.py, copier.py, selector.py, add.py, rm.py, sync.py, info.py, registry_ls.py)
       → Agent: kiro
       _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 14.1, 14.2, 14.3, 15.1, 15.2, 15.3, 15.4, 16.1, 16.2, 16.3, 16.4, 16.5, 16.6_
 
-    - [ ] 4.1.2 Run black, flake8, and mypy on all modified source and test files, fix any issues
+    - [x] 4.1.2 Run black, flake8, and mypy on all modified source and test files, fix any issues
       → Agent: kiro
       _Requirements: 1.1, 2.1, 3.1, 4.1, 6.1, 7.1, 8.2, 9.2, 10.1, 11.1, 12.1, 13.1, 14.1, 15.1, 16.1_
 
-  - [ ] 4.2 Checkpoint — Final full test suite run, confirm all tests pass and coverage ≥95%
+  - [x] 4.2 Checkpoint — Final full test suite run, confirm all tests pass and coverage ≥95%
     → Agent: kiro

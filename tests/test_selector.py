@@ -2253,7 +2253,11 @@ def test_property_selector_qualifies_ambiguous_names(
     from ksm.selector import render_add_selector
 
     # Filter unique_names to avoid collision with shared_name
-    unique_names = [n for n in unique_names if n != shared_name]
+    unique_names = [
+        n
+        for n in unique_names
+        if n != shared_name and n not in shared_name and shared_name not in n
+    ]
 
     bundles: list[BundleInfo] = []
     # Create ambiguous bundles (same name, different registries)
@@ -2284,9 +2288,7 @@ def test_property_selector_qualifies_ambiguous_names(
     for rn in reg_names:
         qualified = f"{rn}/{shared_name}"
         matching = [
-            ln
-            for ln in bundle_lines
-            if qualified in _ANSI_RE.sub("", ln).split()
+            ln for ln in bundle_lines if qualified in _ANSI_RE.sub("", ln).split()
         ]
         assert len(matching) == 1, (
             f"Expected '{qualified}' as token in exactly"

@@ -2430,6 +2430,7 @@ class TestScopeSelectionIntegration:
         )
 
         with (
+            patch("sys.stdin") as mock_stdin,
             patch(
                 "ksm.commands.add.interactive_select",
                 return_value=["aws"],
@@ -2439,6 +2440,7 @@ class TestScopeSelectionIntegration:
                 return_value="local",
             ) as mock_scope,
         ):
+            mock_stdin.isatty.return_value = True
             code = run_add(
                 args,
                 registry_index=idx,
@@ -2672,6 +2674,7 @@ class TestScopeSelectionIntegration:
         )
 
         with (
+            patch("sys.stdin") as mock_stdin,
             patch(
                 "ksm.commands.add.interactive_select",
                 return_value=["aws"],
@@ -2681,6 +2684,7 @@ class TestScopeSelectionIntegration:
                 return_value=None,
             ),
         ):
+            mock_stdin.isatty.return_value = True
             code = run_add(
                 args,
                 registry_index=idx,
@@ -2822,6 +2826,7 @@ class TestScopeSelectionIntegration:
         )
 
         with (
+            patch("sys.stdin") as mock_stdin,
             patch(
                 "ksm.commands.add.interactive_select",
                 return_value=["aws"],
@@ -2838,6 +2843,7 @@ class TestScopeSelectionIntegration:
                 ).install_bundle,
             ) as mock_install,
         ):
+            mock_stdin.isatty.return_value = True
             code = run_add(
                 args,
                 registry_index=idx,

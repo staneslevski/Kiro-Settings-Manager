@@ -62,10 +62,7 @@ def _build_subdirectory_filter(
                     print(
                         format_error(
                             f"Invalid --only value: '{val}'",
-                            "Valid values: "
-                            + ", ".join(
-                                sorted(VALID_ONLY_VALUES)
-                            ),
+                            "Valid values: " + ", ".join(sorted(VALID_ONLY_VALUES)),
                             "Example: --only skills,hooks",
                             stream=sys.stderr,
                         ),
@@ -192,8 +189,7 @@ def run_add(
             print(
                 format_error(
                     "No bundle specified.",
-                    "Provide a bundle name or use -i"
-                    " for interactive mode.",
+                    "Provide a bundle name or use -i" " for interactive mode.",
                     "Example: ksm add <bundle_name>",
                     stream=sys.stderr,
                 ),
@@ -211,8 +207,7 @@ def run_add(
                 format_error(
                     f"Invalid subdirectory: {e}",
                     "Check the dot notation syntax.",
-                    "Valid types: skills, agents,"
-                    " steering, hooks",
+                    "Valid types: skills, agents," " steering, hooks",
                     stream=sys.stderr,
                 ),
                 file=sys.stderr,
@@ -228,8 +223,7 @@ def run_add(
     if dot_selection is not None and subdirectory_filter is not None:
         print(
             format_error(
-                "Dot notation and --only are mutually"
-                " exclusive.",
+                "Dot notation and --only are mutually" " exclusive.",
                 "Use one or the other, not both.",
                 "Example: ksm add bundle.skills.item"
                 " OR ksm add bundle --only skills",
@@ -240,10 +234,7 @@ def run_add(
         return 1
 
     # Determine scope
-    has_flag = (
-        getattr(args, "global_", False)
-        or getattr(args, "local", False)
-    )
+    has_flag = getattr(args, "global_", False) or getattr(args, "local", False)
     if _interactive_path and not has_flag:
         # Interactive path: prompt for scope (Req 11.1)
         if sys.stdin.isatty():
@@ -254,14 +245,8 @@ def run_add(
         else:
             scope = "local"  # Req 11.7
     else:
-        scope = (
-            "global"
-            if getattr(args, "global_", False)
-            else "local"
-        )
-    target_dir = (
-        target_global if scope == "global" else target_local
-    )
+        scope = "global" if getattr(args, "global_", False) else "local"
+    target_dir = target_global if scope == "global" else target_local
     dry_run: bool = getattr(args, "dry_run", False)
 
     # Dry-run: preview without modifying (Req 12.1)
@@ -302,10 +287,8 @@ def run_add(
                 print(
                     format_error(
                         str(exc),
-                        "Check the registry and bundle"
-                        " names.",
-                        "Run `ksm registry list` to see"
-                        " available registries.",
+                        "Check the registry and bundle" " names.",
+                        "Run `ksm registry list` to see" " available registries.",
                         stream=sys.stderr,
                     ),
                     file=sys.stderr,
@@ -322,8 +305,7 @@ def run_add(
                         " "
                         f"{'registry' if len(result.searched) == 1 else 'registries'}"
                         f": {', '.join(result.searched)}",
-                        "Run `ksm registry list` to see"
-                        " available registries.",
+                        "Run `ksm registry list` to see" " available registries.",
                         stream=sys.stderr,
                     ),
                     file=sys.stderr,
@@ -333,13 +315,9 @@ def run_add(
                 registries = [m.registry_name for m in result.matches]
                 print(
                     format_error(
-                        f"Bundle '{bare_name}' found in"
-                        " multiple registries.",
-                        "Found in:"
-                        f" {', '.join(registries)}",
-                        "Use qualified name:"
-                        " ksm add"
-                        f" <registry>/{bare_name}",
+                        f"Bundle '{bare_name}' found in" " multiple registries.",
+                        "Found in:" f" {', '.join(registries)}",
+                        "Use qualified name:" " ksm add" f" <registry>/{bare_name}",
                         stream=sys.stderr,
                     ),
                     file=sys.stderr,
@@ -357,12 +335,9 @@ def run_add(
                 if available:
                     print(
                         format_error(
-                            f"Version '{version}' not"
-                            " found.",
-                            f"Available:"
-                            f" {', '.join(available)}",
-                            "Use one of the listed"
-                            " versions.",
+                            f"Version '{version}' not" " found.",
+                            f"Available:" f" {', '.join(available)}",
+                            "Use one of the listed" " versions.",
                             stream=sys.stderr,
                         ),
                         file=sys.stderr,
@@ -370,12 +345,9 @@ def run_add(
                 else:
                     print(
                         format_error(
-                            f"Version '{version}' not"
-                            " found.",
-                            "No versions available in"
-                            " this registry.",
-                            "Omit the @version to"
-                            " install the latest.",
+                            f"Version '{version}' not" " found.",
+                            "No versions available in" " this registry.",
+                            "Omit the @version to" " install the latest.",
                             stream=sys.stderr,
                         ),
                         file=sys.stderr,
@@ -393,10 +365,8 @@ def run_add(
                         f"Item '{dot_selection.item_name}'"
                         f" not found in"
                         f" {dot_selection.subdirectory}/.",
-                        "Check the item name and"
-                        " subdirectory.",
-                        "Run `ksm info <bundle>` to see"
-                        " available items.",
+                        "Check the item name and" " subdirectory.",
+                        "Run `ksm info <bundle>` to see" " available items.",
                         stream=sys.stderr,
                     ),
                     file=sys.stderr,
@@ -418,17 +388,13 @@ def run_add(
             return 1
 
         if results:
-            prefix = green(
-                "Installed:", stream=sys.stderr
-            )
+            prefix = green("Installed:", stream=sys.stderr)
             print(
                 f"{prefix} '{bundle_spec}'",
                 file=sys.stderr,
             )
             print(
-                format_diff_summary(
-                    results, stream=sys.stderr
-                ),
+                format_diff_summary(results, stream=sys.stderr),
                 file=sys.stderr,
             )
 
@@ -491,10 +457,8 @@ def _handle_ephemeral(
         if not result.matches:
             print(
                 format_error(
-                    f"Bundle '{bundle_name}' not found"
-                    f" in {from_url}.",
-                    "The repository may not contain"
-                    " this bundle.",
+                    f"Bundle '{bundle_name}' not found" f" in {from_url}.",
+                    "The repository may not contain" " this bundle.",
                     "Check the URL and bundle name.",
                     stream=sys.stderr,
                 ),
@@ -514,10 +478,8 @@ def _handle_ephemeral(
                         f"Item '{dot_selection.item_name}'"
                         f" not found in"
                         f" {dot_selection.subdirectory}/.",
-                        "Check the item name and"
-                        " subdirectory.",
-                        "Run `ksm info <bundle>` to see"
-                        " available items.",
+                        "Check the item name and" " subdirectory.",
+                        "Run `ksm info <bundle>` to see" " available items.",
                         stream=sys.stderr,
                     ),
                     file=sys.stderr,
@@ -538,17 +500,13 @@ def _handle_ephemeral(
             return 1
 
         if results:
-            prefix = green(
-                "Installed:", stream=sys.stderr
-            )
+            prefix = green("Installed:", stream=sys.stderr)
             print(
                 f"{prefix} '{bundle_name}'",
                 file=sys.stderr,
             )
             print(
-                format_diff_summary(
-                    results, stream=sys.stderr
-                ),
+                format_diff_summary(results, stream=sys.stderr),
                 file=sys.stderr,
             )
 

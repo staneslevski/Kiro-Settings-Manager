@@ -55,13 +55,10 @@ def _format_confirmation(
       Continue? [y/n]
     """
     file_count = len(entry.installed_files)
-    raw_scope = (
-        ".kiro/" if entry.scope == "local" else "~/.kiro/"
-    )
+    raw_scope = ".kiro/" if entry.scope == "local" else "~/.kiro/"
     scope_desc = bold(raw_scope, stream=stream)
     lines = [
-        f"This will remove '{entry.bundle_name}'"
-        f" ({entry.scope} scope):",
+        f"This will remove '{entry.bundle_name}'" f" ({entry.scope} scope):",
         f"  {file_count} file(s) in {scope_desc}",
     ]
     for f in entry.installed_files:
@@ -88,10 +85,7 @@ def _format_result(
     prefix = green("Removed", stream=stream)
 
     if skipped == 0:
-        return (
-            f"{prefix} '{bundle_name}' ({scope}):"
-            f" {removed} file(s) deleted"
-        )
+        return f"{prefix} '{bundle_name}' ({scope}):" f" {removed} file(s) deleted"
     elif removed == 0:
         return (
             f"{prefix} '{bundle_name}' ({scope}): "
@@ -166,7 +160,18 @@ def run_rm(
             print("No bundles currently installed.")
             return 0
 
-        selected_list = interactive_removal_select(manifest.entries)
+        # Filter entries by scope if -l/-g provided (Req 14.3)
+        entries_to_show = manifest.entries
+        if getattr(args, "global_", False):
+            entries_to_show = [e for e in manifest.entries if e.scope == "global"]
+        elif getattr(args, "local", False):
+            entries_to_show = [e for e in manifest.entries if e.scope == "local"]
+
+        if not entries_to_show:
+            print("No matching bundles at the" " specified scope.")
+            return 0
+
+        selected_list = interactive_removal_select(entries_to_show)
         if selected_list is None:
             return 0
 
@@ -178,9 +183,7 @@ def run_rm(
         if not yes_flag:
             if not _check_tty_for_prompt(yes_flag):
                 return 1
-            prompt = _format_confirmation(
-                selected, stream=sys.stderr
-            )
+            prompt = _format_confirmation(selected, stream=sys.stderr)
             try:
                 response = input(prompt)
             except EOFError:
@@ -245,9 +248,7 @@ def run_rm(
     if not yes_flag:
         if not _check_tty_for_prompt(yes_flag):
             return 1
-        prompt = _format_confirmation(
-            entry, stream=sys.stderr
-        )
+        prompt = _format_confirmation(entry, stream=sys.stderr)
         try:
             response = input(prompt)
         except EOFError:

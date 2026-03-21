@@ -54,10 +54,7 @@ def _build_confirmation_message(
       This will overwrite M configuration files in .kiro/ and/or ~/.kiro/.
       Continue? [y/n]
     """
-    bundle_names = [
-        bold(e.bundle_name, stream=stream)
-        for e in entries
-    ]
+    bundle_names = [bold(e.bundle_name, stream=stream) for e in entries]
     total_files = sum(len(e.installed_files) for e in entries)
 
     scopes = {e.scope for e in entries}
@@ -71,8 +68,7 @@ def _build_confirmation_message(
     scope_str = bold(scope_desc, stream=stream)
 
     lines = [
-        f"Syncing {len(entries)} bundle(s):"
-        f" {', '.join(bundle_names)}",
+        f"Syncing {len(entries)} bundle(s):" f" {', '.join(bundle_names)}",
         f"This will overwrite {total_files}"
         f" configuration file(s)"
         f" in {scope_str}.",
@@ -136,9 +132,7 @@ def run_sync(
         if not _check_tty_for_prompt(skip_confirm):
             return 1
         # Build specific confirmation message (Req 13.1, 13.2)
-        prompt = _build_confirmation_message(
-            entries_to_sync, stream=sys.stderr
-        )
+        prompt = _build_confirmation_message(entries_to_sync, stream=sys.stderr)
         try:
             response = input(prompt)
         except EOFError:
@@ -149,9 +143,9 @@ def run_sync(
     # Dry-run: preview without modifying (Req 12.3)
     if dry_run:
         print(
-            _build_confirmation_message(
-                entries_to_sync, stream=sys.stderr
-            ).rstrip("\nContinue? [y/n] "),
+            _build_confirmation_message(entries_to_sync, stream=sys.stderr).rstrip(
+                "\nContinue? [y/n] "
+            ),
             file=sys.stderr,
         )
         return 0
@@ -245,8 +239,6 @@ def _sync_entry(
             file=sys.stderr,
         )
         print(
-            format_diff_summary(
-                results, stream=sys.stderr
-            ),
+            format_diff_summary(results, stream=sys.stderr),
             file=sys.stderr,
         )
