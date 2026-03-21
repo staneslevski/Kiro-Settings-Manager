@@ -1,6 +1,7 @@
 """Tests for ksm.commands.add module."""
 
 import argparse
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -1987,3 +1988,383 @@ def test_run_add_qualified_name_not_found_error(
     assert code == 1
     captured = capsys.readouterr()
     assert "Error:" in captured.err
+
+
+# --- Tests for stream=sys.stderr in formatter calls (Reqs 1.1-1.3, 2.1-2.3) ---
+
+
+class TestAddFormatterStreamParam:
+    """Verify add.py passes stream=sys.stderr to formatters."""
+
+    def test_format_error_receives_stream_stderr_on_invalid_only(
+        self,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """format_error called with stream=sys.stderr for
+        invalid --only value."""
+        from ksm.commands.add import _build_subdirectory_filter
+
+        args = _make_args(only=["badvalue"])
+        with (
+            patch(
+                "ksm.commands.add.format_error",
+                wraps=__import__(
+                    "ksm.errors", fromlist=["format_error"]
+                ).format_error,
+            ) as mock_fmt,
+            pytest.raises(SystemExit),
+        ):
+            _build_subdirectory_filter(args)
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_error_receives_stream_stderr_no_bundle(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_error called with stream=sys.stderr when
+        no bundle specified (non-TTY)."""
+        from ksm.commands.add import run_add
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir()
+        idx = RegistryIndex(registries=[])
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_spec=None)
+
+        with (
+            patch("sys.stdin") as mock_stdin,
+            patch(
+                "ksm.commands.add.format_error",
+                wraps=__import__(
+                    "ksm.errors", fromlist=["format_error"]
+                ).format_error,
+            ) as mock_fmt,
+        ):
+            mock_stdin.isatty.return_value = False
+            run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        assert mock_fmt.call_count >= 1
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_warning_receives_stream_stderr(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_warning called with stream=sys.stderr when
+        -i ignored because bundle specified."""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {"aws": {"skills": {"S.md": b"s"}}},
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir()
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(
+            bundle_spec="aws", interactive=True
+        )
+
+        with patch(
+            "ksm.commands.add.format_warning",
+            wraps=__import__(
+                "ksm.errors", fromlist=["format_warning"]
+            ).format_warning,
+        ) as mock_fmt:
+            run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=tmp_path / "global" / ".kiro",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_deprecation_receives_stream_stderr(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_deprecation called with stream=sys.stderr
+        for --display deprecation."""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {"aws": {"skills": {"S.md": b"s"}}},
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir()
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(
+            bundle_spec=None, display=True
+        )
+
+        with (
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch(
+                "ksm.commands.add.format_deprecation",
+                wraps=__import__(
+                    "ksm.errors",
+                    fromlist=["format_deprecation"],
+                ).format_deprecation,
+            ) as mock_fmt,
+        ):
+            run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=tmp_path / "global" / ".kiro",
+            )
+
+        assert mock_fmt.call_count >= 1
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_deprecated_only_flag_passes_stream_stderr(
+        self,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """format_deprecation called with stream=sys.stderr
+        for deprecated --skills-only flag."""
+        from ksm.commands.add import (
+            _build_subdirectory_filter,
+        )
+
+        args = _make_args(skills_only=True)
+
+        with patch(
+            "ksm.commands.add.format_deprecation",
+            wraps=__import__(
+                "ksm.errors",
+                fromlist=["format_deprecation"],
+            ).format_deprecation,
+        ) as mock_fmt:
+            _build_subdirectory_filter(args)
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+
+# --- Tests for green success prefix (Req 3.1, 3.4, 3.5) ---
+# Feature: color-and-scope-selection
+# **Validates: Requirements 3.1, 3.4, 3.5**
+
+
+class TestAddGreenSuccessPrefix:
+    """Property 12: add success message includes green
+    "Installed:" prefix."""
+
+    _GREEN = "\033[32m"
+    _RESET = "\033[0m"
+
+    def test_installed_prefix_green_on_tty(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Property 12: successful add prints green
+        'Installed:' prefix to stderr when stream is TTY.
+        **Validates: Requirements 3.1**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {"aws": {"skills": {"S.md": b"skill"}}},
+        )
+        target_local = (
+            tmp_path / "workspace" / ".kiro"
+        )
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_spec="aws")
+
+        with patch.dict(
+            "os.environ",
+            {"TERM": "xterm-256color"},
+            clear=True,
+        ):
+            with patch(
+                "sys.stderr.isatty",
+                return_value=True,
+            ):
+                code = run_add(
+                    args,
+                    registry_index=idx,
+                    manifest=manifest,
+                    manifest_path=(
+                        ksm_dir / "manifest.json"
+                    ),
+                    target_local=target_local,
+                    target_global=(
+                        tmp_path / "home" / ".kiro"
+                    ),
+                )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "Installed:" in captured.err
+        assert self._GREEN in captured.err
+
+    def test_installed_prefix_plain_with_no_color(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Property 12: 'Installed:' is plain text when
+        NO_COLOR is set.
+        **Validates: Requirements 3.4**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {"aws": {"skills": {"S.md": b"skill"}}},
+        )
+        target_local = (
+            tmp_path / "workspace" / ".kiro"
+        )
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_spec="aws")
+
+        with patch.dict(
+            "os.environ",
+            {"NO_COLOR": "1"},
+            clear=False,
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(
+                    ksm_dir / "manifest.json"
+                ),
+                target_local=target_local,
+                target_global=(
+                    tmp_path / "home" / ".kiro"
+                ),
+            )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "Installed:" in captured.err
+        assert "\033[" not in captured.err
+
+    def test_installed_prefix_contains_bundle_name(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Property 12: success message includes bundle name
+        alongside the green prefix.
+        **Validates: Requirements 3.5**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {"mybundle": {"skills": {"S.md": b"s"}}},
+        )
+        target_local = (
+            tmp_path / "workspace" / ".kiro"
+        )
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_spec="mybundle")
+
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=(
+                ksm_dir / "manifest.json"
+            ),
+            target_local=target_local,
+            target_global=(
+                tmp_path / "home" / ".kiro"
+            ),
+        )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "Installed:" in captured.err
+        assert "mybundle" in captured.err

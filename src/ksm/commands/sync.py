@@ -10,6 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from ksm.color import green
 from ksm.copier import format_diff_summary
 from ksm.errors import format_error, format_warning
 from ksm.git_ops import pull_repo
@@ -33,6 +34,7 @@ def _check_tty_for_prompt(yes_flag: bool) -> bool:
                 "Confirmation required but stdin is" " not a terminal.",
                 "Non-interactive mode detected.",
                 "Use --yes to skip confirmation.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -88,6 +90,7 @@ def run_sync(
                 "No bundles specified.",
                 "Provide bundle name(s) or use --all.",
                 "Example: ksm sync <bundle> or" " ksm sync --all",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -106,6 +109,7 @@ def run_sync(
                         f"Bundle '{name}' is not installed.",
                         "Cannot sync a bundle that is not" " installed.",
                         "Run `ksm list` to see installed" " bundles.",
+                        stream=sys.stderr,
                     ),
                     file=sys.stderr,
                 )
@@ -166,6 +170,7 @@ def _pull_custom_registries(
                     format_warning(
                         f"Failed to pull {reg.name}: {e}",
                         "Sync will use the local cache.",
+                        stream=sys.stderr,
                     ),
                     file=sys.stderr,
                 )
@@ -189,6 +194,7 @@ def _sync_entry(
             format_warning(
                 f"Bundle '{entry.bundle_name}' not found" f" in registries: {searched}",
                 "Skipping sync for this bundle.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -210,12 +216,18 @@ def _sync_entry(
             format_warning(
                 f"Failed to sync '{entry.bundle_name}'.",
                 "The bundle may have changed upstream.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
         return
 
     if results:
+        prefix = green("Synced:", stream=sys.stderr)
+        print(
+            f"{prefix} '{entry.bundle_name}'",
+            file=sys.stderr,
+        )
         print(
             format_diff_summary(results),
             file=sys.stderr,

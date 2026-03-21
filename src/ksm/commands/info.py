@@ -32,7 +32,9 @@ def run_info(
             format_error(
                 f"Bundle '{bundle_name}' not found.",
                 f"Searched: {searched}",
-                "Run `ksm search <query>` to find" " available bundles.",
+                "Run `ksm search <query>` to find"
+                " available bundles.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )

@@ -9,7 +9,9 @@ Requirements: 1, 2, 31.2
 import argparse
 import sys
 from pathlib import Path
+from typing import TextIO
 
+from ksm.color import green
 from ksm.errors import format_deprecation, format_error, format_warning
 from ksm.manifest import Manifest, ManifestEntry, save_manifest
 from ksm.remover import RemovalResult, remove_bundle
@@ -30,6 +32,7 @@ def _check_tty_for_prompt(yes_flag: bool) -> bool:
                 "Confirmation required but stdin is" " not a terminal.",
                 "Non-interactive mode detected.",
                 "Use --yes to skip confirmation.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -65,6 +68,7 @@ def _format_result(
     bundle_name: str,
     scope: str,
     result: RemovalResult,
+    stream: TextIO | None = None,
 ) -> str:
     """Build summary message from RemovalResult.
 
@@ -74,18 +78,23 @@ def _format_result(
     """
     removed = len(result.removed_files)
     skipped = len(result.skipped_files)
+    prefix = green("Removed", stream=stream)
 
     if skipped == 0:
-        return f"Removed '{bundle_name}' ({scope}): {removed} file(s) deleted"
+        return (
+            f"{prefix} '{bundle_name}' ({scope}):"
+            f" {removed} file(s) deleted"
+        )
     elif removed == 0:
         return (
-            f"Removed '{bundle_name}' ({scope}): "
+            f"{prefix} '{bundle_name}' ({scope}): "
             f"all {skipped} file(s) were already missing"
         )
     else:
         return (
-            f"Removed '{bundle_name}' ({scope}): "
-            f"{removed} file(s) deleted, {skipped} already missing"
+            f"{prefix} '{bundle_name}' ({scope}): "
+            f"{removed} file(s) deleted,"
+            f" {skipped} already missing"
         )
 
 
@@ -123,6 +132,7 @@ def run_rm(
                 "-i/--interactive",
                 "v0.2.0",
                 "v1.0.0",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -137,6 +147,7 @@ def run_rm(
             format_warning(
                 "-i ignored because a bundle" " was specified.",
                 "Proceeding with the specified bundle.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -175,7 +186,15 @@ def run_rm(
 
         result = remove_bundle(selected, target_dir, manifest)
         save_manifest(manifest, manifest_path)
-        print(_format_result(selected.bundle_name, scope, result), file=sys.stderr)
+        print(
+            _format_result(
+                selected.bundle_name,
+                scope,
+                result,
+                stream=sys.stderr,
+            ),
+            file=sys.stderr,
+        )
         return 0
 
     # Determine scope and target
@@ -185,6 +204,7 @@ def run_rm(
                 "No bundle specified.",
                 "Provide a bundle name or use -i" " for interactive mode.",
                 "Example: ksm rm <bundle_name>",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -204,6 +224,7 @@ def run_rm(
                 f"Bundle '{bundle_name}' is not installed" f" at {scope} scope.",
                 "The bundle may be installed at a" " different scope.",
                 "Run `ksm list` to see installed" " bundles.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -230,5 +251,13 @@ def run_rm(
 
     result = remove_bundle(entry, target_dir, manifest)
     save_manifest(manifest, manifest_path)
-    print(_format_result(bundle_name, scope, result), file=sys.stderr)
+    print(
+        _format_result(
+            bundle_name,
+            scope,
+            result,
+            stream=sys.stderr,
+        ),
+        file=sys.stderr,
+    )
     return 0

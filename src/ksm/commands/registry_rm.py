@@ -46,8 +46,11 @@ def run_registry_rm(
         print(
             format_error(
                 f"Registry '{name}' not found.",
-                f"Registered registries:" f" {', '.join(registered)}",
-                "Run `ksm registry list`" " to see all registries.",
+                f"Registered registries:"
+                f" {', '.join(registered)}",
+                "Run `ksm registry list`"
+                " to see all registries.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -57,8 +60,11 @@ def run_registry_rm(
         print(
             format_error(
                 "Cannot remove the default registry.",
-                f"'{name}' is the built-in" " default registry.",
-                "Only user-added registries" " can be removed.",
+                f"'{name}' is the built-in"
+                " default registry.",
+                "Only user-added registries"
+                " can be removed.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -82,10 +88,12 @@ def run_registry_rm(
         except PermissionError:
             print(
                 format_warning(
-                    f"Could not remove cache" f" directory: {cache_path}",
+                    f"Could not remove cache"
+                    f" directory: {cache_path}",
                     "Permission denied."
                     " The registry was removed"
                     " but the cache remains.",
+                    stream=sys.stderr,
                 ),
                 file=sys.stderr,
             )

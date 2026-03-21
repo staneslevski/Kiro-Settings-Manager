@@ -1,6 +1,7 @@
 """Tests for ksm.commands.sync module."""
 
 import argparse
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -988,3 +989,478 @@ def test_sync_dry_run_prints_preview(
     assert (target / "skills" / "f.md").read_bytes() == b"old"
     captured = capsys.readouterr()
     assert "Syncing" in captured.err
+
+
+# --- Tests for stream=sys.stderr in formatter calls (Reqs 1.1-1.3, 2.1-2.3) ---
+
+
+class TestSyncFormatterStreamParam:
+    """Verify sync.py passes stream=sys.stderr to formatters."""
+
+    def test_format_error_receives_stream_stderr_no_bundles(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_error called with stream=sys.stderr when
+        no bundles specified."""
+        from ksm.commands.sync import run_sync
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir()
+        idx = RegistryIndex(registries=[])
+        manifest = Manifest(entries=[])
+        args = _make_args()
+
+        with patch(
+            "ksm.commands.sync.format_error",
+            wraps=__import__(
+                "ksm.errors", fromlist=["format_error"]
+            ).format_error,
+        ) as mock_fmt:
+            run_sync(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_error_receives_stream_stderr_not_installed(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_error called with stream=sys.stderr when
+        bundle not installed."""
+        from ksm.commands.sync import run_sync
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir()
+        idx = RegistryIndex(registries=[])
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_names=["nonexistent"])
+
+        with patch(
+            "ksm.commands.sync.format_error",
+            wraps=__import__(
+                "ksm.errors", fromlist=["format_error"]
+            ).format_error,
+        ) as mock_fmt:
+            run_sync(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_error_receives_stream_stderr_tty_check(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_error called with stream=sys.stderr when
+        stdin is not a TTY (confirmation blocked)."""
+        from ksm.commands.sync import run_sync
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir()
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg, "aws", {"skills/f.md": b"data"}
+        )
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(
+            entries=[
+                _make_entry(
+                    "aws", files=["skills/f.md"]
+                )
+            ]
+        )
+        args = _make_args(bundle_names=["aws"])
+
+        with (
+            patch("sys.stdin") as mock_stdin,
+            patch(
+                "ksm.commands.sync.format_error",
+                wraps=__import__(
+                    "ksm.errors",
+                    fromlist=["format_error"],
+                ).format_error,
+            ) as mock_fmt,
+        ):
+            mock_stdin.isatty.return_value = False
+            run_sync(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_warning_receives_stream_stderr_pull_fail(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_warning called with stream=sys.stderr when
+        pull_repo fails."""
+        from ksm.commands.sync import run_sync
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir()
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg, "team", {"skills/f.md": b"data"}
+        )
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(
+            b"old"
+        )
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="custom",
+                    url="https://example.com/repo.git",
+                    local_path=str(reg),
+                    is_default=False,
+                )
+            ]
+        )
+        manifest = Manifest(
+            entries=[
+                _make_entry(
+                    "team",
+                    "local",
+                    "custom",
+                    files=["skills/f.md"],
+                )
+            ]
+        )
+        args = _make_args(
+            bundle_names=["team"], yes=True
+        )
+
+        with (
+            patch(
+                "ksm.commands.sync.pull_repo",
+                side_effect=RuntimeError("net err"),
+            ),
+            patch(
+                "ksm.commands.sync.format_warning",
+                wraps=__import__(
+                    "ksm.errors",
+                    fromlist=["format_warning"],
+                ).format_warning,
+            ) as mock_fmt,
+        ):
+            run_sync(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target,
+                target_global=tmp_path / "global",
+            )
+
+        assert mock_fmt.call_count >= 1
+        # Check the first call (pull failure warning)
+        _, kwargs = mock_fmt.call_args_list[0]
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_warning_receives_stream_stderr_resolve_fail(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_warning called with stream=sys.stderr when
+        bundle can't be resolved during sync."""
+        from ksm.commands.sync import run_sync
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir()
+        reg = tmp_path / "reg"
+        reg.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(
+            entries=[
+                _make_entry(
+                    "missing",
+                    "local",
+                    "default",
+                )
+            ]
+        )
+        args = _make_args(
+            bundle_names=["missing"], yes=True
+        )
+
+        with patch(
+            "ksm.commands.sync.format_warning",
+            wraps=__import__(
+                "ksm.errors",
+                fromlist=["format_warning"],
+            ).format_warning,
+        ) as mock_fmt:
+            run_sync(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+
+# --- Tests for green success prefix (Req 3.3, 3.4, 3.5) ---
+# Feature: color-and-scope-selection
+# **Validates: Requirements 3.3, 3.4, 3.5**
+
+
+class TestSyncGreenSuccessPrefix:
+    """Property 14: sync success message includes green
+    "Synced:" prefix."""
+
+    _GREEN = "\033[32m"
+    _RESET = "\033[0m"
+
+    def test_synced_prefix_green_on_tty(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Property 14: successful sync prints green
+        'Synced:' prefix to stderr when stream is TTY.
+        **Validates: Requirements 3.3**"""
+        from ksm.commands.sync import run_sync
+
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg, "aws", {"skills/f.md": b"new"}
+        )
+        target = tmp_path / "target" / ".kiro"
+        target.mkdir(parents=True)
+        (target / "skills").mkdir()
+        (target / "skills" / "f.md").write_bytes(
+            b"old"
+        )
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(
+            entries=[
+                _make_entry(
+                    "aws", files=["skills/f.md"]
+                )
+            ]
+        )
+        args = _make_args(
+            bundle_names=["aws"], yes=True
+        )
+
+        with patch.dict(
+            "os.environ",
+            {"TERM": "xterm-256color"},
+            clear=True,
+        ):
+            with patch(
+                "sys.stderr.isatty",
+                return_value=True,
+            ):
+                code = run_sync(
+                    args,
+                    registry_index=idx,
+                    manifest=manifest,
+                    manifest_path=(
+                        ksm_dir / "manifest.json"
+                    ),
+                    target_local=target,
+                    target_global=(
+                        tmp_path / "global" / ".kiro"
+                    ),
+                )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "Synced:" in captured.err
+        assert self._GREEN in captured.err
+
+    def test_synced_prefix_plain_with_no_color(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Property 14: 'Synced:' is plain text when
+        NO_COLOR is set.
+        **Validates: Requirements 3.4**"""
+        from ksm.commands.sync import run_sync
+
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg, "aws", {"skills/f.md": b"new"}
+        )
+        target = tmp_path / "target" / ".kiro"
+        target.mkdir(parents=True)
+        (target / "skills").mkdir()
+        (target / "skills" / "f.md").write_bytes(
+            b"old"
+        )
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(
+            entries=[
+                _make_entry(
+                    "aws", files=["skills/f.md"]
+                )
+            ]
+        )
+        args = _make_args(
+            bundle_names=["aws"], yes=True
+        )
+
+        with patch.dict(
+            "os.environ",
+            {"NO_COLOR": "1"},
+            clear=False,
+        ):
+            code = run_sync(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(
+                    ksm_dir / "manifest.json"
+                ),
+                target_local=target,
+                target_global=(
+                    tmp_path / "global" / ".kiro"
+                ),
+            )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "Synced:" in captured.err
+        assert "\033[" not in captured.err
+
+    def test_synced_prefix_contains_bundle_name(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Property 14: success message includes bundle name
+        alongside the green prefix.
+        **Validates: Requirements 3.5**"""
+        from ksm.commands.sync import run_sync
+
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg, "aws", {"skills/f.md": b"new"}
+        )
+        target = tmp_path / "target" / ".kiro"
+        target.mkdir(parents=True)
+        (target / "skills").mkdir()
+        (target / "skills" / "f.md").write_bytes(
+            b"old"
+        )
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(
+            entries=[
+                _make_entry(
+                    "aws", files=["skills/f.md"]
+                )
+            ]
+        )
+        args = _make_args(
+            bundle_names=["aws"], yes=True
+        )
+
+        code = run_sync(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=(
+                ksm_dir / "manifest.json"
+            ),
+            target_local=target,
+            target_global=(
+                tmp_path / "global" / ".kiro"
+            ),
+        )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "Synced:" in captured.err
+        assert "aws" in captured.err

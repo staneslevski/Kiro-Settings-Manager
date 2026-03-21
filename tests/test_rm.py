@@ -1,6 +1,7 @@
 """Tests for ksm.commands.rm module."""
 
 import argparse
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -962,3 +963,317 @@ def test_run_rm_eof_aborts(tmp_path: Path) -> None:
 
     assert code == 0
     assert (target / "skills" / "f.md").exists()
+
+
+# --- Tests for stream=sys.stderr in formatter calls (Reqs 1.1-1.3, 2.1-2.3) ---
+
+
+class TestRmFormatterStreamParam:
+    """Verify rm.py passes stream=sys.stderr to formatters."""
+
+    def test_format_error_receives_stream_stderr_no_bundle(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_error called with stream=sys.stderr when
+        no bundle specified."""
+        from ksm.commands.rm import run_rm
+
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_name=None)
+
+        with patch(
+            "ksm.commands.rm.format_error",
+            wraps=__import__(
+                "ksm.errors", fromlist=["format_error"]
+            ).format_error,
+        ) as mock_fmt:
+            run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_error_receives_stream_stderr_not_installed(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_error called with stream=sys.stderr when
+        bundle not installed."""
+        from ksm.commands.rm import run_rm
+
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_name="nonexistent")
+
+        with patch(
+            "ksm.commands.rm.format_error",
+            wraps=__import__(
+                "ksm.errors", fromlist=["format_error"]
+            ).format_error,
+        ) as mock_fmt:
+            run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_error_receives_stream_stderr_tty_check(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_error called with stream=sys.stderr when
+        stdin is not a TTY (confirmation blocked)."""
+        from ksm.commands.rm import run_rm
+
+        entry = _make_entry(
+            "aws", scope="local", files=["skills/f.md"]
+        )
+        manifest = Manifest(entries=[entry])
+        args = _make_args(
+            bundle_name="aws", yes=False
+        )
+
+        with (
+            patch(
+                "sys.stdin.isatty", return_value=False
+            ),
+            patch(
+                "ksm.commands.rm.format_error",
+                wraps=__import__(
+                    "ksm.errors",
+                    fromlist=["format_error"],
+                ).format_error,
+            ) as mock_fmt,
+        ):
+            run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_warning_receives_stream_stderr(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_warning called with stream=sys.stderr when
+        -i ignored because bundle specified."""
+        from ksm.commands.rm import run_rm
+
+        entry = _make_entry(
+            "aws", scope="local", files=["skills/f.md"]
+        )
+        manifest = Manifest(entries=[entry])
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        args = _make_args(
+            bundle_name="aws", interactive=True
+        )
+
+        with patch(
+            "ksm.commands.rm.format_warning",
+            wraps=__import__(
+                "ksm.errors",
+                fromlist=["format_warning"],
+            ).format_warning,
+        ) as mock_fmt:
+            run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=target,
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_deprecation_receives_stream_stderr(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_deprecation called with stream=sys.stderr
+        for --display deprecation."""
+        from ksm.commands.rm import run_rm
+
+        entry = _make_entry(
+            "aws", scope="local", files=["skills/f.md"]
+        )
+        manifest = Manifest(entries=[entry])
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=False,
+            display=True,
+        )
+
+        with (
+            patch(
+                "ksm.commands.rm."
+                "interactive_removal_select",
+                return_value=[entry],
+            ),
+            patch(
+                "ksm.commands.rm.format_deprecation",
+                wraps=__import__(
+                    "ksm.errors",
+                    fromlist=["format_deprecation"],
+                ).format_deprecation,
+            ) as mock_fmt,
+        ):
+            run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=target,
+                target_global=tmp_path / "global",
+            )
+
+        assert mock_fmt.call_count >= 1
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+
+# --- Tests for green success prefix in _format_result (Req 3.2, 3.4, 3.5) ---
+# Feature: color-and-scope-selection
+# **Validates: Requirements 3.2, 3.4, 3.5**
+
+
+class TestRmGreenSuccessPrefix:
+    """Property 13: rm _format_result wraps "Removed" prefix
+    in green."""
+
+    _GREEN = "\033[32m"
+    _RESET = "\033[0m"
+
+    def test_removed_prefix_green_on_tty(self) -> None:
+        """Property 13: _format_result wraps 'Removed' in
+        green when stream is a TTY.
+        **Validates: Requirements 3.2**"""
+        from io import StringIO
+        from unittest.mock import MagicMock
+
+        from ksm.commands.rm import _format_result
+        from ksm.remover import RemovalResult
+
+        stream = MagicMock(spec=StringIO)
+        stream.isatty.return_value = True
+
+        result = RemovalResult(
+            removed_files=["skills/f.md"],
+            skipped_files=[],
+        )
+
+        with patch.dict(
+            "os.environ",
+            {"TERM": "xterm-256color"},
+            clear=True,
+        ):
+            output = _format_result(
+                "aws", "local", result, stream=stream
+            )
+
+        assert self._GREEN in output
+        assert "Removed" in output
+        assert (
+            f"{self._GREEN}Removed{self._RESET}"
+            in output
+        )
+
+    def test_removed_prefix_plain_with_no_color(
+        self,
+    ) -> None:
+        """Property 13: 'Removed' is plain text when
+        NO_COLOR is set.
+        **Validates: Requirements 3.4**"""
+        from io import StringIO
+        from unittest.mock import MagicMock
+
+        from ksm.commands.rm import _format_result
+        from ksm.remover import RemovalResult
+
+        stream = MagicMock(spec=StringIO)
+        stream.isatty.return_value = True
+
+        result = RemovalResult(
+            removed_files=["skills/f.md"],
+            skipped_files=[],
+        )
+
+        with patch.dict(
+            "os.environ",
+            {"NO_COLOR": "1"},
+            clear=False,
+        ):
+            output = _format_result(
+                "aws", "local", result, stream=stream
+            )
+
+        assert "\033[" not in output
+        assert "Removed" in output
+
+    def test_removed_prefix_plain_non_tty(self) -> None:
+        """Property 13: 'Removed' is plain text when stream
+        is not a TTY.
+        **Validates: Requirements 3.4**"""
+        from io import StringIO
+
+        from ksm.commands.rm import _format_result
+        from ksm.remover import RemovalResult
+
+        stream = StringIO()
+
+        result = RemovalResult(
+            removed_files=["skills/f.md"],
+            skipped_files=[],
+        )
+
+        output = _format_result(
+            "aws", "local", result, stream=stream
+        )
+
+        assert "\033[" not in output
+        assert "Removed" in output
+
+    def test_removed_prefix_text_always_present(
+        self,
+    ) -> None:
+        """Property 13: 'Removed' text is always present
+        regardless of color.
+        **Validates: Requirements 3.5**"""
+        from ksm.commands.rm import _format_result
+        from ksm.remover import RemovalResult
+
+        result = RemovalResult(
+            removed_files=["skills/f.md"],
+            skipped_files=[],
+        )
+
+        output = _format_result("aws", "local", result)
+        assert "Removed" in output
+        assert "aws" in output

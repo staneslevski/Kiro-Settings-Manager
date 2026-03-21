@@ -120,6 +120,7 @@ def run_completions(args: argparse.Namespace) -> int:
                 f"Unsupported shell '{shell}'.",
                 "Supported: bash, zsh, fish",
                 "Example: ksm completions bash",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )

@@ -52,27 +52,27 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
 
   - [ ] 2.1 Wire stream=sys.stderr into all format_error/format_warning/format_deprecation call sites
 
-    - [~] 2.1.1 Write tests verifying that command modules pass stream=sys.stderr to error/warning/deprecation formatters (add.py, rm.py, sync.py)
+    - [x] 2.1.1 Write tests verifying that command modules pass stream=sys.stderr to error/warning/deprecation formatters (add.py, rm.py, sync.py)
       → Agent: general-task-execution
       _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3_
 
-    - [~] 2.1.2 Update all format_error, format_warning, format_deprecation call sites in add.py, rm.py, sync.py, and other command modules to pass stream=sys.stderr
+    - [x] 2.1.2 Update all format_error, format_warning, format_deprecation call sites in add.py, rm.py, sync.py, and other command modules to pass stream=sys.stderr
       → Agent: general-task-execution
       _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3_
 
-    - [~] 2.1.3 Run command tests and verify all pass
+    - [x] 2.1.3 Run command tests and verify all pass
       → Agent: kiro
 
   - [ ] 2.2 Colorize success messages (add, rm, sync)
 
-    - [~] 2.2.1 Write tests for green success prefix in add.py ("Installed:"), rm.py ("Removed"), and sync.py ("Synced:")
+    - [x] 2.2.1 Write tests for green success prefix in add.py ("Installed:"), rm.py ("Removed"), and sync.py ("Synced:")
       → Agent: general-task-execution
       **Property 12: add success message includes green "Installed:" prefix**
       **Property 13: rm _format_result wraps "Removed" prefix in green**
       **Property 14: sync success message includes green "Synced:" prefix**
       _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-    - [~] 2.2.2 Add green success prefix to add.py, update _format_result in rm.py with stream param and green prefix, add green prefix to sync.py
+    - [x] 2.2.2 Add green success prefix to add.py, update _format_result in rm.py with stream param and green prefix, add green prefix to sync.py
       → Agent: general-task-execution
       _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
