@@ -1,5 +1,9 @@
 """Custom exception classes for ksm."""
 
+from typing import TextIO
+
+from ksm.color import red, yellow
+
 
 class BundleNotFoundError(Exception):
     """Raised when a bundle name cannot be found in any registry."""
@@ -101,7 +105,12 @@ class MutualExclusionError(Exception):
 # ------------------------------------------------------------------
 
 
-def format_error(what: str, why: str, fix: str) -> str:
+def format_error(
+    what: str,
+    why: str,
+    fix: str,
+    stream: TextIO | None = None,
+) -> str:
     """Format a three-line error message.
 
     Returns:
@@ -109,28 +118,41 @@ def format_error(what: str, why: str, fix: str) -> str:
           {why}
           {fix}
     """
-    return f"Error: {what}\n  {why}\n  {fix}"
+    prefix = red("Error:", stream=stream)
+    return f"{prefix} {what}\n  {why}\n  {fix}"
 
 
-def format_warning(what: str, detail: str) -> str:
+def format_warning(
+    what: str,
+    detail: str,
+    stream: TextIO | None = None,
+) -> str:
     """Format a two-line warning message.
 
     Returns:
         Warning: {what}
           {detail}
     """
-    return f"Warning: {what}\n  {detail}"
+    prefix = yellow("Warning:", stream=stream)
+    return f"{prefix} {what}\n  {detail}"
 
 
-def format_deprecation(old: str, new: str, since: str, removal: str) -> str:
+def format_deprecation(
+    old: str,
+    new: str,
+    since: str,
+    removal: str,
+    stream: TextIO | None = None,
+) -> str:
     """Format a two-line deprecation message.
 
     Returns:
         Deprecated: `{old}` is deprecated, use `{new}` instead.
           Deprecated in {since}, will be removed in {removal}.
     """
+    prefix = yellow("Deprecated:", stream=stream)
     return (
-        f"Deprecated: `{old}` is deprecated,"
+        f"{prefix} `{old}` is deprecated,"
         f" use `{new}` instead.\n"
         f"  Deprecated in {since},"
         f" will be removed in {removal}."

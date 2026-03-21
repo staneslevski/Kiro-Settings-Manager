@@ -5,9 +5,13 @@ optimisation and directory structure preservation.
 """
 
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import TextIO
+
+from ksm.color import dim, green, yellow
 
 
 class CopyStatus(Enum):
@@ -87,7 +91,17 @@ _STATUS_SYMBOLS: dict[CopyStatus, str] = {
 }
 
 
-def format_diff_summary(results: list[CopyResult]) -> str:
+_STATUS_COLORS: dict[CopyStatus, Callable[..., str]] = {
+    CopyStatus.NEW: green,
+    CopyStatus.UPDATED: yellow,
+    CopyStatus.UNCHANGED: dim,
+}
+
+
+def format_diff_summary(
+    results: list[CopyResult],
+    stream: TextIO | None = None,
+) -> str:
     """Format CopyResult list as file-level diff summary.
 
     Each line shows a status symbol and the file path:
@@ -98,5 +112,12 @@ def format_diff_summary(results: list[CopyResult]) -> str:
     lines: list[str] = []
     for r in results:
         sym = _STATUS_SYMBOLS[r.status]
-        lines.append(f"  {sym} {r.path} ({r.status.value})")
+        color_fn = _STATUS_COLORS[r.status]
+        colored_sym = color_fn(sym, stream=stream)
+        colored_label = color_fn(
+            f"({r.status.value})", stream=stream
+        )
+        lines.append(
+            f"  {colored_sym} {r.path} {colored_label}"
+        )
     return "\n".join(lines)
