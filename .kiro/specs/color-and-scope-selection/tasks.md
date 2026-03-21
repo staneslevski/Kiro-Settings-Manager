@@ -193,34 +193,34 @@ This plan wires the existing but unused `green()`, `red()`, `yellow()` color fun
       → Agent: general-task-execution
       _Requirements: 11.1, 11.5, 11.7, 15.1, 15.2, 15.3, 15.4_
 
-    - [~] 3.2.3 Run add command tests and verify all pass
+    - [ ] 3.2.3 Run add command tests and verify all pass
       → Agent: kiro
 
   - [ ] 3.3 Verify rm -i scope behavior (no separate scope prompt)
 
-    - [~] 3.3.1 Write or verify tests confirming rm -i uses scope from ManifestEntry, no separate scope prompt is shown, and -l/-g filters the removal list
+    - [ ] 3.3.1 Write or verify tests confirming rm -i uses scope from ManifestEntry, no separate scope prompt is shown, and -l/-g filters the removal list
       → Agent: general-task-execution
       **Property 41: rm -i uses scope from selected ManifestEntry**
       **Property 42: rm -i does not present scope selection step**
       _Requirements: 14.1, 14.2, 14.3_
 
-    - [~] 3.3.2 Run rm tests and verify all pass
+    - [ ] 3.3.2 Run rm tests and verify all pass
       → Agent: kiro
 
-  - [~] 3.4 Checkpoint — Run full test suite, verify all tests pass
+  - [ ] 3.4 Checkpoint — Run full test suite, verify all tests pass
     → Agent: kiro
 
 - [ ] 4. Integration Verification and Linting
 
   - [ ] 4.1 Full verification
 
-    - [~] 4.1.1 Run full test suite with coverage, verify ≥95% coverage on modified files (errors.py, copier.py, selector.py, add.py, rm.py, sync.py, info.py, registry_ls.py)
+    - [ ] 4.1.1 Run full test suite with coverage, verify ≥95% coverage on modified files (errors.py, copier.py, selector.py, add.py, rm.py, sync.py, info.py, registry_ls.py)
       → Agent: kiro
       _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 10.1, 10.2, 10.3, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 14.1, 14.2, 14.3, 15.1, 15.2, 15.3, 15.4, 16.1, 16.2, 16.3, 16.4, 16.5, 16.6_
 
-    - [~] 4.1.2 Run black, flake8, and mypy on all modified source and test files, fix any issues
+    - [ ] 4.1.2 Run black, flake8, and mypy on all modified source and test files, fix any issues
       → Agent: kiro
       _Requirements: 1.1, 2.1, 3.1, 4.1, 6.1, 7.1, 8.2, 9.2, 10.1, 11.1, 12.1, 13.1, 14.1, 15.1, 16.1_
 
-  - [~] 4.2 Checkpoint — Final full test suite run, confirm all tests pass and coverage ≥95%
+  - [ ] 4.2 Checkpoint — Final full test suite run, confirm all tests pass and coverage ≥95%
     → Agent: kiro
