@@ -451,3 +451,67 @@ def test_format_relative_time_singular_minute() -> None:
     ts = (datetime.now(timezone.utc) - timedelta(seconds=65)).isoformat()
     result = _format_relative_time(ts)
     assert "1 minute ago" == result
+
+
+# ── ls color ─────────────────────────────────────────────────
+
+
+class TestLsColor:
+    """Tests for color usage in ls output.
+
+    **Validates: Requirements 5.1, 5.2, 5.3, 5.4**
+    """
+
+    def test_scope_header_uses_bold(
+        self,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 5.3: scope headers use bold."""
+        from ksm.commands.ls import run_ls
+
+        manifest = Manifest(entries=[_make_entry("aws", "local")])
+        args = _make_ls_args()
+        with patch("ksm.color._color_enabled", return_value=True):
+            run_ls(args, manifest=manifest)
+
+        out = capsys.readouterr().out
+        assert "\033[1mLocal bundles:\033[0m" in out
+
+    def test_registry_name_and_timestamp_use_dim(
+        self,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 5.2: registry name and timestamp use dim."""
+        from ksm.commands.ls import run_ls
+
+        manifest = Manifest(entries=[_make_entry("aws", "local", "default")])
+        args = _make_ls_args()
+        with patch("ksm.color._color_enabled", return_value=True):
+            run_ls(args, manifest=manifest)
+
+        out = capsys.readouterr().out
+        # Registry name wrapped in dim
+        assert "\033[2m(default)\033[0m" in out
+        # Timestamp also wrapped in dim (some relative time)
+        # Find a dim-wrapped segment after the registry
+        dim_count = out.count("\033[2m")
+        assert dim_count >= 2
+
+    def test_no_color_suppresses_ansi(
+        self,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Req 5.4: NO_COLOR suppresses ANSI in ls output."""
+        from ksm.commands.ls import run_ls
+
+        monkeypatch.setenv("NO_COLOR", "1")
+
+        manifest = Manifest(entries=[_make_entry("aws", "local")])
+        args = _make_ls_args()
+        run_ls(args, manifest=manifest)
+
+        out = capsys.readouterr().out
+        assert "\033[" not in out
+        assert "aws" in out
+        assert "Local bundles:" in out

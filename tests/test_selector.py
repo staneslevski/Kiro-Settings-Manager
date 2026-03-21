@@ -1,14 +1,18 @@
 """Tests for ksm.selector module."""
 
 import io
+import re
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
 from ksm.manifest import ManifestEntry
 from ksm.scanner import BundleInfo
+
+_ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 
 
 def test_render_add_selector_alphabetical_with_prefix() -> None:
@@ -264,7 +268,8 @@ def test_property_selector_sorted_alphabetically(
     # Extract names from bundle lines (strip > prefix and whitespace)
     rendered_names = []
     for line in bundle_lines:
-        stripped = line.lstrip("> ").strip()
+        plain = _ANSI_RE.sub("", line)
+        stripped = plain.lstrip("> ").strip()
         # Name is the first word
         rendered_names.append(stripped.split()[0])
 
@@ -2278,7 +2283,11 @@ def test_property_selector_qualifies_ambiguous_names(
     # Ambiguous bundles should show registry/name format
     for rn in reg_names:
         qualified = f"{rn}/{shared_name}"
-        matching = [ln for ln in bundle_lines if qualified in ln.split()]
+        matching = [
+            ln
+            for ln in bundle_lines
+            if qualified in _ANSI_RE.sub("", ln).split()
+        ]
         assert len(matching) == 1, (
             f"Expected '{qualified}' as token in exactly"
             f" one line, found {len(matching)}"
@@ -2288,6 +2297,328 @@ def test_property_selector_qualifies_ambiguous_names(
     for un in unique_names:
         un_lines = [ln for ln in bundle_lines if un in ln]
         for ln in un_lines:
-            assert f"/{un}" not in ln or (
-                f"{reg_names[0]}/{un}" not in ln
+            plain = _ANSI_RE.sub("", ln)
+            assert f"/{un}" not in plain or (
+                f"{reg_names[0]}/{un}" not in plain
             ), f"Unique name '{un}' should not be qualified"
+
+
+# --- Tests for colored selector UI elements (Req 6) ---
+
+
+class FakeTTY(io.StringIO):
+    """A StringIO that reports itself as a TTY."""
+
+    def isatty(self) -> bool:
+        return True
+
+
+class TestSelectorColor:
+    """Tests for color treatment in render_add_selector
+    and render_removal_selector.
+
+    Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7
+    """
+
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    RESET = "\033[0m"
+
+    def _make_bundles(self, names: list[str]) -> list[BundleInfo]:
+        return [
+            BundleInfo(
+                name=n,
+                path=Path(f"/{n}"),
+                subdirectories=["skills"],
+                registry_name="default",
+            )
+            for n in names
+        ]
+
+    def _make_entries(
+        self,
+        data: list[tuple[str, str]],
+    ) -> list[ManifestEntry]:
+        return [
+            ManifestEntry(
+                bundle_name=name,
+                source_registry="default",
+                scope=scope,
+                installed_files=[],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            )
+            for name, scope in data
+        ]
+
+    def _color_env(self, monkeypatch: "pytest.MonkeyPatch") -> None:
+        """Set up env for color-enabled output."""
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+        monkeypatch.setattr("sys.stderr", FakeTTY())
+
+    # -- Property 19: header wrapped in bold --
+
+    def test_add_header_bold(self, monkeypatch: "pytest.MonkeyPatch") -> None:
+        """Property 19: render_add_selector wraps
+        header (_ADD_HEADER) in bold.
+
+        Validates: Requirements 6.3
+        """
+        self._color_env(monkeypatch)
+        from ksm.selector import render_add_selector
+
+        bundles = self._make_bundles(["alpha"])
+        lines = render_add_selector(
+            bundles,
+            installed_names=set(),
+            selected=0,
+        )
+        assert self.BOLD in lines[0], (
+            f"Header should contain bold ANSI code, " f"got: {lines[0]!r}"
+        )
+
+    # -- Property 20: instructions wrapped in dim --
+
+    def test_add_instructions_dim(self, monkeypatch: "pytest.MonkeyPatch") -> None:
+        """Property 20: render_add_selector wraps
+        instructions (_ADD_INSTRUCTIONS) in dim.
+
+        Validates: Requirements 6.4
+        """
+        self._color_env(monkeypatch)
+        from ksm.selector import render_add_selector
+
+        bundles = self._make_bundles(["alpha"])
+        lines = render_add_selector(
+            bundles,
+            installed_names=set(),
+            selected=0,
+        )
+        assert self.DIM in lines[1], (
+            f"Instructions should contain dim ANSI " f"code, got: {lines[1]!r}"
+        )
+
+    # -- Property 21: highlighted name wrapped in bold --
+
+    def test_add_highlighted_name_bold(self, monkeypatch: "pytest.MonkeyPatch") -> None:
+        """Property 21: render_add_selector wraps
+        highlighted bundle name in bold.
+
+        Validates: Requirements 6.1
+        """
+        self._color_env(monkeypatch)
+        from ksm.selector import render_add_selector
+
+        bundles = self._make_bundles(["alpha", "beta"])
+        lines = render_add_selector(
+            bundles,
+            installed_names=set(),
+            selected=0,
+        )
+        # The selected line (index 3) has > prefix
+        selected_line = lines[3]
+        assert selected_line.startswith(">")
+        assert self.BOLD in selected_line, (
+            f"Highlighted name should be bold, " f"got: {selected_line!r}"
+        )
+        # Non-selected line should NOT have bold
+        other_line = lines[4]
+        assert self.BOLD not in other_line, (
+            f"Non-highlighted name should not be " f"bold, got: {other_line!r}"
+        )
+
+    # -- Property 22: [installed] badge wrapped in dim --
+
+    def test_add_installed_badge_dim(self, monkeypatch: "pytest.MonkeyPatch") -> None:
+        """Property 22: render_add_selector wraps
+        [installed] badge in dim.
+
+        Validates: Requirements 6.2
+        """
+        self._color_env(monkeypatch)
+        from ksm.selector import render_add_selector
+
+        bundles = self._make_bundles(["alpha", "beta"])
+        lines = render_add_selector(
+            bundles,
+            installed_names={"alpha"},
+            selected=0,
+        )
+        alpha_line = [ln for ln in lines if "installed" in ln][0]
+        assert self.DIM in alpha_line, (
+            f"[installed] badge should be dim, " f"got: {alpha_line!r}"
+        )
+
+    # -- Property 23: [scope] label wrapped in dim --
+
+    def test_removal_scope_label_dim(self, monkeypatch: "pytest.MonkeyPatch") -> None:
+        """Property 23: render_removal_selector wraps
+        [scope] label in dim.
+
+        Validates: Requirements 6.6
+        """
+        self._color_env(monkeypatch)
+        from ksm.selector import render_removal_selector
+
+        entries = self._make_entries([("aws", "local"), ("git", "global")])
+        lines = render_removal_selector(entries, selected=0)
+        for line in lines[3:]:
+            # Each bundle line has a scope label
+            assert self.DIM in line, f"Scope label should be dim, " f"got: {line!r}"
+
+    # -- Property 24: filter prompt wrapped in dim --
+
+    def test_filter_prompt_dim(self, monkeypatch: "pytest.MonkeyPatch") -> None:
+        """Property 24: selector wraps filter prompt
+        in dim when filter_text is non-empty.
+
+        Validates: Requirements 6.7
+        """
+        self._color_env(monkeypatch)
+        from ksm.selector import render_add_selector
+
+        bundles = self._make_bundles(["alpha"])
+        lines = render_add_selector(
+            bundles,
+            installed_names=set(),
+            selected=0,
+            filter_text="al",
+        )
+        # lines[2] is the filter line when filter_text
+        filter_line = lines[2]
+        assert "Filter:" in filter_line
+        assert self.DIM in filter_line, (
+            f"Filter prompt should be dim, " f"got: {filter_line!r}"
+        )
+
+    # -- Plain text when NO_COLOR is set --
+
+    def test_no_color_plain_text(self, monkeypatch: "pytest.MonkeyPatch") -> None:
+        """When NO_COLOR is set, all lines should be
+        plain text (no ANSI codes).
+
+        Validates: Requirements 6.5
+        """
+        monkeypatch.setenv("NO_COLOR", "1")
+        monkeypatch.setenv("TERM", "xterm-256color")
+        monkeypatch.setattr("sys.stderr", FakeTTY())
+        from ksm.selector import render_add_selector
+
+        bundles = self._make_bundles(["alpha", "beta"])
+        lines = render_add_selector(
+            bundles,
+            installed_names={"alpha"},
+            selected=0,
+            filter_text="al",
+        )
+        full = "\n".join(lines)
+        assert "\033[" not in full, (
+            f"NO_COLOR should suppress all ANSI " f"codes, got: {full!r}"
+        )
+
+    # -- Plain text when TERM=dumb --
+
+    def test_term_dumb_plain_text(self, monkeypatch: "pytest.MonkeyPatch") -> None:
+        """When TERM=dumb, all lines should be plain
+        text (no ANSI codes).
+
+        Validates: Requirements 6.5
+        """
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "dumb")
+        monkeypatch.setattr("sys.stderr", FakeTTY())
+        from ksm.selector import render_add_selector
+
+        bundles = self._make_bundles(["alpha", "beta"])
+        lines = render_add_selector(
+            bundles,
+            installed_names={"alpha"},
+            selected=0,
+            filter_text="al",
+        )
+        full = "\n".join(lines)
+        assert "\033[" not in full, (
+            f"TERM=dumb should suppress all ANSI " f"codes, got: {full!r}"
+        )
+
+    # -- Removal selector: NO_COLOR plain text --
+
+    def test_removal_no_color_plain_text(
+        self, monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Removal selector produces plain text when
+        NO_COLOR is set.
+
+        Validates: Requirements 6.5
+        """
+        monkeypatch.setenv("NO_COLOR", "1")
+        monkeypatch.setenv("TERM", "xterm-256color")
+        monkeypatch.setattr("sys.stderr", FakeTTY())
+        from ksm.selector import render_removal_selector
+
+        entries = self._make_entries([("aws", "local")])
+        lines = render_removal_selector(entries, selected=0)
+        full = "\n".join(lines)
+        assert "\033[" not in full, (
+            f"NO_COLOR should suppress all ANSI "
+            f"codes in removal selector, "
+            f"got: {full!r}"
+        )
+
+    # -- Removal selector: TERM=dumb plain text --
+
+    def test_removal_term_dumb_plain_text(
+        self, monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Removal selector produces plain text when
+        TERM=dumb.
+
+        Validates: Requirements 6.5
+        """
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "dumb")
+        monkeypatch.setattr("sys.stderr", FakeTTY())
+        from ksm.selector import render_removal_selector
+
+        entries = self._make_entries([("aws", "local")])
+        lines = render_removal_selector(entries, selected=0)
+        full = "\n".join(lines)
+        assert "\033[" not in full, (
+            f"TERM=dumb should suppress all ANSI "
+            f"codes in removal selector, "
+            f"got: {full!r}"
+        )
+
+    # -- Removal selector header bold --
+
+    def test_removal_header_bold(self, monkeypatch: "pytest.MonkeyPatch") -> None:
+        """render_removal_selector wraps header in bold.
+
+        Validates: Requirements 6.3
+        """
+        self._color_env(monkeypatch)
+        from ksm.selector import render_removal_selector
+
+        entries = self._make_entries([("aws", "local")])
+        lines = render_removal_selector(entries, selected=0)
+        assert self.BOLD in lines[0], (
+            f"Removal header should be bold, " f"got: {lines[0]!r}"
+        )
+
+    # -- Removal selector instructions dim --
+
+    def test_removal_instructions_dim(self, monkeypatch: "pytest.MonkeyPatch") -> None:
+        """render_removal_selector wraps instructions
+        in dim.
+
+        Validates: Requirements 6.4
+        """
+        self._color_env(monkeypatch)
+        from ksm.selector import render_removal_selector
+
+        entries = self._make_entries([("aws", "local")])
+        lines = render_removal_selector(entries, selected=0)
+        assert self.DIM in lines[1], (
+            f"Removal instructions should be dim, " f"got: {lines[1]!r}"
+        )

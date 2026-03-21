@@ -9,7 +9,7 @@ Requirements: 18.1, 18.2, 18.3
 import argparse
 import sys
 
-from ksm.color import bold, dim
+from ksm.color import bold, dim, green
 from ksm.errors import format_error
 from ksm.manifest import Manifest
 from ksm.registry import RegistryIndex
@@ -32,8 +32,7 @@ def run_info(
             format_error(
                 f"Bundle '{bundle_name}' not found.",
                 f"Searched: {searched}",
-                "Run `ksm search <query>` to find"
-                " available bundles.",
+                "Run `ksm search <query>` to find" " available bundles.",
                 stream=sys.stderr,
             ),
             file=sys.stderr,
@@ -65,7 +64,7 @@ def run_info(
     # Installed status
     if installed_scopes:
         scopes_str = ", ".join(installed_scopes)
-        lines.append(f"  Installed: {scopes_str}")
+        lines.append(f"  Installed: {green(scopes_str)}")
     else:
         lines.append(f"  Installed: {dim('no')}")
 

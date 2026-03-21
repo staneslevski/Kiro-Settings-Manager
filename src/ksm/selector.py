@@ -23,6 +23,7 @@ except ImportError:
     termios = None  # type: ignore[assignment]
     _HAS_TERMIOS = False
 
+from ksm.color import bold, dim
 from ksm.manifest import ManifestEntry
 from ksm.scanner import BundleInfo
 
@@ -141,19 +142,25 @@ def render_add_selector(
 
     max_name = max((len(dn) for dn in display_names), default=0)
     lines: list[str] = [
-        _ADD_HEADER,
-        _ADD_INSTRUCTIONS,
+        bold(_ADD_HEADER, stream=sys.stderr),
+        dim(_ADD_INSTRUCTIONS, stream=sys.stderr),
         "",
     ]
     if filter_text:
-        lines[2] = f"Filter: {filter_text}"
+        lines[2] = dim(f"Filter: {filter_text}", stream=sys.stderr)
     for i, bundle in enumerate(sorted_bundles):
         prefix = ">" if i == selected else " "
         check = ""
         if multi_selected is not None:
             check = "[✓] " if i in multi_selected else "[ ] "
         padded = display_names[i].ljust(max_name)
-        label = " [installed]" if bundle.name in installed_names else ""
+        if i == selected:
+            padded = bold(padded, stream=sys.stderr)
+        label = (
+            dim(" [installed]", stream=sys.stderr)
+            if bundle.name in installed_names
+            else ""
+        )
         lines.append(f"{prefix} {check}{padded}{label}")
     return lines
 
@@ -182,19 +189,20 @@ def render_removal_selector(
         sorted_entries = [e for e in sorted_entries if ft in e.bundle_name.lower()]
     max_name = max((len(e.bundle_name) for e in sorted_entries), default=0)
     lines: list[str] = [
-        _RM_HEADER,
-        _RM_INSTRUCTIONS,
+        bold(_RM_HEADER, stream=sys.stderr),
+        dim(_RM_INSTRUCTIONS, stream=sys.stderr),
         "",
     ]
     if filter_text:
-        lines[2] = f"Filter: {filter_text}"
+        lines[2] = dim(f"Filter: {filter_text}", stream=sys.stderr)
     for i, entry in enumerate(sorted_entries):
         prefix = ">" if i == selected else " "
         check = ""
         if multi_selected is not None:
             check = "[✓] " if i in multi_selected else "[ ] "
         padded = entry.bundle_name.ljust(max_name)
-        lines.append(f"{prefix} {check}{padded} [{entry.scope}]")
+        scope_label = dim(f"[{entry.scope}]", stream=sys.stderr)
+        lines.append(f"{prefix} {check}{padded} {scope_label}")
     return lines
 
 
@@ -239,6 +247,100 @@ def _read_key() -> bytes:
         extra = sys.stdin.buffer.read(2)
         return ch + extra
     return ch
+
+
+_SCOPE_OPTIONS = [
+    ("local", "Local (.kiro/)"),
+    ("global", "Global (~/.kiro/)"),
+]
+_SCOPE_HEADER = "Select installation scope:"
+_SCOPE_INSTRUCTIONS = "↑/↓ navigate, Enter select, q quit"
+
+
+def scope_select() -> str | None:
+    """Interactive scope selection.
+
+    Returns ``"local"``, ``"global"``, or ``None`` (abort).
+
+    Raw mode: inline arrow-key navigation (no alternate
+    screen buffer). Fallback: numbered list prompt.
+    Non-TTY stdin in fallback: returns ``None`` (caller
+    defaults to ``"local"``).
+
+    (Reqs 11, 12, 13, 16)
+    """
+    if not _use_raw_mode():
+        # Numbered-list fallback
+        if not sys.stdin.isatty():
+            return None
+        sys.stderr.write(
+            f"\n{_SCOPE_HEADER}\n\n"
+        )
+        for i, (_key, label) in enumerate(_SCOPE_OPTIONS, 1):
+            sys.stderr.write(f"  {i}. {label}\n")
+        sys.stderr.write("\n")
+        sys.stderr.flush()
+
+        while True:
+            try:
+                answer = input("Enter number [1-2] or q: ")
+            except EOFError:
+                return None
+            answer = answer.strip()
+            if answer == "q":
+                return None
+            if answer == "" or answer == "1":
+                return "local"
+            if answer == "2":
+                return "global"
+            sys.stderr.write(
+                "Invalid input. Enter 1-2 or q.\n"
+            )
+            sys.stderr.flush()
+
+    # Raw mode path — inline rendering
+    selected = 0
+    count = len(_SCOPE_OPTIONS)
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        while True:
+            lines: list[str] = [
+                bold(_SCOPE_HEADER, stream=sys.stderr),
+                dim(
+                    _SCOPE_INSTRUCTIONS,
+                    stream=sys.stderr,
+                ),
+                "",
+            ]
+            for i, (_key, label) in enumerate(
+                _SCOPE_OPTIONS
+            ):
+                prefix = ">" if i == selected else " "
+                text = f"{prefix} {label}"
+                if i == selected:
+                    text = bold(text, stream=sys.stderr)
+                lines.append(text)
+
+            output = "\r\n".join(lines) + "\r\n"
+            sys.stderr.write(output)
+            sys.stderr.flush()
+
+            key = _read_key()
+            action, selected = process_key(
+                key, selected, count
+            )
+            if action == "select":
+                return _SCOPE_OPTIONS[selected][0]
+            if action == "quit":
+                return None
+    except KeyboardInterrupt:
+        return None
+    finally:
+        termios.tcsetattr(
+            fd, termios.TCSADRAIN, old_settings
+        )
 
 
 def interactive_select(

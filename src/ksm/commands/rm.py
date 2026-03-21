@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from ksm.color import green
+from ksm.color import bold, dim, green
 from ksm.errors import format_deprecation, format_error, format_warning
 from ksm.manifest import Manifest, ManifestEntry, save_manifest
 from ksm.remover import RemovalResult, remove_bundle
@@ -40,10 +40,13 @@ def _check_tty_for_prompt(yes_flag: bool) -> bool:
     return True
 
 
-def _format_confirmation(entry: ManifestEntry) -> str:
+def _format_confirmation(
+    entry: ManifestEntry,
+    stream: TextIO | None = None,
+) -> str:
     """Build confirmation prompt listing files to be removed.
 
-    Format (Req 1.1):
+    Format (Req 1.1, 7.1–7.4):
       This will remove <N> files from <scope> scope:
         <file1>
         <file2>
@@ -52,13 +55,17 @@ def _format_confirmation(entry: ManifestEntry) -> str:
       Continue? [y/n]
     """
     file_count = len(entry.installed_files)
-    scope_desc = ".kiro/" if entry.scope == "local" else "~/.kiro/"
+    raw_scope = (
+        ".kiro/" if entry.scope == "local" else "~/.kiro/"
+    )
+    scope_desc = bold(raw_scope, stream=stream)
     lines = [
-        f"This will remove '{entry.bundle_name}' ({entry.scope} scope):",
+        f"This will remove '{entry.bundle_name}'"
+        f" ({entry.scope} scope):",
         f"  {file_count} file(s) in {scope_desc}",
     ]
     for f in entry.installed_files:
-        lines.append(f"    {f}")
+        lines.append(f"    {dim(f, stream=stream)}")
     lines.append("")
     lines.append("Continue? [y/n] ")
     return "\n".join(lines)
@@ -171,7 +178,9 @@ def run_rm(
         if not yes_flag:
             if not _check_tty_for_prompt(yes_flag):
                 return 1
-            prompt = _format_confirmation(selected)
+            prompt = _format_confirmation(
+                selected, stream=sys.stderr
+            )
             try:
                 response = input(prompt)
             except EOFError:
@@ -236,7 +245,9 @@ def run_rm(
     if not yes_flag:
         if not _check_tty_for_prompt(yes_flag):
             return 1
-        prompt = _format_confirmation(entry)
+        prompt = _format_confirmation(
+            entry, stream=sys.stderr
+        )
         try:
             response = input(prompt)
         except EOFError:

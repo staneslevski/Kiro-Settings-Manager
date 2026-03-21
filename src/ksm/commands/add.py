@@ -37,7 +37,7 @@ from ksm.resolver import (
     resolve_qualified_bundle,
 )
 from ksm.scanner import scan_registry
-from ksm.selector import interactive_select
+from ksm.selector import interactive_select, scope_select
 from ksm.signal_handler import unregister_temp_dir
 
 VALID_ONLY_VALUES = {"skills", "agents", "steering", "hooks"}
@@ -171,11 +171,14 @@ def run_add(
         )
         interactive = False
 
+    _interactive_path = False
+
     if interactive:
         bundle_name = _handle_display(registry_index, manifest)
         if bundle_name is None:
             return 0
         bundle_spec = bundle_name
+        _interactive_path = True
 
     if bundle_spec is None:
         # Auto-launch selector if TTY (Req 9)
@@ -184,6 +187,7 @@ def run_add(
             if bundle_name is None:
                 return 0
             bundle_spec = bundle_name
+            _interactive_path = True
         else:
             print(
                 format_error(
@@ -236,8 +240,28 @@ def run_add(
         return 1
 
     # Determine scope
-    scope = "global" if getattr(args, "global_", False) else "local"
-    target_dir = target_global if scope == "global" else target_local
+    has_flag = (
+        getattr(args, "global_", False)
+        or getattr(args, "local", False)
+    )
+    if _interactive_path and not has_flag:
+        # Interactive path: prompt for scope (Req 11.1)
+        if sys.stdin.isatty():
+            chosen_scope = scope_select()
+            if chosen_scope is None:
+                return 0
+            scope = chosen_scope
+        else:
+            scope = "local"  # Req 11.7
+    else:
+        scope = (
+            "global"
+            if getattr(args, "global_", False)
+            else "local"
+        )
+    target_dir = (
+        target_global if scope == "global" else target_local
+    )
     dry_run: bool = getattr(args, "dry_run", False)
 
     # Dry-run: preview without modifying (Req 12.1)
@@ -402,7 +426,9 @@ def run_add(
                 file=sys.stderr,
             )
             print(
-                format_diff_summary(results),
+                format_diff_summary(
+                    results, stream=sys.stderr
+                ),
                 file=sys.stderr,
             )
 
@@ -520,7 +546,9 @@ def _handle_ephemeral(
                 file=sys.stderr,
             )
             print(
-                format_diff_summary(results),
+                format_diff_summary(
+                    results, stream=sys.stderr
+                ),
                 file=sys.stderr,
             )
 

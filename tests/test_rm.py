@@ -984,9 +984,7 @@ class TestRmFormatterStreamParam:
 
         with patch(
             "ksm.commands.rm.format_error",
-            wraps=__import__(
-                "ksm.errors", fromlist=["format_error"]
-            ).format_error,
+            wraps=__import__("ksm.errors", fromlist=["format_error"]).format_error,
         ) as mock_fmt:
             run_rm(
                 args,
@@ -1013,9 +1011,7 @@ class TestRmFormatterStreamParam:
 
         with patch(
             "ksm.commands.rm.format_error",
-            wraps=__import__(
-                "ksm.errors", fromlist=["format_error"]
-            ).format_error,
+            wraps=__import__("ksm.errors", fromlist=["format_error"]).format_error,
         ) as mock_fmt:
             run_rm(
                 args,
@@ -1037,18 +1033,12 @@ class TestRmFormatterStreamParam:
         stdin is not a TTY (confirmation blocked)."""
         from ksm.commands.rm import run_rm
 
-        entry = _make_entry(
-            "aws", scope="local", files=["skills/f.md"]
-        )
+        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
         manifest = Manifest(entries=[entry])
-        args = _make_args(
-            bundle_name="aws", yes=False
-        )
+        args = _make_args(bundle_name="aws", yes=False)
 
         with (
-            patch(
-                "sys.stdin.isatty", return_value=False
-            ),
+            patch("sys.stdin.isatty", return_value=False),
             patch(
                 "ksm.commands.rm.format_error",
                 wraps=__import__(
@@ -1077,18 +1067,14 @@ class TestRmFormatterStreamParam:
         -i ignored because bundle specified."""
         from ksm.commands.rm import run_rm
 
-        entry = _make_entry(
-            "aws", scope="local", files=["skills/f.md"]
-        )
+        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
         manifest = Manifest(entries=[entry])
 
         target = tmp_path / "workspace" / ".kiro"
         (target / "skills").mkdir(parents=True)
         (target / "skills" / "f.md").write_bytes(b"data")
 
-        args = _make_args(
-            bundle_name="aws", interactive=True
-        )
+        args = _make_args(bundle_name="aws", interactive=True)
 
         with patch(
             "ksm.commands.rm.format_warning",
@@ -1117,9 +1103,7 @@ class TestRmFormatterStreamParam:
         for --display deprecation."""
         from ksm.commands.rm import run_rm
 
-        entry = _make_entry(
-            "aws", scope="local", files=["skills/f.md"]
-        )
+        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
         manifest = Manifest(entries=[entry])
 
         target = tmp_path / "workspace" / ".kiro"
@@ -1134,8 +1118,7 @@ class TestRmFormatterStreamParam:
 
         with (
             patch(
-                "ksm.commands.rm."
-                "interactive_removal_select",
+                "ksm.commands.rm." "interactive_removal_select",
                 return_value=[entry],
             ),
             patch(
@@ -1194,16 +1177,11 @@ class TestRmGreenSuccessPrefix:
             {"TERM": "xterm-256color"},
             clear=True,
         ):
-            output = _format_result(
-                "aws", "local", result, stream=stream
-            )
+            output = _format_result("aws", "local", result, stream=stream)
 
         assert self._GREEN in output
         assert "Removed" in output
-        assert (
-            f"{self._GREEN}Removed{self._RESET}"
-            in output
-        )
+        assert f"{self._GREEN}Removed{self._RESET}" in output
 
     def test_removed_prefix_plain_with_no_color(
         self,
@@ -1230,9 +1208,7 @@ class TestRmGreenSuccessPrefix:
             {"NO_COLOR": "1"},
             clear=False,
         ):
-            output = _format_result(
-                "aws", "local", result, stream=stream
-            )
+            output = _format_result("aws", "local", result, stream=stream)
 
         assert "\033[" not in output
         assert "Removed" in output
@@ -1253,9 +1229,7 @@ class TestRmGreenSuccessPrefix:
             skipped_files=[],
         )
 
-        output = _format_result(
-            "aws", "local", result, stream=stream
-        )
+        output = _format_result("aws", "local", result, stream=stream)
 
         assert "\033[" not in output
         assert "Removed" in output
@@ -1277,3 +1251,174 @@ class TestRmGreenSuccessPrefix:
         output = _format_result("aws", "local", result)
         assert "Removed" in output
         assert "aws" in output
+
+
+# --- Tests for colored rm confirmation prompt (Reqs 7.1-7.4) ---
+# Feature: color-and-scope-selection
+# **Validates: Requirements 7.1, 7.2, 7.3, 7.4**
+
+
+class FakeTTY:
+    """A fake stream that reports isatty() = True."""
+
+    def isatty(self) -> bool:
+        return True
+
+
+class TestRmConfirmationColor:
+    """Properties 15 & 16: rm confirmation wraps file paths
+    in dim and scope description in bold."""
+
+    _DIM = "\033[2m"
+    _BOLD = "\033[1m"
+    _RESET = "\033[0m"
+
+    # --- Property 15: file paths wrapped in dim ---
+
+    @given(
+        files=st.lists(
+            st.from_regex(r"[a-z]+/[a-z]+\.md", fullmatch=True),
+            min_size=1,
+            max_size=5,
+            unique=True,
+        ),
+    )
+    @h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    def test_property_rm_confirm_dim_file_paths_tty(
+        self,
+        files: list[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Property 15: rm confirmation wraps file paths
+        in dim when stream is a TTY.
+        **Validates: Requirements 7.1**"""
+        from ksm.commands.rm import _format_confirmation
+
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+
+        entry = ManifestEntry(
+            bundle_name="test-bundle",
+            source_registry="default",
+            scope="local",
+            installed_files=files,
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        )
+
+        stream = FakeTTY()
+        prompt = _format_confirmation(entry, stream=stream)
+
+        for f in files:
+            dim_f = f"{self._DIM}{f}{self._RESET}"
+            assert dim_f in prompt
+
+    # --- Property 16: scope description wrapped in bold ---
+
+    @given(
+        scope=st.sampled_from(["local", "global"]),
+    )
+    @h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    def test_property_rm_confirm_bold_scope_tty(
+        self,
+        scope: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Property 16: rm confirmation wraps scope
+        description in bold when stream is a TTY.
+        **Validates: Requirements 7.2**"""
+        from ksm.commands.rm import _format_confirmation
+
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+
+        scope_desc = ".kiro/" if scope == "local" else "~/.kiro/"
+
+        entry = ManifestEntry(
+            bundle_name="test-bundle",
+            source_registry="default",
+            scope=scope,
+            installed_files=["skills/f.md"],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        )
+
+        stream = FakeTTY()
+        prompt = _format_confirmation(entry, stream=stream)
+
+        expected = f"{self._BOLD}{scope_desc}{self._RESET}"
+        assert expected in prompt
+
+    # --- Plain text when stream is None ---
+
+    def test_rm_confirm_plain_when_stream_none(
+        self,
+    ) -> None:
+        """rm confirmation is plain text when stream is None.
+        **Validates: Requirements 7.3**"""
+        from ksm.commands.rm import _format_confirmation
+
+        entry = _make_entry(
+            "aws",
+            scope="local",
+            files=["skills/f.md"],
+        )
+
+        prompt = _format_confirmation(entry, stream=None)
+
+        assert "\033[" not in prompt
+        assert "skills/f.md" in prompt
+        assert ".kiro/" in prompt
+
+    # --- Plain text when stream is non-TTY ---
+
+    def test_rm_confirm_plain_when_non_tty(
+        self,
+    ) -> None:
+        """rm confirmation is plain text when stream is
+        non-TTY.
+        **Validates: Requirements 7.3**"""
+        import io
+
+        from ksm.commands.rm import _format_confirmation
+
+        entry = _make_entry(
+            "aws",
+            scope="global",
+            files=["steering/s.md"],
+        )
+
+        stream = io.StringIO()
+        prompt = _format_confirmation(entry, stream=stream)
+
+        assert "\033[" not in prompt
+        assert "steering/s.md" in prompt
+        assert "~/.kiro/" in prompt
+
+    # --- Preserves existing structure (Req 7.4) ---
+
+    def test_rm_confirm_preserves_structure(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Colored confirmation preserves existing prompt
+        structure.
+        **Validates: Requirements 7.4**"""
+        from ksm.commands.rm import _format_confirmation
+
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+
+        entry = _make_entry(
+            "aws",
+            scope="local",
+            files=["skills/f.md", "steering/s.md"],
+        )
+
+        stream = FakeTTY()
+        prompt = _format_confirmation(entry, stream=stream)
+
+        assert "aws" in prompt
+        assert "local" in prompt
+        assert "2 file(s)" in prompt
+        assert "Continue? [y/n]" in prompt

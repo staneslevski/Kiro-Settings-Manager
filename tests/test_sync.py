@@ -1013,9 +1013,7 @@ class TestSyncFormatterStreamParam:
 
         with patch(
             "ksm.commands.sync.format_error",
-            wraps=__import__(
-                "ksm.errors", fromlist=["format_error"]
-            ).format_error,
+            wraps=__import__("ksm.errors", fromlist=["format_error"]).format_error,
         ) as mock_fmt:
             run_sync(
                 args,
@@ -1046,9 +1044,7 @@ class TestSyncFormatterStreamParam:
 
         with patch(
             "ksm.commands.sync.format_error",
-            wraps=__import__(
-                "ksm.errors", fromlist=["format_error"]
-            ).format_error,
+            wraps=__import__("ksm.errors", fromlist=["format_error"]).format_error,
         ) as mock_fmt:
             run_sync(
                 args,
@@ -1074,9 +1070,7 @@ class TestSyncFormatterStreamParam:
         ksm_dir = tmp_path / "ksm"
         ksm_dir.mkdir()
         reg = tmp_path / "reg"
-        _setup_bundle(
-            reg, "aws", {"skills/f.md": b"data"}
-        )
+        _setup_bundle(reg, "aws", {"skills/f.md": b"data"})
 
         idx = RegistryIndex(
             registries=[
@@ -1088,13 +1082,7 @@ class TestSyncFormatterStreamParam:
                 )
             ]
         )
-        manifest = Manifest(
-            entries=[
-                _make_entry(
-                    "aws", files=["skills/f.md"]
-                )
-            ]
-        )
+        manifest = Manifest(entries=[_make_entry("aws", files=["skills/f.md"])])
         args = _make_args(bundle_names=["aws"])
 
         with (
@@ -1132,15 +1120,11 @@ class TestSyncFormatterStreamParam:
         ksm_dir = tmp_path / "ksm"
         ksm_dir.mkdir()
         reg = tmp_path / "reg"
-        _setup_bundle(
-            reg, "team", {"skills/f.md": b"data"}
-        )
+        _setup_bundle(reg, "team", {"skills/f.md": b"data"})
 
         target = tmp_path / "workspace" / ".kiro"
         (target / "skills").mkdir(parents=True)
-        (target / "skills" / "f.md").write_bytes(
-            b"old"
-        )
+        (target / "skills" / "f.md").write_bytes(b"old")
 
         idx = RegistryIndex(
             registries=[
@@ -1162,9 +1146,7 @@ class TestSyncFormatterStreamParam:
                 )
             ]
         )
-        args = _make_args(
-            bundle_names=["team"], yes=True
-        )
+        args = _make_args(bundle_names=["team"], yes=True)
 
         with (
             patch(
@@ -1225,9 +1207,7 @@ class TestSyncFormatterStreamParam:
                 )
             ]
         )
-        args = _make_args(
-            bundle_names=["missing"], yes=True
-        )
+        args = _make_args(bundle_names=["missing"], yes=True)
 
         with patch(
             "ksm.commands.sync.format_warning",
@@ -1273,15 +1253,11 @@ class TestSyncGreenSuccessPrefix:
         from ksm.commands.sync import run_sync
 
         reg = tmp_path / "reg"
-        _setup_bundle(
-            reg, "aws", {"skills/f.md": b"new"}
-        )
+        _setup_bundle(reg, "aws", {"skills/f.md": b"new"})
         target = tmp_path / "target" / ".kiro"
         target.mkdir(parents=True)
         (target / "skills").mkdir()
-        (target / "skills" / "f.md").write_bytes(
-            b"old"
-        )
+        (target / "skills" / "f.md").write_bytes(b"old")
 
         ksm_dir = tmp_path / "ksm"
         ksm_dir.mkdir(parents=True)
@@ -1296,16 +1272,8 @@ class TestSyncGreenSuccessPrefix:
                 )
             ]
         )
-        manifest = Manifest(
-            entries=[
-                _make_entry(
-                    "aws", files=["skills/f.md"]
-                )
-            ]
-        )
-        args = _make_args(
-            bundle_names=["aws"], yes=True
-        )
+        manifest = Manifest(entries=[_make_entry("aws", files=["skills/f.md"])])
+        args = _make_args(bundle_names=["aws"], yes=True)
 
         with patch.dict(
             "os.environ",
@@ -1320,13 +1288,9 @@ class TestSyncGreenSuccessPrefix:
                     args,
                     registry_index=idx,
                     manifest=manifest,
-                    manifest_path=(
-                        ksm_dir / "manifest.json"
-                    ),
+                    manifest_path=(ksm_dir / "manifest.json"),
                     target_local=target,
-                    target_global=(
-                        tmp_path / "global" / ".kiro"
-                    ),
+                    target_global=(tmp_path / "global" / ".kiro"),
                 )
 
         assert code == 0
@@ -1345,15 +1309,11 @@ class TestSyncGreenSuccessPrefix:
         from ksm.commands.sync import run_sync
 
         reg = tmp_path / "reg"
-        _setup_bundle(
-            reg, "aws", {"skills/f.md": b"new"}
-        )
+        _setup_bundle(reg, "aws", {"skills/f.md": b"new"})
         target = tmp_path / "target" / ".kiro"
         target.mkdir(parents=True)
         (target / "skills").mkdir()
-        (target / "skills" / "f.md").write_bytes(
-            b"old"
-        )
+        (target / "skills" / "f.md").write_bytes(b"old")
 
         ksm_dir = tmp_path / "ksm"
         ksm_dir.mkdir(parents=True)
@@ -1368,16 +1328,8 @@ class TestSyncGreenSuccessPrefix:
                 )
             ]
         )
-        manifest = Manifest(
-            entries=[
-                _make_entry(
-                    "aws", files=["skills/f.md"]
-                )
-            ]
-        )
-        args = _make_args(
-            bundle_names=["aws"], yes=True
-        )
+        manifest = Manifest(entries=[_make_entry("aws", files=["skills/f.md"])])
+        args = _make_args(bundle_names=["aws"], yes=True)
 
         with patch.dict(
             "os.environ",
@@ -1388,13 +1340,9 @@ class TestSyncGreenSuccessPrefix:
                 args,
                 registry_index=idx,
                 manifest=manifest,
-                manifest_path=(
-                    ksm_dir / "manifest.json"
-                ),
+                manifest_path=(ksm_dir / "manifest.json"),
                 target_local=target,
-                target_global=(
-                    tmp_path / "global" / ".kiro"
-                ),
+                target_global=(tmp_path / "global" / ".kiro"),
             )
 
         assert code == 0
@@ -1413,15 +1361,11 @@ class TestSyncGreenSuccessPrefix:
         from ksm.commands.sync import run_sync
 
         reg = tmp_path / "reg"
-        _setup_bundle(
-            reg, "aws", {"skills/f.md": b"new"}
-        )
+        _setup_bundle(reg, "aws", {"skills/f.md": b"new"})
         target = tmp_path / "target" / ".kiro"
         target.mkdir(parents=True)
         (target / "skills").mkdir()
-        (target / "skills" / "f.md").write_bytes(
-            b"old"
-        )
+        (target / "skills" / "f.md").write_bytes(b"old")
 
         ksm_dir = tmp_path / "ksm"
         ksm_dir.mkdir(parents=True)
@@ -1436,31 +1380,204 @@ class TestSyncGreenSuccessPrefix:
                 )
             ]
         )
-        manifest = Manifest(
-            entries=[
-                _make_entry(
-                    "aws", files=["skills/f.md"]
-                )
-            ]
-        )
-        args = _make_args(
-            bundle_names=["aws"], yes=True
-        )
+        manifest = Manifest(entries=[_make_entry("aws", files=["skills/f.md"])])
+        args = _make_args(bundle_names=["aws"], yes=True)
 
         code = run_sync(
             args,
             registry_index=idx,
             manifest=manifest,
-            manifest_path=(
-                ksm_dir / "manifest.json"
-            ),
+            manifest_path=(ksm_dir / "manifest.json"),
             target_local=target,
-            target_global=(
-                tmp_path / "global" / ".kiro"
-            ),
+            target_global=(tmp_path / "global" / ".kiro"),
         )
 
         assert code == 0
         captured = capsys.readouterr()
         assert "Synced:" in captured.err
         assert "aws" in captured.err
+
+
+# --- Tests for colored sync confirmation prompt (Reqs 10.1-10.3) ---
+# Feature: color-and-scope-selection
+# **Validates: Requirements 10.1, 10.2, 10.3**
+
+
+class FakeTTY:
+    """A fake stream that reports isatty() = True."""
+
+    def isatty(self) -> bool:
+        return True
+
+
+class TestSyncConfirmationColor:
+    """Properties 17 & 18: sync confirmation wraps bundle
+    names in bold and scope description in bold."""
+
+    _BOLD = "\033[1m"
+    _RESET = "\033[0m"
+
+    # --- Property 17: bundle names wrapped in bold ---
+
+    @given(
+        bundle_name=st.from_regex(r"[a-z]{3,10}", fullmatch=True),
+    )
+    @h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    def test_property_sync_confirm_bold_bundle_tty(
+        self,
+        bundle_name: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Property 17: sync confirmation wraps bundle names
+        in bold when stream is a TTY.
+        **Validates: Requirements 10.1**"""
+        from ksm.commands.sync import (
+            _build_confirmation_message,
+        )
+
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+
+        entries = [
+            _make_entry(
+                bundle_name,
+                scope="local",
+                files=["skills/f.md"],
+            )
+        ]
+
+        stream = FakeTTY()
+        msg = _build_confirmation_message(entries, stream=stream)
+
+        expected = f"{self._BOLD}{bundle_name}{self._RESET}"
+        assert expected in msg
+
+    # --- Property 18: scope description wrapped in bold ---
+
+    @given(
+        scope_combo=st.sampled_from(["local_only", "global_only", "mixed"]),
+    )
+    @h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    def test_property_sync_confirm_bold_scope_tty(
+        self,
+        scope_combo: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Property 18: sync confirmation wraps scope
+        description in bold when stream is a TTY.
+        **Validates: Requirements 10.2**"""
+        from ksm.commands.sync import (
+            _build_confirmation_message,
+        )
+
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+
+        if scope_combo == "local_only":
+            entries = [_make_entry("aws", scope="local")]
+            scope_desc = ".kiro/"
+        elif scope_combo == "global_only":
+            entries = [_make_entry("aws", scope="global")]
+            scope_desc = "~/.kiro/"
+        else:
+            entries = [
+                _make_entry("aws", scope="local"),
+                _make_entry("team", scope="global"),
+            ]
+            scope_desc = ".kiro/ and ~/.kiro/"
+
+        stream = FakeTTY()
+        msg = _build_confirmation_message(entries, stream=stream)
+
+        expected = f"{self._BOLD}{scope_desc}{self._RESET}"
+        assert expected in msg
+
+    # --- Plain text when stream is None ---
+
+    def test_sync_confirm_plain_when_stream_none(
+        self,
+    ) -> None:
+        """sync confirmation is plain text when stream is
+        None.
+        **Validates: Requirements 10.3**"""
+        from ksm.commands.sync import (
+            _build_confirmation_message,
+        )
+
+        entries = [
+            _make_entry(
+                "aws",
+                scope="local",
+                files=["skills/f.md"],
+            )
+        ]
+
+        msg = _build_confirmation_message(entries, stream=None)
+
+        assert "\033[" not in msg
+        assert "aws" in msg
+        assert ".kiro/" in msg
+
+    # --- Plain text when stream is non-TTY ---
+
+    def test_sync_confirm_plain_when_non_tty(
+        self,
+    ) -> None:
+        """sync confirmation is plain text when stream is
+        non-TTY.
+        **Validates: Requirements 10.3**"""
+        import io
+
+        from ksm.commands.sync import (
+            _build_confirmation_message,
+        )
+
+        entries = [
+            _make_entry(
+                "aws",
+                scope="global",
+                files=["steering/s.md"],
+            )
+        ]
+
+        stream = io.StringIO()
+        msg = _build_confirmation_message(entries, stream=stream)
+
+        assert "\033[" not in msg
+        assert "aws" in msg
+        assert "~/.kiro/" in msg
+
+    # --- Preserves existing structure ---
+
+    def test_sync_confirm_preserves_structure(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Colored confirmation preserves existing prompt
+        structure."""
+        from ksm.commands.sync import (
+            _build_confirmation_message,
+        )
+
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+
+        entries = [
+            _make_entry(
+                "aws",
+                scope="local",
+                files=["skills/f.md", "steering/s.md"],
+            ),
+            _make_entry(
+                "team",
+                scope="global",
+                files=["skills/g.md"],
+            ),
+        ]
+
+        stream = FakeTTY()
+        msg = _build_confirmation_message(entries, stream=stream)
+
+        assert "3 bundle(s)" in msg or "2 bundle(s)" in msg
+        assert "3 configuration file(s)" in msg
+        assert "Continue? [y/n]" in msg
