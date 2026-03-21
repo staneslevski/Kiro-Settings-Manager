@@ -1,13 +1,13 @@
 """Interactive bundle selector for ksm.
 
 Provides terminal-based interactive selection for adding and
-removing bundles, using raw terminal mode for key input.
+removing bundles. Uses Textual TUI when available, falling
+back to a numbered-list prompt otherwise.
 
 All UI rendering goes to stderr to keep stdout clean for
-piped data (Req 25). Uses alternate screen buffer to
-preserve terminal history (Req 30). Falls back to a
-numbered-list prompt when raw mode is unavailable (Req 26)
-or TERM=dumb (Req 29).
+piped data (Req 25). Falls back to a numbered-list prompt
+when Textual is unavailable, stdin is not a TTY, or
+TERM=dumb (Reqs 7, 26, 29).
 """
 
 import os
@@ -28,20 +28,31 @@ from ksm.manifest import ManifestEntry
 from ksm.scanner import BundleInfo
 
 
-def _use_raw_mode() -> bool:
-    """Check if raw terminal mode is available and appropriate.
+def _can_run_textual() -> bool:
+    """Check if Textual TUI can be used.
 
-    Returns False when:
-    - tty/termios not available (e.g. Windows)
-    - TERM=dumb
-    - stdin is not a TTY
-    (Reqs 26, 29)
+    Returns True only when all conditions are met:
+    - stdin is a TTY
+    - TERM is not ``dumb``
+    - Textual is importable
+
+    Returns False otherwise, signalling the caller to use
+    the numbered-list fallback. (Reqs 7.1, 7.2, 7.3, 8.5, 8.6)
     """
-    if not _HAS_TERMIOS:
+    if not sys.stdin.isatty():
         return False
     if os.environ.get("TERM") == "dumb":
         return False
-    return sys.stdin.isatty()
+    try:
+        import textual  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+# Keep as alias for backward compatibility during transition
+_use_raw_mode = _can_run_textual
 
 
 def _numbered_list_select(
@@ -269,7 +280,7 @@ def scope_select() -> str | None:
 
     (Reqs 11, 12, 13, 16)
     """
-    if not _use_raw_mode():
+    if not _can_run_textual():
         # Numbered-list fallback
         if not sys.stdin.isatty():
             return None
@@ -356,7 +367,7 @@ def interactive_select(
     sorted_bundles = sorted(bundles, key=lambda b: b.name.lower())
     names = [b.name for b in sorted_bundles]
 
-    if not _use_raw_mode():
+    if not _can_run_textual():
         items = [
             (
                 b.name,
@@ -454,7 +465,7 @@ def interactive_removal_select(
 
     sorted_entries = sorted(entries, key=lambda e: e.bundle_name.lower())
 
-    if not _use_raw_mode():
+    if not _can_run_textual():
         items = [(e.bundle_name, f"[{e.scope}]") for e in sorted_entries]
         idx = _numbered_list_select(items, "Select a bundle to remove:")
         if idx is None:

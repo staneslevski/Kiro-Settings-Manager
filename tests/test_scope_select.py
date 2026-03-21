@@ -38,7 +38,7 @@ class TestScopeSelectDefaultLocal:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -57,7 +57,7 @@ class TestScopeSelectDefaultLocal:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -98,7 +98,7 @@ class TestScopeSelectNavigateToGlobal:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -135,7 +135,7 @@ class TestScopeSelectNavigateToGlobal:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -166,7 +166,7 @@ class TestScopeSelectNavigateToGlobal:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -196,7 +196,7 @@ class TestScopeSelectAbort:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -226,7 +226,7 @@ class TestScopeSelectAbort:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -256,7 +256,7 @@ class TestScopeSelectAbort:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -287,7 +287,7 @@ class TestScopeSelectSIGINT:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             old_settings = [1, 2, 3]  # Fake saved settings
@@ -323,7 +323,7 @@ class TestScopeSelectSIGINT:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             old_settings = [4, 5, 6]
@@ -359,7 +359,7 @@ class TestScopeSelectRendering:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -382,7 +382,7 @@ class TestScopeSelectRendering:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -404,7 +404,7 @@ class TestScopeSelectRendering:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -428,7 +428,7 @@ class TestScopeSelectRendering:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -456,7 +456,7 @@ class TestScopeSelectRendering:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -479,7 +479,7 @@ class TestScopeSelectRendering:
             patch("ksm.selector.termios") as mock_termios,
             patch("ksm.selector.tty"),
             patch("ksm.selector.sys") as mock_sys,
-            patch("ksm.selector._use_raw_mode", return_value=True),
+            patch("ksm.selector._can_run_textual", return_value=True),
         ):
             mock_sys.stdin.fileno.return_value = 0
             mock_termios.tcgetattr.return_value = []
@@ -511,7 +511,7 @@ class TestScopeSelectFallbackLocal:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", return_value="1"),
@@ -532,7 +532,7 @@ class TestScopeSelectFallbackLocal:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", return_value=""),
@@ -553,7 +553,7 @@ class TestScopeSelectFallbackLocal:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", return_value="1"),
@@ -580,7 +580,7 @@ class TestScopeSelectFallbackLocal:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", return_value="1"),
@@ -613,7 +613,7 @@ class TestScopeSelectFallbackGlobal:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", return_value="2"),
@@ -644,7 +644,7 @@ class TestScopeSelectFallbackAbort:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", return_value="q"),
@@ -665,7 +665,7 @@ class TestScopeSelectFallbackAbort:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", side_effect=EOFError),
@@ -699,7 +699,7 @@ class TestScopeSelectFallbackReprompt:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", side_effect=inputs),
@@ -721,7 +721,7 @@ class TestScopeSelectFallbackReprompt:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", side_effect=inputs),
@@ -744,7 +744,7 @@ class TestScopeSelectFallbackReprompt:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", side_effect=inputs),
@@ -771,7 +771,7 @@ class TestScopeSelectTermDumb:
         """With TERM=dumb, scope_select uses numbered-list.
 
         Validates: Requirements 13.6
-        _use_raw_mode() returns False when TERM=dumb,
+        _can_run_textual() returns False when TERM=dumb,
         so scope_select must use the fallback path.
         """
         from ksm.selector import scope_select
@@ -780,7 +780,7 @@ class TestScopeSelectTermDumb:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", return_value="1"),
@@ -808,7 +808,7 @@ class TestScopeSelectTermDumb:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", return_value="2"),
@@ -834,7 +834,7 @@ class TestScopeSelectTermDumb:
 
         with (
             patch(
-                "ksm.selector._use_raw_mode",
+                "ksm.selector._can_run_textual",
                 return_value=False,
             ),
             patch("builtins.input", return_value="1"),

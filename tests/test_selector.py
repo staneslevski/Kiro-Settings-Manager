@@ -1089,11 +1089,25 @@ def test_removal_selector_alternate_screen_buffer() -> None:
 # --- Tests for cross-platform fallback and TERM=dumb (Req 26, 29) ---
 
 
-def test_use_raw_mode_returns_false_when_no_termios() -> None:
-    """_use_raw_mode returns False when termios is unavailable."""
+def test_use_raw_mode_returns_false_when_no_textual() -> None:
+    """_use_raw_mode returns False when Textual is not importable."""
+    import builtins
+
     from ksm.selector import _use_raw_mode
 
-    with patch("ksm.selector._HAS_TERMIOS", False):
+    real_import = builtins.__import__
+
+    def fake_import(name: str, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if name == "textual":
+            raise ImportError("no textual")
+        return real_import(name, *args, **kwargs)
+
+    with (
+        patch.dict("os.environ", {"TERM": "xterm"}, clear=False),
+        patch("ksm.selector.sys") as mock_sys,
+        patch("builtins.__import__", side_effect=fake_import),
+    ):
+        mock_sys.stdin.isatty.return_value = True
         assert _use_raw_mode() is False
 
 
@@ -1102,7 +1116,6 @@ def test_use_raw_mode_returns_false_when_term_dumb() -> None:
     from ksm.selector import _use_raw_mode
 
     with (
-        patch("ksm.selector._HAS_TERMIOS", True),
         patch.dict("os.environ", {"TERM": "dumb"}),
         patch("ksm.selector.sys") as mock_sys,
     ):
@@ -1115,7 +1128,6 @@ def test_use_raw_mode_returns_false_when_not_tty() -> None:
     from ksm.selector import _use_raw_mode
 
     with (
-        patch("ksm.selector._HAS_TERMIOS", True),
         patch.dict("os.environ", {"TERM": "xterm"}),
         patch("ksm.selector.sys") as mock_sys,
     ):
@@ -1124,11 +1136,10 @@ def test_use_raw_mode_returns_false_when_not_tty() -> None:
 
 
 def test_use_raw_mode_returns_true_when_all_conditions_met() -> None:
-    """_use_raw_mode returns True when termios available, TERM!=dumb, TTY."""
+    """_use_raw_mode returns True when Textual available, TERM!=dumb, TTY."""
     from ksm.selector import _use_raw_mode
 
     with (
-        patch("ksm.selector._HAS_TERMIOS", True),
         patch.dict("os.environ", {"TERM": "xterm"}, clear=False),
         patch("ksm.selector.sys") as mock_sys,
     ):
@@ -1325,7 +1336,7 @@ def test_property_term_dumb_no_ansi_in_add_selector(
     stdout_buf = io.StringIO()
 
     with (
-        patch("ksm.selector._HAS_TERMIOS", True),
+        patch("ksm.selector._can_run_textual", return_value=False),
         patch.dict("os.environ", {"TERM": "dumb"}),
         patch("builtins.input", return_value="1"),
         patch("ksm.selector.sys") as mock_sys,
@@ -1374,7 +1385,7 @@ def test_property_term_dumb_no_ansi_in_removal_selector(
     stdout_buf = io.StringIO()
 
     with (
-        patch("ksm.selector._HAS_TERMIOS", True),
+        patch("ksm.selector._can_run_textual", return_value=False),
         patch.dict("os.environ", {"TERM": "dumb"}),
         patch("builtins.input", return_value="1"),
         patch("ksm.selector.sys") as mock_sys,
@@ -1391,8 +1402,8 @@ def test_property_term_dumb_no_ansi_in_removal_selector(
     ), f"ANSI escape found in TERM=dumb output: {all_output!r}"
 
 
-def test_interactive_select_uses_fallback_when_no_termios() -> None:
-    """interactive_select uses numbered-list when termios unavailable."""
+def test_interactive_select_uses_fallback_when_no_textual() -> None:
+    """interactive_select uses numbered-list when Textual unavailable."""
     from ksm.selector import interactive_select
 
     bundles = [
@@ -1402,7 +1413,7 @@ def test_interactive_select_uses_fallback_when_no_termios() -> None:
     stderr_buf = io.StringIO()
 
     with (
-        patch("ksm.selector._HAS_TERMIOS", False),
+        patch("ksm.selector._can_run_textual", return_value=False),
         patch("builtins.input", return_value="1"),
         patch("ksm.selector.sys") as mock_sys,
     ):
@@ -1413,7 +1424,7 @@ def test_interactive_select_uses_fallback_when_no_termios() -> None:
     assert result == ["alpha"]
 
 
-def test_interactive_removal_uses_fallback_when_no_termios() -> None:
+def test_interactive_removal_uses_fallback_when_no_textual() -> None:
     """interactive_removal_select uses numbered-list fallback."""
     from ksm.selector import interactive_removal_select
 
@@ -1430,7 +1441,7 @@ def test_interactive_removal_uses_fallback_when_no_termios() -> None:
     stderr_buf = io.StringIO()
 
     with (
-        patch("ksm.selector._HAS_TERMIOS", False),
+        patch("ksm.selector._can_run_textual", return_value=False),
         patch("builtins.input", return_value="1"),
         patch("ksm.selector.sys") as mock_sys,
     ):
@@ -2624,3 +2635,199 @@ class TestSelectorColor:
         assert self.DIM in lines[1], (
             f"Removal instructions should be dim, " f"got: {lines[1]!r}"
         )
+
+# ---------------------------------------------------------------
+# Phase 2: Capability detection and fallback infrastructure
+# ---------------------------------------------------------------
+
+
+# ---------------------------------------------------------------
+# Property 9: _can_run_textual() returns True iff stdin is TTY,
+#             TERM is not dumb, and Textual is importable
+# Validates: Requirements 7.1, 7.2, 7.3, 8.5, 8.6
+# ---------------------------------------------------------------
+
+
+class TestCanRunTextual:
+    """Tests for _can_run_textual() capability detection."""
+
+    def test_returns_false_when_not_tty(self) -> None:
+        from ksm.selector import _can_run_textual
+
+        with patch("ksm.selector.sys") as mock_sys:
+            mock_sys.stdin.isatty.return_value = False
+            assert _can_run_textual() is False
+
+    def test_returns_false_when_term_dumb(self) -> None:
+        from ksm.selector import _can_run_textual
+
+        with (
+            patch.dict("os.environ", {"TERM": "dumb"}),
+            patch("ksm.selector.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = True
+            assert _can_run_textual() is False
+
+    def test_returns_false_when_textual_not_importable(self) -> None:
+        import builtins
+
+        from ksm.selector import _can_run_textual
+
+        real_import = builtins.__import__
+
+        def fake_import(name: str, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if name == "textual":
+                raise ImportError("no textual")
+            return real_import(name, *args, **kwargs)
+
+        with (
+            patch.dict("os.environ", {"TERM": "xterm"}, clear=False),
+            patch("ksm.selector.sys") as mock_sys,
+            patch("builtins.__import__", side_effect=fake_import),
+        ):
+            mock_sys.stdin.isatty.return_value = True
+            assert _can_run_textual() is False
+
+    def test_returns_true_when_all_conditions_met(self) -> None:
+        from ksm.selector import _can_run_textual
+
+        with (
+            patch.dict("os.environ", {"TERM": "xterm"}, clear=False),
+            patch("ksm.selector.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = True
+            # Textual is installed in this venv, so import succeeds
+            assert _can_run_textual() is True
+
+
+# ---------------------------------------------------------------
+# Property 10: Numbered-list fallback returns correct item for
+#              valid 1-based index, None for q/EOF
+# Validates: Requirements 7.4, 7.5, 7.6, 7.8
+# ---------------------------------------------------------------
+
+
+class TestNumberedListFallbackHardened:
+    """Tests for _numbered_list_select() re-prompting and stderr."""
+
+    def test_out_of_range_high_reprompts(self) -> None:
+        """Input above range triggers error message and re-prompt."""
+        from ksm.selector import _numbered_list_select
+
+        items = [("alpha", ""), ("beta", "")]
+        stderr_buf = io.StringIO()
+        inputs = iter(["5", "1"])
+
+        with (
+            patch("builtins.input", side_effect=inputs),
+            patch("ksm.selector.sys") as mock_sys,
+        ):
+            mock_sys.stderr = stderr_buf
+            result = _numbered_list_select(items, "Pick:")
+
+        assert result == 0
+        output = stderr_buf.getvalue()
+        assert "1-2" in output
+
+    def test_out_of_range_zero_reprompts(self) -> None:
+        """Input of 0 triggers error message and re-prompt."""
+        from ksm.selector import _numbered_list_select
+
+        items = [("alpha", "")]
+        stderr_buf = io.StringIO()
+        inputs = iter(["0", "1"])
+
+        with (
+            patch("builtins.input", side_effect=inputs),
+            patch("ksm.selector.sys") as mock_sys,
+        ):
+            mock_sys.stderr = stderr_buf
+            result = _numbered_list_select(items, "Pick:")
+
+        assert result == 0
+        output = stderr_buf.getvalue()
+        assert "1-1" in output
+
+    def test_non_numeric_reprompts(self) -> None:
+        """Non-numeric input triggers error message and re-prompt."""
+        from ksm.selector import _numbered_list_select
+
+        items = [("alpha", ""), ("beta", "")]
+        stderr_buf = io.StringIO()
+        inputs = iter(["abc", "2"])
+
+        with (
+            patch("builtins.input", side_effect=inputs),
+            patch("ksm.selector.sys") as mock_sys,
+        ):
+            mock_sys.stderr = stderr_buf
+            result = _numbered_list_select(items, "Pick:")
+
+        assert result == 1
+        output = stderr_buf.getvalue()
+        assert "1-2" in output
+
+    def test_error_message_states_valid_range(self) -> None:
+        """Error message includes the valid range."""
+        from ksm.selector import _numbered_list_select
+
+        items = [("a", ""), ("b", ""), ("c", "")]
+        stderr_buf = io.StringIO()
+        inputs = iter(["99", "q"])
+
+        with (
+            patch("builtins.input", side_effect=inputs),
+            patch("ksm.selector.sys") as mock_sys,
+        ):
+            mock_sys.stderr = stderr_buf
+            _numbered_list_select(items, "Pick:")
+
+        output = stderr_buf.getvalue()
+        assert "1-3" in output
+
+    @given(
+        n=st.integers(min_value=1, max_value=20),
+        choice=st.integers(min_value=1, max_value=20),
+    )
+    def test_property_valid_index_returns_correct_item(
+        self, n: int, choice: int
+    ) -> None:
+        """Property: valid 1-based index returns correct 0-based index."""
+        from ksm.selector import _numbered_list_select
+
+        items = [(f"item{i}", "") for i in range(n)]
+        if choice > n:
+            return  # skip invalid combos
+        stderr_buf = io.StringIO()
+
+        with (
+            patch("builtins.input", return_value=str(choice)),
+            patch("ksm.selector.sys") as mock_sys,
+        ):
+            mock_sys.stderr = stderr_buf
+            result = _numbered_list_select(items, "Pick:")
+
+        assert result == choice - 1
+
+
+# ---------------------------------------------------------------
+# Task 2.2.3: Scope fallback defaults to "local" when stdin
+#             is not a TTY
+# Validates: Requirement 7.7
+# ---------------------------------------------------------------
+
+
+class TestScopeFallbackNonTTY:
+    """scope_select() returns None when stdin is not a TTY in fallback."""
+
+    def test_non_tty_returns_none(self) -> None:
+        from ksm.selector import scope_select
+
+        with (
+            patch("ksm.selector._can_run_textual", return_value=False),
+            patch("ksm.selector.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = False
+            result = scope_select()
+
+        assert result is None

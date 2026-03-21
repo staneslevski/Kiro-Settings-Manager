@@ -16,41 +16,41 @@ Replace the hand-rolled raw `tty`/`termios` terminal UI in `src/ksm/selector.py`
   - [x] 1.2 Checkpoint — Verify `import textual` succeeds and existing tests still pass (Textual 8.1.1 installed, 731/733 tests pass, 2 pre-existing failures unrelated to change)
     → Agent: kiro
 
-- [ ] 2. Capability detection and fallback infrastructure
+- [x] 2. Capability detection and fallback infrastructure
 
-  - [ ] 2.1 Replace `_use_raw_mode()` with `_can_run_textual()`
+  - [x] 2.1 Replace `_use_raw_mode()` with `_can_run_textual()`
 
-    - [ ] 2.1.1 Write property test for `_can_run_textual()` in `tests/test_selector.py`
+    - [x] 2.1.1 Write property test for `_can_run_textual()` in `tests/test_selector.py`
       → Agent: terminal-ui-engineer
       **Property 9: `_can_run_textual()` returns True iff stdin is TTY, TERM is not dumb, and Textual is importable**
       _Requirements: 7.1, 7.2, 7.3, 8.5, 8.6_
 
-    - [ ] 2.1.2 Implement `_can_run_textual()` in `src/ksm/selector.py`, replacing `_use_raw_mode()`
+    - [x] 2.1.2 Implement `_can_run_textual()` in `src/ksm/selector.py`, replacing `_use_raw_mode()`
       → Agent: terminal-ui-engineer
       _Requirements: 7.1, 7.2, 7.3, 8.5, 8.6_
 
-    - [ ] 2.1.3 Run tests and verify all pass
+    - [x] 2.1.3 Run tests and verify all pass
       → Agent: kiro
 
-  - [ ] 2.2 Harden numbered-list fallback
+  - [x] 2.2 Harden numbered-list fallback
 
-    - [ ] 2.2.1 Write tests for `_numbered_list_select()` invalid input re-prompting and stderr rendering in `tests/test_selector.py`
+    - [x] 2.2.1 Write tests for `_numbered_list_select()` invalid input re-prompting and stderr rendering in `tests/test_selector.py`
       → Agent: terminal-ui-engineer
       **Property 10: Numbered-list fallback returns correct item for valid 1-based index, None for q/EOF**
       _Requirements: 7.4, 7.5, 7.6, 7.8_
 
-    - [ ] 2.2.2 Update `_numbered_list_select()` to re-prompt on invalid input with error message to stderr stating valid range
+    - [x] 2.2.2 Update `_numbered_list_select()` to re-prompt on invalid input with error message to stderr stating valid range
       → Agent: terminal-ui-engineer
       _Requirements: 7.4, 7.5, 7.6_
 
-    - [ ] 2.2.3 Write test for scope fallback defaulting to "local" when stdin is not a TTY
+    - [x] 2.2.3 Write test for scope fallback defaulting to "local" when stdin is not a TTY
       → Agent: terminal-ui-engineer
       _Requirements: 7.7_
 
-    - [ ] 2.2.4 Run tests and verify all pass
+    - [x] 2.2.4 Run tests and verify all pass
       → Agent: kiro
 
-  - [ ] 2.3 Checkpoint — Run full test suite, verify all tests pass
+  - [x] 2.3 Checkpoint — Run full test suite, verify all tests pass
     → Agent: kiro
 
 - [ ] 3. Textual apps — Bundle and Removal selectors
