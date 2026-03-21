@@ -9,7 +9,9 @@ Requirements: 1, 2, 31.2
 import argparse
 import sys
 from pathlib import Path
+from typing import TextIO
 
+from ksm.color import bold, dim, green
 from ksm.errors import format_deprecation, format_error, format_warning
 from ksm.manifest import Manifest, ManifestEntry, save_manifest
 from ksm.remover import RemovalResult, remove_bundle
@@ -30,6 +32,7 @@ def _check_tty_for_prompt(yes_flag: bool) -> bool:
                 "Confirmation required but stdin is" " not a terminal.",
                 "Non-interactive mode detected.",
                 "Use --yes to skip confirmation.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -37,10 +40,13 @@ def _check_tty_for_prompt(yes_flag: bool) -> bool:
     return True
 
 
-def _format_confirmation(entry: ManifestEntry) -> str:
+def _format_confirmation(
+    entry: ManifestEntry,
+    stream: TextIO | None = None,
+) -> str:
     """Build confirmation prompt listing files to be removed.
 
-    Format (Req 1.1):
+    Format (Req 1.1, 7.1–7.4):
       This will remove <N> files from <scope> scope:
         <file1>
         <file2>
@@ -49,13 +55,14 @@ def _format_confirmation(entry: ManifestEntry) -> str:
       Continue? [y/n]
     """
     file_count = len(entry.installed_files)
-    scope_desc = ".kiro/" if entry.scope == "local" else "~/.kiro/"
+    raw_scope = ".kiro/" if entry.scope == "local" else "~/.kiro/"
+    scope_desc = bold(raw_scope, stream=stream)
     lines = [
-        f"This will remove '{entry.bundle_name}' ({entry.scope} scope):",
+        f"This will remove '{entry.bundle_name}'" f" ({entry.scope} scope):",
         f"  {file_count} file(s) in {scope_desc}",
     ]
     for f in entry.installed_files:
-        lines.append(f"    {f}")
+        lines.append(f"    {dim(f, stream=stream)}")
     lines.append("")
     lines.append("Continue? [y/n] ")
     return "\n".join(lines)
@@ -65,6 +72,7 @@ def _format_result(
     bundle_name: str,
     scope: str,
     result: RemovalResult,
+    stream: TextIO | None = None,
 ) -> str:
     """Build summary message from RemovalResult.
 
@@ -74,18 +82,20 @@ def _format_result(
     """
     removed = len(result.removed_files)
     skipped = len(result.skipped_files)
+    prefix = green("Removed", stream=stream)
 
     if skipped == 0:
-        return f"Removed '{bundle_name}' ({scope}): {removed} file(s) deleted"
+        return f"{prefix} '{bundle_name}' ({scope}):" f" {removed} file(s) deleted"
     elif removed == 0:
         return (
-            f"Removed '{bundle_name}' ({scope}): "
+            f"{prefix} '{bundle_name}' ({scope}): "
             f"all {skipped} file(s) were already missing"
         )
     else:
         return (
-            f"Removed '{bundle_name}' ({scope}): "
-            f"{removed} file(s) deleted, {skipped} already missing"
+            f"{prefix} '{bundle_name}' ({scope}): "
+            f"{removed} file(s) deleted,"
+            f" {skipped} already missing"
         )
 
 
@@ -123,6 +133,7 @@ def run_rm(
                 "-i/--interactive",
                 "v0.2.0",
                 "v1.0.0",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -137,6 +148,7 @@ def run_rm(
             format_warning(
                 "-i ignored because a bundle" " was specified.",
                 "Proceeding with the specified bundle.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -148,7 +160,18 @@ def run_rm(
             print("No bundles currently installed.")
             return 0
 
-        selected_list = interactive_removal_select(manifest.entries)
+        # Filter entries by scope if -l/-g provided (Req 14.3)
+        entries_to_show = manifest.entries
+        if getattr(args, "global_", False):
+            entries_to_show = [e for e in manifest.entries if e.scope == "global"]
+        elif getattr(args, "local", False):
+            entries_to_show = [e for e in manifest.entries if e.scope == "local"]
+
+        if not entries_to_show:
+            print("No matching bundles at the" " specified scope.")
+            return 0
+
+        selected_list = interactive_removal_select(entries_to_show)
         if selected_list is None:
             return 0
 
@@ -160,7 +183,7 @@ def run_rm(
         if not yes_flag:
             if not _check_tty_for_prompt(yes_flag):
                 return 1
-            prompt = _format_confirmation(selected)
+            prompt = _format_confirmation(selected, stream=sys.stderr)
             try:
                 response = input(prompt)
             except EOFError:
@@ -175,7 +198,15 @@ def run_rm(
 
         result = remove_bundle(selected, target_dir, manifest)
         save_manifest(manifest, manifest_path)
-        print(_format_result(selected.bundle_name, scope, result), file=sys.stderr)
+        print(
+            _format_result(
+                selected.bundle_name,
+                scope,
+                result,
+                stream=sys.stderr,
+            ),
+            file=sys.stderr,
+        )
         return 0
 
     # Determine scope and target
@@ -185,6 +216,7 @@ def run_rm(
                 "No bundle specified.",
                 "Provide a bundle name or use -i" " for interactive mode.",
                 "Example: ksm rm <bundle_name>",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -204,6 +236,7 @@ def run_rm(
                 f"Bundle '{bundle_name}' is not installed" f" at {scope} scope.",
                 "The bundle may be installed at a" " different scope.",
                 "Run `ksm list` to see installed" " bundles.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -215,7 +248,7 @@ def run_rm(
     if not yes_flag:
         if not _check_tty_for_prompt(yes_flag):
             return 1
-        prompt = _format_confirmation(entry)
+        prompt = _format_confirmation(entry, stream=sys.stderr)
         try:
             response = input(prompt)
         except EOFError:
@@ -230,5 +263,13 @@ def run_rm(
 
     result = remove_bundle(entry, target_dir, manifest)
     save_manifest(manifest, manifest_path)
-    print(_format_result(bundle_name, scope, result), file=sys.stderr)
+    print(
+        _format_result(
+            bundle_name,
+            scope,
+            result,
+            stream=sys.stderr,
+        ),
+        file=sys.stderr,
+    )
     return 0

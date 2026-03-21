@@ -1,6 +1,7 @@
 """Tests for ksm.commands.rm module."""
 
 import argparse
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -962,3 +963,771 @@ def test_run_rm_eof_aborts(tmp_path: Path) -> None:
 
     assert code == 0
     assert (target / "skills" / "f.md").exists()
+
+
+# --- Tests for stream=sys.stderr in formatter calls (Reqs 1.1-1.3, 2.1-2.3) ---
+
+
+class TestRmFormatterStreamParam:
+    """Verify rm.py passes stream=sys.stderr to formatters."""
+
+    def test_format_error_receives_stream_stderr_no_bundle(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_error called with stream=sys.stderr when
+        no bundle specified."""
+        from ksm.commands.rm import run_rm
+
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_name=None)
+
+        with patch(
+            "ksm.commands.rm.format_error",
+            wraps=__import__("ksm.errors", fromlist=["format_error"]).format_error,
+        ) as mock_fmt:
+            run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_error_receives_stream_stderr_not_installed(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_error called with stream=sys.stderr when
+        bundle not installed."""
+        from ksm.commands.rm import run_rm
+
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_name="nonexistent")
+
+        with patch(
+            "ksm.commands.rm.format_error",
+            wraps=__import__("ksm.errors", fromlist=["format_error"]).format_error,
+        ) as mock_fmt:
+            run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_error_receives_stream_stderr_tty_check(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_error called with stream=sys.stderr when
+        stdin is not a TTY (confirmation blocked)."""
+        from ksm.commands.rm import run_rm
+
+        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+        args = _make_args(bundle_name="aws", yes=False)
+
+        with (
+            patch("sys.stdin.isatty", return_value=False),
+            patch(
+                "ksm.commands.rm.format_error",
+                wraps=__import__(
+                    "ksm.errors",
+                    fromlist=["format_error"],
+                ).format_error,
+            ) as mock_fmt,
+        ):
+            run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_warning_receives_stream_stderr(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_warning called with stream=sys.stderr when
+        -i ignored because bundle specified."""
+        from ksm.commands.rm import run_rm
+
+        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        args = _make_args(bundle_name="aws", interactive=True)
+
+        with patch(
+            "ksm.commands.rm.format_warning",
+            wraps=__import__(
+                "ksm.errors",
+                fromlist=["format_warning"],
+            ).format_warning,
+        ) as mock_fmt:
+            run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=target,
+                target_global=tmp_path / "global",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_deprecation_receives_stream_stderr(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_deprecation called with stream=sys.stderr
+        for --display deprecation."""
+        from ksm.commands.rm import run_rm
+
+        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=False,
+            display=True,
+        )
+
+        with (
+            patch(
+                "ksm.commands.rm." "interactive_removal_select",
+                return_value=[entry],
+            ),
+            patch(
+                "ksm.commands.rm.format_deprecation",
+                wraps=__import__(
+                    "ksm.errors",
+                    fromlist=["format_deprecation"],
+                ).format_deprecation,
+            ) as mock_fmt,
+        ):
+            run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=tmp_path / "manifest.json",
+                target_local=target,
+                target_global=tmp_path / "global",
+            )
+
+        assert mock_fmt.call_count >= 1
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+
+# --- Tests for green success prefix in _format_result (Req 3.2, 3.4, 3.5) ---
+# Feature: color-and-scope-selection
+# **Validates: Requirements 3.2, 3.4, 3.5**
+
+
+class TestRmGreenSuccessPrefix:
+    """Property 13: rm _format_result wraps "Removed" prefix
+    in green."""
+
+    _GREEN = "\033[32m"
+    _RESET = "\033[0m"
+
+    def test_removed_prefix_green_on_tty(self) -> None:
+        """Property 13: _format_result wraps 'Removed' in
+        green when stream is a TTY.
+        **Validates: Requirements 3.2**"""
+        from io import StringIO
+        from unittest.mock import MagicMock
+
+        from ksm.commands.rm import _format_result
+        from ksm.remover import RemovalResult
+
+        stream = MagicMock(spec=StringIO)
+        stream.isatty.return_value = True
+
+        result = RemovalResult(
+            removed_files=["skills/f.md"],
+            skipped_files=[],
+        )
+
+        with patch.dict(
+            "os.environ",
+            {"TERM": "xterm-256color"},
+            clear=True,
+        ):
+            output = _format_result("aws", "local", result, stream=stream)
+
+        assert self._GREEN in output
+        assert "Removed" in output
+        assert f"{self._GREEN}Removed{self._RESET}" in output
+
+    def test_removed_prefix_plain_with_no_color(
+        self,
+    ) -> None:
+        """Property 13: 'Removed' is plain text when
+        NO_COLOR is set.
+        **Validates: Requirements 3.4**"""
+        from io import StringIO
+        from unittest.mock import MagicMock
+
+        from ksm.commands.rm import _format_result
+        from ksm.remover import RemovalResult
+
+        stream = MagicMock(spec=StringIO)
+        stream.isatty.return_value = True
+
+        result = RemovalResult(
+            removed_files=["skills/f.md"],
+            skipped_files=[],
+        )
+
+        with patch.dict(
+            "os.environ",
+            {"NO_COLOR": "1"},
+            clear=False,
+        ):
+            output = _format_result("aws", "local", result, stream=stream)
+
+        assert "\033[" not in output
+        assert "Removed" in output
+
+    def test_removed_prefix_plain_non_tty(self) -> None:
+        """Property 13: 'Removed' is plain text when stream
+        is not a TTY.
+        **Validates: Requirements 3.4**"""
+        from io import StringIO
+
+        from ksm.commands.rm import _format_result
+        from ksm.remover import RemovalResult
+
+        stream = StringIO()
+
+        result = RemovalResult(
+            removed_files=["skills/f.md"],
+            skipped_files=[],
+        )
+
+        output = _format_result("aws", "local", result, stream=stream)
+
+        assert "\033[" not in output
+        assert "Removed" in output
+
+    def test_removed_prefix_text_always_present(
+        self,
+    ) -> None:
+        """Property 13: 'Removed' text is always present
+        regardless of color.
+        **Validates: Requirements 3.5**"""
+        from ksm.commands.rm import _format_result
+        from ksm.remover import RemovalResult
+
+        result = RemovalResult(
+            removed_files=["skills/f.md"],
+            skipped_files=[],
+        )
+
+        output = _format_result("aws", "local", result)
+        assert "Removed" in output
+        assert "aws" in output
+
+
+# --- Tests for colored rm confirmation prompt (Reqs 7.1-7.4) ---
+# Feature: color-and-scope-selection
+# **Validates: Requirements 7.1, 7.2, 7.3, 7.4**
+
+
+class FakeTTY:
+    """A fake stream that reports isatty() = True."""
+
+    def isatty(self) -> bool:
+        return True
+
+
+class TestRmConfirmationColor:
+    """Properties 15 & 16: rm confirmation wraps file paths
+    in dim and scope description in bold."""
+
+    _DIM = "\033[2m"
+    _BOLD = "\033[1m"
+    _RESET = "\033[0m"
+
+    # --- Property 15: file paths wrapped in dim ---
+
+    @given(
+        files=st.lists(
+            st.from_regex(r"[a-z]+/[a-z]+\.md", fullmatch=True),
+            min_size=1,
+            max_size=5,
+            unique=True,
+        ),
+    )
+    @h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    def test_property_rm_confirm_dim_file_paths_tty(
+        self,
+        files: list[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Property 15: rm confirmation wraps file paths
+        in dim when stream is a TTY.
+        **Validates: Requirements 7.1**"""
+        from ksm.commands.rm import _format_confirmation
+
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+
+        entry = ManifestEntry(
+            bundle_name="test-bundle",
+            source_registry="default",
+            scope="local",
+            installed_files=files,
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        )
+
+        stream = FakeTTY()
+        prompt = _format_confirmation(entry, stream=stream)
+
+        for f in files:
+            dim_f = f"{self._DIM}{f}{self._RESET}"
+            assert dim_f in prompt
+
+    # --- Property 16: scope description wrapped in bold ---
+
+    @given(
+        scope=st.sampled_from(["local", "global"]),
+    )
+    @h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    def test_property_rm_confirm_bold_scope_tty(
+        self,
+        scope: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Property 16: rm confirmation wraps scope
+        description in bold when stream is a TTY.
+        **Validates: Requirements 7.2**"""
+        from ksm.commands.rm import _format_confirmation
+
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+
+        scope_desc = ".kiro/" if scope == "local" else "~/.kiro/"
+
+        entry = ManifestEntry(
+            bundle_name="test-bundle",
+            source_registry="default",
+            scope=scope,
+            installed_files=["skills/f.md"],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        )
+
+        stream = FakeTTY()
+        prompt = _format_confirmation(entry, stream=stream)
+
+        expected = f"{self._BOLD}{scope_desc}{self._RESET}"
+        assert expected in prompt
+
+    # --- Plain text when stream is None ---
+
+    def test_rm_confirm_plain_when_stream_none(
+        self,
+    ) -> None:
+        """rm confirmation is plain text when stream is None.
+        **Validates: Requirements 7.3**"""
+        from ksm.commands.rm import _format_confirmation
+
+        entry = _make_entry(
+            "aws",
+            scope="local",
+            files=["skills/f.md"],
+        )
+
+        prompt = _format_confirmation(entry, stream=None)
+
+        assert "\033[" not in prompt
+        assert "skills/f.md" in prompt
+        assert ".kiro/" in prompt
+
+    # --- Plain text when stream is non-TTY ---
+
+    def test_rm_confirm_plain_when_non_tty(
+        self,
+    ) -> None:
+        """rm confirmation is plain text when stream is
+        non-TTY.
+        **Validates: Requirements 7.3**"""
+        import io
+
+        from ksm.commands.rm import _format_confirmation
+
+        entry = _make_entry(
+            "aws",
+            scope="global",
+            files=["steering/s.md"],
+        )
+
+        stream = io.StringIO()
+        prompt = _format_confirmation(entry, stream=stream)
+
+        assert "\033[" not in prompt
+        assert "steering/s.md" in prompt
+        assert "~/.kiro/" in prompt
+
+    # --- Preserves existing structure (Req 7.4) ---
+
+    def test_rm_confirm_preserves_structure(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Colored confirmation preserves existing prompt
+        structure.
+        **Validates: Requirements 7.4**"""
+        from ksm.commands.rm import _format_confirmation
+
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+
+        entry = _make_entry(
+            "aws",
+            scope="local",
+            files=["skills/f.md", "steering/s.md"],
+        )
+
+        stream = FakeTTY()
+        prompt = _format_confirmation(entry, stream=stream)
+
+        assert "aws" in prompt
+        assert "local" in prompt
+        assert "2 file(s)" in prompt
+        assert "Continue? [y/n]" in prompt
+
+
+# --- Tests for rm -i scope behavior (Reqs 14.1, 14.2, 14.3) ---
+# Feature: color-and-scope-selection
+# **Validates: Requirements 14.1, 14.2, 14.3**
+
+
+class TestRmInteractiveScopeBehavior:
+    """Properties 41 & 42: rm -i uses scope from
+    ManifestEntry and does not present scope selection."""
+
+    def test_rm_interactive_uses_scope_from_entry_local(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 41: rm -i uses scope from selected
+        ManifestEntry (local).
+        **Validates: Requirements 14.1**"""
+        from ksm.commands.rm import run_rm
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        (target_local / "skills").mkdir(parents=True)
+        (target_local / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        args = _make_args(bundle_name=None, interactive=True)
+
+        with patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ):
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        # File removed from local, not global
+        assert not (target_local / "skills" / "f.md").exists()
+
+    def test_rm_interactive_uses_scope_from_entry_global(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 41: rm -i uses scope from selected
+        ManifestEntry (global).
+        **Validates: Requirements 14.1**"""
+        from ksm.commands.rm import run_rm
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        (target_global / "skills").mkdir(parents=True)
+        (target_global / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        entry = _make_entry("aws", scope="global", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        args = _make_args(bundle_name=None, interactive=True)
+
+        with patch(
+            "ksm.commands.rm.interactive_removal_select",
+            return_value=[entry],
+        ):
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        # File removed from global, not local
+        assert not (target_global / "skills" / "f.md").exists()
+
+    def test_rm_does_not_import_scope_select(
+        self,
+    ) -> None:
+        """Property 42: rm.py does not import or call
+        scope_select.
+        **Validates: Requirements 14.2**"""
+        import inspect
+
+        import ksm.commands.rm as rm_module
+
+        source = inspect.getsource(rm_module)
+        assert "scope_select" not in source
+
+    def test_rm_interactive_no_scope_select_called(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 42: rm -i does not present scope
+        selection step.
+        **Validates: Requirements 14.2**"""
+        from ksm.commands.rm import run_rm
+
+        target = tmp_path / "workspace" / ".kiro"
+        (target / "skills").mkdir(parents=True)
+        (target / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        manifest = Manifest(entries=[entry])
+
+        args = _make_args(bundle_name=None, interactive=True)
+
+        with (
+            patch(
+                "ksm.commands.rm." "interactive_removal_select",
+                return_value=[entry],
+            ),
+            patch(
+                "ksm.selector.scope_select",
+            ) as mock_scope,
+        ):
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target,
+                target_global=(tmp_path / "home" / ".kiro"),
+            )
+
+        assert code == 0
+        mock_scope.assert_not_called()
+
+    def test_rm_interactive_local_flag_filters_entries(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Req 14.3: -l filters removal list to local
+        bundles only.
+        **Validates: Requirements 14.3**"""
+        from ksm.commands.rm import run_rm
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        (target_local / "skills").mkdir(parents=True)
+        (target_local / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        local_entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        global_entry = _make_entry("cli", scope="global", files=["skills/g.md"])
+        manifest = Manifest(entries=[local_entry, global_entry])
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=True,
+            local=True,
+        )
+
+        with patch(
+            "ksm.commands.rm." "interactive_removal_select",
+            return_value=[local_entry],
+        ) as mock_sel:
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=(tmp_path / "home" / ".kiro"),
+            )
+
+        assert code == 0
+        # Verify only local entries were passed
+        called_entries = mock_sel.call_args[0][0]
+        for e in called_entries:
+            assert e.scope == "local"
+
+    def test_rm_interactive_global_flag_filters_entries(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Req 14.3: -g filters removal list to global
+        bundles only.
+        **Validates: Requirements 14.3**"""
+        from ksm.commands.rm import run_rm
+
+        target_global = tmp_path / "home" / ".kiro"
+        (target_global / "skills").mkdir(parents=True)
+        (target_global / "skills" / "g.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        local_entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        global_entry = _make_entry(
+            "cli",
+            scope="global",
+            files=["skills/g.md"],
+        )
+        manifest = Manifest(entries=[local_entry, global_entry])
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=True,
+            global_=True,
+        )
+
+        with patch(
+            "ksm.commands.rm." "interactive_removal_select",
+            return_value=[global_entry],
+        ) as mock_sel:
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=(tmp_path / "workspace" / ".kiro"),
+                target_global=target_global,
+            )
+
+        assert code == 0
+        # Verify only global entries were passed
+        called_entries = mock_sel.call_args[0][0]
+        for e in called_entries:
+            assert e.scope == "global"
+
+    def test_rm_interactive_no_flag_passes_all_entries(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Req 14.3: Without -l/-g, all entries are shown.
+        **Validates: Requirements 14.3**"""
+        from ksm.commands.rm import run_rm
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        (target_local / "skills").mkdir(parents=True)
+        (target_local / "skills" / "f.md").write_bytes(b"data")
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        local_entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        global_entry = _make_entry("cli", scope="global", files=["skills/g.md"])
+        manifest = Manifest(entries=[local_entry, global_entry])
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=True,
+        )
+
+        with patch(
+            "ksm.commands.rm." "interactive_removal_select",
+            return_value=[local_entry],
+        ) as mock_sel:
+            code = run_rm(
+                args,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=(tmp_path / "home" / ".kiro"),
+            )
+
+        assert code == 0
+        called_entries = mock_sel.call_args[0][0]
+        scopes = {e.scope for e in called_entries}
+        assert "local" in scopes
+        assert "global" in scopes
+
+    def test_rm_interactive_filter_empty_shows_message(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 14.3: -l with only global bundles shows
+        no-bundles message.
+        **Validates: Requirements 14.3**"""
+        from ksm.commands.rm import run_rm
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        global_entry = _make_entry("cli", scope="global", files=["skills/g.md"])
+        manifest = Manifest(entries=[global_entry])
+
+        args = _make_args(
+            bundle_name=None,
+            interactive=True,
+            local=True,
+        )
+
+        code = run_rm(
+            args,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=(tmp_path / "workspace" / ".kiro"),
+            target_global=(tmp_path / "home" / ".kiro"),
+        )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        combined = captured.out + captured.err
+        assert "no bundles" in combined.lower() or "no matching" in combined.lower()

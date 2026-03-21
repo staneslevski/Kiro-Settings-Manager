@@ -400,3 +400,281 @@ class TestSearch:
             out = buf.getvalue()
             assert match_name in out
             assert no_match not in out
+
+
+# ── info color ───────────────────────────────────────────────
+
+
+class TestInfoColor:
+    """Tests for color usage in run_info output.
+
+    **Validates: Requirements 9.2, 9.3**
+    """
+
+    def test_installed_scopes_wrapped_in_green(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Property 25: info installed status uses green
+        when installed."""
+        from ksm.commands.info import run_info
+
+        reg_path = tmp_path / "reg"
+        _make_bundle_tree(reg_path, ["my-bundle"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry("default", str(reg_path)),
+            ]
+        )
+        manifest = Manifest(
+            entries=[
+                ManifestEntry(
+                    bundle_name="my-bundle",
+                    source_registry="default",
+                    scope="local",
+                    installed_files=["f.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                ),
+            ]
+        )
+
+        args = argparse.Namespace(bundle_name="my-bundle")
+        with patch("ksm.color._color_enabled", return_value=True):
+            code = run_info(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+            )
+
+        assert code == 0
+        out = capsys.readouterr().out
+        # Green ANSI wrapping around the scope string
+        assert "\033[32mlocal\033[0m" in out
+
+    def test_installed_scopes_no_color_when_no_color_set(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Req 9.3: NO_COLOR suppresses ANSI in info output."""
+        from ksm.commands.info import run_info
+
+        monkeypatch.setenv("NO_COLOR", "1")
+
+        reg_path = tmp_path / "reg"
+        _make_bundle_tree(reg_path, ["my-bundle"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry("default", str(reg_path)),
+            ]
+        )
+        manifest = Manifest(
+            entries=[
+                ManifestEntry(
+                    bundle_name="my-bundle",
+                    source_registry="default",
+                    scope="local",
+                    installed_files=["f.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                ),
+            ]
+        )
+
+        args = argparse.Namespace(bundle_name="my-bundle")
+        code = run_info(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+        )
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "\033[" not in out
+        assert "local" in out
+
+    def test_not_installed_uses_dim(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Verify not-installed status wraps 'no' in dim."""
+        from ksm.commands.info import run_info
+
+        reg_path = tmp_path / "reg"
+        _make_bundle_tree(reg_path, ["my-bundle"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry("default", str(reg_path)),
+            ]
+        )
+        manifest = Manifest(entries=[])
+
+        args = argparse.Namespace(bundle_name="my-bundle")
+        with patch("ksm.color._color_enabled", return_value=True):
+            code = run_info(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+            )
+
+        assert code == 0
+        out = capsys.readouterr().out
+        # Dim ANSI wrapping around "no"
+        assert "\033[2mno\033[0m" in out
+
+    def test_bundle_name_uses_bold(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Verify bundle name is wrapped in bold."""
+        from ksm.commands.info import run_info
+
+        reg_path = tmp_path / "reg"
+        _make_bundle_tree(reg_path, ["my-bundle"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry("default", str(reg_path)),
+            ]
+        )
+        manifest = Manifest(entries=[])
+
+        args = argparse.Namespace(bundle_name="my-bundle")
+        with patch("ksm.color._color_enabled", return_value=True):
+            code = run_info(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+            )
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "\033[1mmy-bundle\033[0m" in out
+
+    def test_registry_name_uses_dim(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Verify registry name is wrapped in dim."""
+        from ksm.commands.info import run_info
+
+        reg_path = tmp_path / "reg"
+        _make_bundle_tree(reg_path, ["my-bundle"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry("default", str(reg_path)),
+            ]
+        )
+        manifest = Manifest(entries=[])
+
+        args = argparse.Namespace(bundle_name="my-bundle")
+        with patch("ksm.color._color_enabled", return_value=True):
+            code = run_info(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+            )
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "\033[2mdefault\033[0m" in out
+
+
+# ── search color ─────────────────────────────────────────────
+
+
+class TestSearchColor:
+    """Tests for color usage in search output.
+
+    **Validates: Requirements 9.1, 9.3**
+    """
+
+    def test_bundle_name_uses_bold(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 9.1: search wraps bundle names in bold."""
+        from ksm.commands.search import run_search
+
+        reg_path = tmp_path / "reg"
+        _make_bundle_tree(reg_path, ["my-bundle"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry("default", str(reg_path)),
+            ]
+        )
+        args = argparse.Namespace(query="my-bundle")
+        with patch("ksm.color._color_enabled", return_value=True):
+            code = run_search(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "\033[1mmy-bundle\033[0m" in out
+
+    def test_registry_name_and_subdirs_use_dim(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 9.1: search wraps registry name and subdirs
+        in dim."""
+        from ksm.commands.search import run_search
+
+        reg_path = tmp_path / "reg"
+        _make_bundle_tree(reg_path, ["my-bundle"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry("default", str(reg_path)),
+            ]
+        )
+        args = argparse.Namespace(query="my-bundle")
+        with patch("ksm.color._color_enabled", return_value=True):
+            code = run_search(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        # Registry name wrapped in dim
+        assert "\033[2m(default)\033[0m" in out
+        # Subdirectory list wrapped in dim
+        assert "\033[2mskills\033[0m" in out
+
+    def test_no_color_suppresses_ansi(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Req 9.3: NO_COLOR suppresses ANSI in search."""
+        from ksm.commands.search import run_search
+
+        monkeypatch.setenv("NO_COLOR", "1")
+
+        reg_path = tmp_path / "reg"
+        _make_bundle_tree(reg_path, ["my-bundle"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry("default", str(reg_path)),
+            ]
+        )
+        args = argparse.Namespace(query="my-bundle")
+        code = run_search(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "\033[" not in out
+        assert "my-bundle" in out
+        assert "default" in out

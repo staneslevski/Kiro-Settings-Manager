@@ -8,6 +8,9 @@ version = "0.1.0"
 description = "CLI tool for managing Kiro IDE configuration bundles"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
+dependencies = [
+    "textual>=0.80.0",
+]
 
 [project.scripts]
 ksm = "ksm.cli:main"
@@ -16,6 +19,7 @@ ksm = "ksm.cli:main"
 dev = [
     "pytest",
     "pytest-cov",
+    "pytest-asyncio",
     "hypothesis",
     "black",
     "flake8",

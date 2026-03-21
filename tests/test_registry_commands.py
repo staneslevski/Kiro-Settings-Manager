@@ -169,6 +169,133 @@ class TestRegistryLs:
             assert str(reg_path) in out
 
 
+# ── registry ls color ────────────────────────────────────────
+
+
+class TestRegistryLsColor:
+    """Tests for color usage in run_registry_ls output.
+
+    **Validates: Requirements 8.2, 8.5**
+    """
+
+    def test_url_wrapped_in_dim(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Property 26: registry_ls wraps URLs in dim."""
+        from ksm.commands.registry_ls import run_registry_ls
+
+        reg_path = tmp_path / "my-reg"
+        _make_bundle_tree(reg_path, ["bundle-a"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "my-reg",
+                    "https://example.com/repo.git",
+                    str(reg_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace()
+        with patch("ksm.color._color_enabled", return_value=True):
+            code = run_registry_ls(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        # URL should be wrapped in dim ANSI code
+        assert "\033[2mhttps://example.com/repo.git\033[0m" in out
+
+    def test_local_placeholder_wrapped_in_dim(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Verify (local) placeholder is still dim."""
+        from ksm.commands.registry_ls import run_registry_ls
+
+        reg_path = tmp_path / "default"
+        _make_bundle_tree(reg_path, ["b1"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "default",
+                    None,
+                    str(reg_path),
+                    is_default=True,
+                ),
+            ]
+        )
+        args = argparse.Namespace()
+        with patch("ksm.color._color_enabled", return_value=True):
+            code = run_registry_ls(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "\033[2m(local)\033[0m" in out
+
+    def test_no_color_suppresses_ansi_in_registry_ls(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Req 8.5: NO_COLOR suppresses ANSI in registry ls."""
+        from ksm.commands.registry_ls import run_registry_ls
+
+        monkeypatch.setenv("NO_COLOR", "1")
+
+        reg_path = tmp_path / "my-reg"
+        _make_bundle_tree(reg_path, ["bundle-a"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "my-reg",
+                    "https://example.com/repo.git",
+                    str(reg_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace()
+        code = run_registry_ls(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "\033[" not in out
+        assert "https://example.com/repo.git" in out
+
+    def test_registry_name_uses_bold(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Verify registry name is wrapped in bold."""
+        from ksm.commands.registry_ls import run_registry_ls
+
+        reg_path = tmp_path / "my-reg"
+        _make_bundle_tree(reg_path, ["bundle-a"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "my-reg",
+                    "https://example.com/repo.git",
+                    str(reg_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace()
+        with patch("ksm.color._color_enabled", return_value=True):
+            code = run_registry_ls(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "\033[1mmy-reg\033[0m" in out
+
+
 # ── registry rm ──────────────────────────────────────────────
 
 
@@ -1659,3 +1786,117 @@ class TestDeriveName:
 
         url = f"https://example.com/{name}/"
         assert _derive_name(url) == name
+
+
+# ── registry inspect color ───────────────────────────────────
+
+
+class TestRegistryInspectColor:
+    """Tests for color usage in registry inspect output.
+
+    **Validates: Requirements 8.1, 8.3, 8.4, 8.5**
+    """
+
+    def test_header_and_bundle_names_use_bold(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 8.4: inspect wraps header and bundle names
+        in bold."""
+        from ksm.commands.registry_inspect import (
+            run_registry_inspect,
+        )
+
+        reg_path = tmp_path / "my-reg"
+        _make_bundle_tree(reg_path, ["bundle-a"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "my-reg",
+                    "https://example.com/r.git",
+                    str(reg_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="my-reg")
+        with patch("ksm.color._color_enabled", return_value=True):
+            code = run_registry_inspect(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        # Registry header in bold
+        assert "\033[1mRegistry: my-reg\033[0m" in out
+        # Bundle name in bold
+        assert "\033[1mbundle-a\033[0m" in out
+
+    def test_path_item_counts_and_names_use_dim(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 8.4: inspect wraps path, item counts, and
+        item names in dim."""
+        from ksm.commands.registry_inspect import (
+            run_registry_inspect,
+        )
+
+        reg_path = tmp_path / "my-reg"
+        _make_bundle_tree(reg_path, ["bundle-a"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "my-reg",
+                    "https://example.com/r.git",
+                    str(reg_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="my-reg")
+        with patch("ksm.color._color_enabled", return_value=True):
+            code = run_registry_inspect(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        # Path line wrapped in dim
+        assert "\033[2m" in out
+        # Item count like "(1 items)" wrapped in dim
+        assert "\033[2m(1 items)\033[0m" in out
+        # Item name "example.md" wrapped in dim
+        assert "\033[2mexample.md\033[0m" in out
+
+    def test_no_color_suppresses_ansi(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Req 8.5: NO_COLOR suppresses ANSI in inspect."""
+        from ksm.commands.registry_inspect import (
+            run_registry_inspect,
+        )
+
+        monkeypatch.setenv("NO_COLOR", "1")
+
+        reg_path = tmp_path / "my-reg"
+        _make_bundle_tree(reg_path, ["bundle-a"])
+
+        idx = RegistryIndex(
+            registries=[
+                _make_registry_entry(
+                    "my-reg",
+                    "https://example.com/r.git",
+                    str(reg_path),
+                ),
+            ]
+        )
+        args = argparse.Namespace(registry_name="my-reg")
+        code = run_registry_inspect(args, registry_index=idx)
+
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "\033[" not in out
+        assert "my-reg" in out
+        assert "bundle-a" in out

@@ -4,6 +4,9 @@ Property 11: BundleNotFoundError contains name and all searched registries
 Property 12: GitError contains URL and cleaned summary
 """
 
+from io import StringIO
+from unittest.mock import MagicMock, patch
+
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -405,3 +408,430 @@ def test_format_deprecation_property(
     assert len(lines) == 2
     assert since in result
     assert removal in result
+
+
+# ------------------------------------------------------------------
+# Colorized formatter tests (Reqs 1, 2) — stream parameter
+# ------------------------------------------------------------------
+# These tests verify that format_error, format_warning, and
+# format_deprecation apply ANSI color to their prefixes when a
+# TTY stream is passed, and return plain text otherwise.
+#
+# Helper utilities reuse the same patterns as test_color.py.
+# ------------------------------------------------------------------
+
+
+def _make_tty_stream() -> MagicMock:
+    """Create a mock stream that reports as a TTY."""
+    stream = MagicMock(spec=StringIO)
+    stream.isatty.return_value = True
+    return stream
+
+
+def _make_non_tty_stream() -> StringIO:
+    """Create a non-TTY stream (StringIO has isatty=False)."""
+    return StringIO()
+
+
+def _clean_env() -> dict[str, str]:
+    """Env dict with NO_COLOR removed and TERM set."""
+    return {"TERM": "xterm-256color"}
+
+
+# ANSI escape code constants
+_RED = "\033[31m"
+_YELLOW = "\033[33m"
+_RESET = "\033[0m"
+
+
+# --- Property 1: format_error wraps "Error:" in red on TTY ---
+
+
+class TestFormatErrorColor:
+    """Validates: Requirements 1.1, 1.4"""
+
+    def test_error_prefix_red_on_tty(self) -> None:
+        """Property 1: format_error wraps 'Error:' in red
+        when stream is a TTY."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_error("what", "why", "fix", stream=stream)
+        assert _RED in result
+        assert f"{_RED}Error:{_RESET}" in result
+
+    def test_error_prefix_red_contains_what(self) -> None:
+        """Red prefix is followed by the 'what' message."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_error(
+                "Clone failed",
+                "reason",
+                "action",
+                stream=stream,
+            )
+        first_line = result.splitlines()[0]
+        assert "Clone failed" in first_line
+
+
+# --- Property 2: format_warning wraps "Warning:" in yellow ---
+
+
+class TestFormatWarningColor:
+    """Validates: Requirements 2.1, 2.4"""
+
+    def test_warning_prefix_yellow_on_tty(self) -> None:
+        """Property 2: format_warning wraps 'Warning:' in
+        yellow when stream is a TTY."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_warning("something", "detail", stream=stream)
+        assert _YELLOW in result
+        assert f"{_YELLOW}Warning:{_RESET}" in result
+
+    def test_warning_prefix_yellow_contains_what(self) -> None:
+        """Yellow prefix is followed by the 'what' message."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_warning("disk full", "detail", stream=stream)
+        first_line = result.splitlines()[0]
+        assert "disk full" in first_line
+
+
+# --- Property 3: format_deprecation wraps "Deprecated:" in yellow
+
+
+class TestFormatDeprecationColor:
+    """Validates: Requirements 2.2, 2.5"""
+
+    def test_deprecation_prefix_yellow_on_tty(self) -> None:
+        """Property 3: format_deprecation wraps 'Deprecated:'
+        in yellow when stream is a TTY."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_deprecation(
+                "old",
+                "new",
+                "v0.1.0",
+                "v0.2.0",
+                stream=stream,
+            )
+        assert _YELLOW in result
+        assert f"{_YELLOW}Deprecated:{_RESET}" in result
+
+    def test_deprecation_prefix_yellow_contains_old(
+        self,
+    ) -> None:
+        """Yellow prefix is followed by old/new names."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_deprecation(
+                "--display",
+                "-i",
+                "v0.2.0",
+                "v1.0.0",
+                stream=stream,
+            )
+        assert "--display" in result
+        assert "-i" in result
+
+
+# --- Property 4: All formatters return plain text when NO_COLOR
+
+
+class TestFormattersNoColor:
+    """Validates: Requirements 1.2, 2.3"""
+
+    def test_error_plain_when_no_color(self) -> None:
+        """Property 4: format_error returns plain text when
+        NO_COLOR is set."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", {"NO_COLOR": "1"}, clear=False):
+            result = format_error("what", "why", "fix", stream=stream)
+        assert "\033[" not in result
+        assert result.startswith("Error: ")
+
+    def test_warning_plain_when_no_color(self) -> None:
+        """Property 4: format_warning returns plain text when
+        NO_COLOR is set."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", {"NO_COLOR": "1"}, clear=False):
+            result = format_warning("what", "detail", stream=stream)
+        assert "\033[" not in result
+        assert result.startswith("Warning: ")
+
+    def test_deprecation_plain_when_no_color(self) -> None:
+        """Property 4: format_deprecation returns plain text
+        when NO_COLOR is set."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", {"NO_COLOR": "1"}, clear=False):
+            result = format_deprecation(
+                "old",
+                "new",
+                "v0.1.0",
+                "v0.2.0",
+                stream=stream,
+            )
+        assert "\033[" not in result
+        assert result.startswith("Deprecated: ")
+
+
+# --- Property 5: All formatters return plain text on non-TTY ---
+
+
+class TestFormattersNonTTY:
+    """Validates: Requirements 1.3, 1.5"""
+
+    def test_error_plain_when_non_tty(self) -> None:
+        """Property 5: format_error returns plain text when
+        stream is not a TTY."""
+        stream = _make_non_tty_stream()
+        result = format_error("what", "why", "fix", stream=stream)
+        assert "\033[" not in result
+        assert result.startswith("Error: ")
+
+    def test_warning_plain_when_non_tty(self) -> None:
+        """Property 5: format_warning returns plain text when
+        stream is not a TTY."""
+        stream = _make_non_tty_stream()
+        result = format_warning("what", "detail", stream=stream)
+        assert "\033[" not in result
+        assert result.startswith("Warning: ")
+
+    def test_deprecation_plain_when_non_tty(self) -> None:
+        """Property 5: format_deprecation returns plain text
+        when stream is not a TTY."""
+        stream = _make_non_tty_stream()
+        result = format_deprecation(
+            "old",
+            "new",
+            "v0.1.0",
+            "v0.2.0",
+            stream=stream,
+        )
+        assert "\033[" not in result
+        assert result.startswith("Deprecated: ")
+
+
+# --- Property 6: All formatters preserve message structure ---
+
+
+class TestFormattersPreserveStructure:
+    """Validates: Requirements 1.4, 2.4, 2.5"""
+
+    def test_error_three_lines_with_stream(self) -> None:
+        """Property 6: format_error still produces three lines
+        when stream is passed."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_error("what", "why", "fix", stream=stream)
+        lines = result.splitlines()
+        assert len(lines) == 3
+        assert "what" in lines[0]
+        assert "why" in lines[1]
+        assert "fix" in lines[2]
+
+    def test_warning_two_lines_with_stream(self) -> None:
+        """Property 6: format_warning still produces two lines
+        when stream is passed."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_warning("what", "detail", stream=stream)
+        lines = result.splitlines()
+        assert len(lines) == 2
+        assert "what" in lines[0]
+        assert "detail" in lines[1]
+
+    def test_deprecation_two_lines_with_stream(self) -> None:
+        """Property 6: format_deprecation still produces two
+        lines when stream is passed."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_deprecation(
+                "old",
+                "new",
+                "v0.1.0",
+                "v0.2.0",
+                stream=stream,
+            )
+        lines = result.splitlines()
+        assert len(lines) == 2
+        assert "v0.1.0" in result
+        assert "v0.2.0" in result
+
+    def test_error_indentation_preserved(self) -> None:
+        """Lines 2 and 3 are still indented with stream."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_error("what", "why", "fix", stream=stream)
+        lines = result.splitlines()
+        assert lines[1].startswith("  ")
+        assert lines[2].startswith("  ")
+
+    def test_warning_indentation_preserved(self) -> None:
+        """Second line is still indented with stream."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_warning("what", "detail", stream=stream)
+        lines = result.splitlines()
+        assert lines[1].startswith("  ")
+
+    def test_deprecation_indentation_preserved(self) -> None:
+        """Second line is still indented with stream."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_deprecation(
+                "old",
+                "new",
+                "v0.1.0",
+                "v0.2.0",
+                stream=stream,
+            )
+        lines = result.splitlines()
+        assert lines[1].startswith("  ")
+
+
+# --- Property 7: All formatters return plain text on TERM=dumb
+
+
+class TestFormatterTermDumb:
+    """Validates: Requirements 1.5, 2.3"""
+
+    def test_error_plain_when_term_dumb(self) -> None:
+        """Property 7: format_error returns plain text when
+        TERM=dumb."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", {"TERM": "dumb"}, clear=True):
+            result = format_error("what", "why", "fix", stream=stream)
+        assert "\033[" not in result
+        assert result.startswith("Error: ")
+
+    def test_warning_plain_when_term_dumb(self) -> None:
+        """Property 7: format_warning returns plain text when
+        TERM=dumb."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", {"TERM": "dumb"}, clear=True):
+            result = format_warning("what", "detail", stream=stream)
+        assert "\033[" not in result
+        assert result.startswith("Warning: ")
+
+    def test_deprecation_plain_when_term_dumb(self) -> None:
+        """Property 7: format_deprecation returns plain text
+        when TERM=dumb."""
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", {"TERM": "dumb"}, clear=True):
+            result = format_deprecation(
+                "old",
+                "new",
+                "v0.1.0",
+                "v0.2.0",
+                stream=stream,
+            )
+        assert "\033[" not in result
+        assert result.startswith("Deprecated: ")
+
+
+# --- Property-based tests for colorized formatters ---
+
+
+@given(what=_single_line, why=_single_line, fix=_single_line)
+def test_format_error_color_property(what: str, why: str, fix: str) -> None:
+    """Property 1 (PBT): format_error wraps 'Error:' in red
+    on TTY for arbitrary messages.
+    Validates: Requirements 1.1"""
+    stream = _make_tty_stream()
+    with patch.dict("os.environ", _clean_env(), clear=True):
+        result = format_error(what, why, fix, stream=stream)
+    assert _RED in result
+    assert _RESET in result
+    assert what in result
+    assert why in result
+    assert fix in result
+    lines = result.splitlines()
+    assert len(lines) == 3
+
+
+@given(what=_single_line, detail=_single_line)
+def test_format_warning_color_property(what: str, detail: str) -> None:
+    """Property 2 (PBT): format_warning wraps 'Warning:' in
+    yellow on TTY for arbitrary messages.
+    Validates: Requirements 2.1"""
+    stream = _make_tty_stream()
+    with patch.dict("os.environ", _clean_env(), clear=True):
+        result = format_warning(what, detail, stream=stream)
+    assert _YELLOW in result
+    assert _RESET in result
+    assert what in result
+    assert detail in result
+    lines = result.splitlines()
+    assert len(lines) == 2
+
+
+@given(
+    old=_single_line,
+    new=_single_line,
+    since=st.from_regex(r"v[0-9]+\.[0-9]+\.[0-9]+", fullmatch=True),
+    removal=st.from_regex(r"v[0-9]+\.[0-9]+\.[0-9]+", fullmatch=True),
+)
+def test_format_deprecation_color_property(
+    old: str, new: str, since: str, removal: str
+) -> None:
+    """Property 3 (PBT): format_deprecation wraps
+    'Deprecated:' in yellow on TTY for arbitrary messages.
+    Validates: Requirements 2.2"""
+    stream = _make_tty_stream()
+    with patch.dict("os.environ", _clean_env(), clear=True):
+        result = format_deprecation(old, new, since, removal, stream=stream)
+    assert _YELLOW in result
+    assert _RESET in result
+    assert since in result
+    assert removal in result
+    lines = result.splitlines()
+    assert len(lines) == 2
+
+
+@given(what=_single_line, why=_single_line, fix=_single_line)
+def test_format_error_no_color_property(what: str, why: str, fix: str) -> None:
+    """Property 4 (PBT): format_error returns plain text when
+    NO_COLOR is set, for arbitrary messages.
+    Validates: Requirements 1.2"""
+    stream = _make_tty_stream()
+    with patch.dict("os.environ", {"NO_COLOR": "1"}, clear=False):
+        result = format_error(what, why, fix, stream=stream)
+    assert "\033[" not in result
+    assert what in result
+
+
+@given(what=_single_line, detail=_single_line)
+def test_format_warning_no_color_property(what: str, detail: str) -> None:
+    """Property 4 (PBT): format_warning returns plain text
+    when NO_COLOR is set, for arbitrary messages.
+    Validates: Requirements 2.3"""
+    stream = _make_tty_stream()
+    with patch.dict("os.environ", {"NO_COLOR": "1"}, clear=False):
+        result = format_warning(what, detail, stream=stream)
+    assert "\033[" not in result
+    assert what in result
+
+
+@given(what=_single_line, why=_single_line, fix=_single_line)
+def test_format_error_non_tty_property(what: str, why: str, fix: str) -> None:
+    """Property 5 (PBT): format_error returns plain text when
+    stream is not a TTY, for arbitrary messages.
+    Validates: Requirements 1.3"""
+    stream = _make_non_tty_stream()
+    result = format_error(what, why, fix, stream=stream)
+    assert "\033[" not in result
+    assert what in result
+    assert result.splitlines()[0].startswith("Error: ")
+
+
+@given(what=_single_line, detail=_single_line)
+def test_format_warning_non_tty_property(what: str, detail: str) -> None:
+    """Property 5 (PBT): format_warning returns plain text
+    when stream is not a TTY, for arbitrary messages.
+    Validates: Requirements 1.3"""
+    stream = _make_non_tty_stream()
+    result = format_warning(what, detail, stream=stream)
+    assert "\033[" not in result
+    assert what in result
+    assert result.splitlines()[0].startswith("Warning: ")

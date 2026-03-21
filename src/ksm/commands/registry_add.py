@@ -72,9 +72,13 @@ def run_registry_add(
             if not force:
                 print(
                     format_error(
-                        f"Cache directory already exists:" f" {target}",
-                        f"Registry '{name}' was previously" " cloned here.",
-                        "Use `--force` to replace the" " existing cache.",
+                        f"Cache directory already exists:"
+                        f" {target}",
+                        f"Registry '{name}' was previously"
+                        " cloned here.",
+                        "Use `--force` to replace the"
+                        " existing cache.",
+                        stream=sys.stderr,
                     ),
                     file=sys.stderr,
                 )
@@ -83,12 +87,15 @@ def run_registry_add(
             # Different URL owns this cache dir (Req 1.4)
             print(
                 format_error(
-                    f"Cache directory name collision:" f" {target}",
+                    f"Cache directory name collision:"
+                    f" {target}",
                     f"Directory belongs to registry"
                     f" '{existing.name}'"
                     f" ({existing.url}).",
-                    "Use `--name <custom-name>` to specify"
-                    " a different cache directory name.",
+                    "Use `--name <custom-name>` to"
+                    " specify a different cache"
+                    " directory name.",
+                    stream=sys.stderr,
                 ),
                 file=sys.stderr,
             )
@@ -105,9 +112,12 @@ def run_registry_add(
             if entry.url == git_url:
                 print(
                     format_error(
-                        "Registry already registered as" f" '{entry.name}'.",
+                        "Registry already registered as"
+                        f" '{entry.name}'.",
                         f"URL: {git_url}",
-                        "Use `ksm registry list` to see" " registered registries.",
+                        "Use `ksm registry list` to see"
+                        " registered registries.",
+                        stream=sys.stderr,
                     ),
                     file=sys.stderr,
                 )
@@ -119,9 +129,13 @@ def run_registry_add(
             if entry.name == name:
                 print(
                     format_error(
-                        f"Registry name '{name}' is" " already in use.",
-                        f"Existing registry '{name}' has" f" URL: {entry.url}",
-                        "Use `--name <custom-name>` to" " specify a different name.",
+                        f"Registry name '{name}' is"
+                        " already in use.",
+                        f"Existing registry '{name}' has"
+                        f" URL: {entry.url}",
+                        "Use `--name <custom-name>` to"
+                        " specify a different name.",
+                        stream=sys.stderr,
                     ),
                     file=sys.stderr,
                 )
@@ -136,8 +150,11 @@ def run_registry_add(
             print(
                 format_error(
                     f"Clone failed: {e}",
-                    "The previous cache directory" " was removed.",
-                    "Re-add the registry to restore:" " `ksm registry add <url>`",
+                    "The previous cache directory"
+                    " was removed.",
+                    "Re-add the registry to restore:"
+                    " `ksm registry add <url>`",
+                    stream=sys.stderr,
                 ),
                 file=sys.stderr,
             )
@@ -147,6 +164,7 @@ def run_registry_add(
                     "Clone failed",
                     str(e),
                     "Check the URL and try again.",
+                    stream=sys.stderr,
                 ),
                 file=sys.stderr,
             )

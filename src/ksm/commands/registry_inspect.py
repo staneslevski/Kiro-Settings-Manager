@@ -37,7 +37,9 @@ def run_registry_inspect(
             format_error(
                 f"Registry '{name}' not found.",
                 f"Registered: {', '.join(registered)}",
-                "Run `ksm registry list` to see" " all registries.",
+                "Run `ksm registry list` to see"
+                " all registries.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )

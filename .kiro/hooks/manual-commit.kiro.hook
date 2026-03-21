@@ -7,7 +7,7 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "Please commit all of your work so far. You should use git add -A to stage all of your changes and then you should attempt to commit those changes. git commit is not a trusted command and so the user will need to review your command request and then either approve or deny. When you use the git commit command you should always include a clear summary commit message. "
+    "prompt": "using the git manager agent. Please commit all of your work so far. You should use git add -A to stage all of your changes and then you should attempt to commit those changes. git commit is not a trusted command and so the user will need to review your command request and then either approve or deny. When you use the git commit command you should always include a clear summary commit message. "
   },
   "workspaceFolderName": "Kiro-Settings-Manager",
   "shortName": "manual-commit"

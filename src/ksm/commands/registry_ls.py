@@ -32,7 +32,7 @@ def run_registry_ls(
         bundle_count = len(bundles)
 
         name_str = bold(entry.name)
-        url_str = entry.url if entry.url else dim("(local)")
+        url_str = dim(entry.url) if entry.url else dim("(local)")
         count_str = dim(f"{bundle_count} bundle{'s' if bundle_count != 1 else ''}")
 
         lines.append(f"  {name_str}")

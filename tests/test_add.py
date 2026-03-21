@@ -1,6 +1,7 @@
 """Tests for ksm.commands.add module."""
 
 import argparse
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -1190,6 +1191,10 @@ def test_run_add_auto_launch_tty(
             "ksm.commands.add.interactive_select",
             return_value=["aws"],
         ) as mock_sel,
+        patch(
+            "ksm.commands.add.scope_select",
+            return_value="local",
+        ),
     ):
         mock_stdin.isatty.return_value = True
         code = run_add(
@@ -1987,3 +1992,922 @@ def test_run_add_qualified_name_not_found_error(
     assert code == 1
     captured = capsys.readouterr()
     assert "Error:" in captured.err
+
+
+# --- Tests for stream=sys.stderr in formatter calls (Reqs 1.1-1.3, 2.1-2.3) ---
+
+
+class TestAddFormatterStreamParam:
+    """Verify add.py passes stream=sys.stderr to formatters."""
+
+    def test_format_error_receives_stream_stderr_on_invalid_only(
+        self,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """format_error called with stream=sys.stderr for
+        invalid --only value."""
+        from ksm.commands.add import _build_subdirectory_filter
+
+        args = _make_args(only=["badvalue"])
+        with (
+            patch(
+                "ksm.commands.add.format_error",
+                wraps=__import__("ksm.errors", fromlist=["format_error"]).format_error,
+            ) as mock_fmt,
+            pytest.raises(SystemExit),
+        ):
+            _build_subdirectory_filter(args)
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_error_receives_stream_stderr_no_bundle(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_error called with stream=sys.stderr when
+        no bundle specified (non-TTY)."""
+        from ksm.commands.add import run_add
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir()
+        idx = RegistryIndex(registries=[])
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_spec=None)
+
+        with (
+            patch("sys.stdin") as mock_stdin,
+            patch(
+                "ksm.commands.add.format_error",
+                wraps=__import__("ksm.errors", fromlist=["format_error"]).format_error,
+            ) as mock_fmt,
+        ):
+            mock_stdin.isatty.return_value = False
+            run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=tmp_path / "local",
+                target_global=tmp_path / "global",
+            )
+
+        assert mock_fmt.call_count >= 1
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_warning_receives_stream_stderr(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_warning called with stream=sys.stderr when
+        -i ignored because bundle specified."""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {"aws": {"skills": {"S.md": b"s"}}},
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir()
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_spec="aws", interactive=True)
+
+        with patch(
+            "ksm.commands.add.format_warning",
+            wraps=__import__("ksm.errors", fromlist=["format_warning"]).format_warning,
+        ) as mock_fmt:
+            run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=tmp_path / "global" / ".kiro",
+            )
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_format_deprecation_receives_stream_stderr(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """format_deprecation called with stream=sys.stderr
+        for --display deprecation."""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {"aws": {"skills": {"S.md": b"s"}}},
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir()
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_spec=None, display=True)
+
+        with (
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch(
+                "ksm.commands.add.format_deprecation",
+                wraps=__import__(
+                    "ksm.errors",
+                    fromlist=["format_deprecation"],
+                ).format_deprecation,
+            ) as mock_fmt,
+        ):
+            run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=tmp_path / "global" / ".kiro",
+            )
+
+        assert mock_fmt.call_count >= 1
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+    def test_deprecated_only_flag_passes_stream_stderr(
+        self,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """format_deprecation called with stream=sys.stderr
+        for deprecated --skills-only flag."""
+        from ksm.commands.add import (
+            _build_subdirectory_filter,
+        )
+
+        args = _make_args(skills_only=True)
+
+        with patch(
+            "ksm.commands.add.format_deprecation",
+            wraps=__import__(
+                "ksm.errors",
+                fromlist=["format_deprecation"],
+            ).format_deprecation,
+        ) as mock_fmt:
+            _build_subdirectory_filter(args)
+
+        mock_fmt.assert_called_once()
+        _, kwargs = mock_fmt.call_args
+        assert kwargs.get("stream") is sys.stderr
+
+
+# --- Tests for green success prefix (Req 3.1, 3.4, 3.5) ---
+# Feature: color-and-scope-selection
+# **Validates: Requirements 3.1, 3.4, 3.5**
+
+
+class TestAddGreenSuccessPrefix:
+    """Property 12: add success message includes green
+    "Installed:" prefix."""
+
+    _GREEN = "\033[32m"
+    _RESET = "\033[0m"
+
+    def test_installed_prefix_green_on_tty(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Property 12: successful add prints green
+        'Installed:' prefix to stderr when stream is TTY.
+        **Validates: Requirements 3.1**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {"aws": {"skills": {"S.md": b"skill"}}},
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_spec="aws")
+
+        with patch.dict(
+            "os.environ",
+            {"TERM": "xterm-256color"},
+            clear=True,
+        ):
+            with patch(
+                "sys.stderr.isatty",
+                return_value=True,
+            ):
+                code = run_add(
+                    args,
+                    registry_index=idx,
+                    manifest=manifest,
+                    manifest_path=(ksm_dir / "manifest.json"),
+                    target_local=target_local,
+                    target_global=(tmp_path / "home" / ".kiro"),
+                )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "Installed:" in captured.err
+        assert self._GREEN in captured.err
+
+    def test_installed_prefix_plain_with_no_color(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Property 12: 'Installed:' is plain text when
+        NO_COLOR is set.
+        **Validates: Requirements 3.4**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {"aws": {"skills": {"S.md": b"skill"}}},
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_spec="aws")
+
+        with patch.dict(
+            "os.environ",
+            {"NO_COLOR": "1"},
+            clear=False,
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target_local,
+                target_global=(tmp_path / "home" / ".kiro"),
+            )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "Installed:" in captured.err
+        assert "\033[" not in captured.err
+
+    def test_installed_prefix_contains_bundle_name(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Property 12: success message includes bundle name
+        alongside the green prefix.
+        **Validates: Requirements 3.5**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {"mybundle": {"skills": {"S.md": b"s"}}},
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(bundle_spec="mybundle")
+
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=(ksm_dir / "manifest.json"),
+            target_local=target_local,
+            target_global=(tmp_path / "home" / ".kiro"),
+        )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert "Installed:" in captured.err
+        assert "mybundle" in captured.err
+
+
+# --- Tests for scope selection integration (Reqs 11, 15) ---
+# Feature: color-and-scope-selection
+# **Validates: Requirements 11.1, 11.5, 11.7, 15.1, 15.2, 15.3, 15.4**
+
+
+class TestScopeSelectionIntegration:
+    """Tests for scope_select integration in add.py.
+
+    Property 36: interactive add calls scope_select
+        when no -l/-g flag
+    Property 37: interactive add skips scope_select
+        when -l or -g provided
+    Property 38: interactive add defaults to "local"
+        when stdin not TTY
+    Property 39: scope_select abort returns exit code 0
+    Property 40: selected scope is passed to install_bundle
+    """
+
+    def _setup(self, tmp_path: Path) -> tuple[
+        RegistryIndex,
+        Manifest,
+        Path,
+        Path,
+        Path,
+        Path,
+    ]:
+        """Common setup for scope integration tests."""
+        reg = _setup_registry(
+            tmp_path,
+            {"aws": {"skills": {"S.md": b"skill"}}},
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        return (
+            idx,
+            manifest,
+            ksm_dir,
+            target_local,
+            target_global,
+            reg,
+        )
+
+    # -- Property 36: interactive add calls scope_select
+    #    when no -l/-g flag --
+    # **Validates: Requirements 11.1**
+
+    def test_scope_select_called_in_interactive_mode(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 36: scope_select is called when
+        -i is used and neither -l nor -g is provided.
+        **Validates: Requirements 11.1**"""
+        from ksm.commands.add import run_add
+
+        (
+            idx,
+            manifest,
+            ksm_dir,
+            target_local,
+            target_global,
+            _,
+        ) = self._setup(tmp_path)
+
+        args = _make_args(
+            bundle_spec=None,
+            display=True,
+        )
+
+        with (
+            patch("sys.stdin") as mock_stdin,
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch(
+                "ksm.commands.add.scope_select",
+                return_value="local",
+            ) as mock_scope,
+        ):
+            mock_stdin.isatty.return_value = True
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        mock_scope.assert_called_once()
+
+    def test_scope_select_called_auto_launch_tty(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 36: scope_select is called on
+        auto-launch (no bundle_spec, TTY stdin).
+        **Validates: Requirements 11.1**"""
+        from ksm.commands.add import run_add
+
+        (
+            idx,
+            manifest,
+            ksm_dir,
+            target_local,
+            target_global,
+            _,
+        ) = self._setup(tmp_path)
+
+        args = _make_args(bundle_spec=None)
+
+        with (
+            patch("sys.stdin") as mock_stdin,
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch(
+                "ksm.commands.add.scope_select",
+                return_value="local",
+            ) as mock_scope,
+        ):
+            mock_stdin.isatty.return_value = True
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        mock_scope.assert_called_once()
+
+    # -- Property 37: interactive add skips scope_select
+    #    when -l or -g provided --
+    # **Validates: Requirements 11.5, 15.3**
+
+    def test_scope_select_skipped_when_local_flag(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 37: scope_select is NOT called when
+        -l flag is provided.
+        **Validates: Requirements 11.5, 15.3**"""
+        from ksm.commands.add import run_add
+
+        (
+            idx,
+            manifest,
+            ksm_dir,
+            target_local,
+            target_global,
+            _,
+        ) = self._setup(tmp_path)
+
+        args = _make_args(
+            bundle_spec=None,
+            display=True,
+            local=True,
+        )
+
+        with (
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch(
+                "ksm.commands.add.scope_select",
+                return_value="local",
+            ) as mock_scope,
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        mock_scope.assert_not_called()
+
+    def test_scope_select_skipped_when_global_flag(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 37: scope_select is NOT called when
+        -g flag is provided.
+        **Validates: Requirements 11.5, 15.3**"""
+        from ksm.commands.add import run_add
+
+        (
+            idx,
+            manifest,
+            ksm_dir,
+            target_local,
+            target_global,
+            _,
+        ) = self._setup(tmp_path)
+
+        args = _make_args(
+            bundle_spec=None,
+            display=True,
+            global_=True,
+        )
+
+        with (
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch(
+                "ksm.commands.add.scope_select",
+                return_value="global",
+            ) as mock_scope,
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        mock_scope.assert_not_called()
+
+    # -- Property 38: interactive add defaults to "local"
+    #    when stdin not TTY --
+    # **Validates: Requirements 11.7**
+
+    def test_defaults_to_local_when_stdin_not_tty(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 38: when stdin is not a TTY,
+        scope_select is skipped and scope defaults
+        to "local".
+        **Validates: Requirements 11.7**"""
+        from ksm.commands.add import run_add
+
+        (
+            idx,
+            manifest,
+            ksm_dir,
+            target_local,
+            target_global,
+            _,
+        ) = self._setup(tmp_path)
+
+        args = _make_args(
+            bundle_spec=None,
+            display=True,
+        )
+
+        with (
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch("sys.stdin") as mock_stdin,
+            patch(
+                "ksm.commands.add.scope_select",
+                return_value="local",
+            ) as mock_scope,
+        ):
+            mock_stdin.isatty.return_value = False
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        mock_scope.assert_not_called()
+        # Should install to local (default)
+        assert manifest.entries[0].scope == "local"
+
+    # -- Property 39: scope_select abort returns exit 0 --
+    # **Validates: Requirements 11.1, 15.1**
+
+    def test_scope_select_abort_returns_zero(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 39: when scope_select returns None
+        (user aborted), run_add returns exit code 0.
+        **Validates: Requirements 11.1**"""
+        from ksm.commands.add import run_add
+
+        (
+            idx,
+            manifest,
+            ksm_dir,
+            target_local,
+            target_global,
+            _,
+        ) = self._setup(tmp_path)
+
+        args = _make_args(
+            bundle_spec=None,
+            display=True,
+        )
+
+        with (
+            patch("sys.stdin") as mock_stdin,
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch(
+                "ksm.commands.add.scope_select",
+                return_value=None,
+            ),
+        ):
+            mock_stdin.isatty.return_value = True
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        assert len(manifest.entries) == 0
+
+    def test_scope_select_abort_auto_launch_returns_zero(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 39: scope_select abort on auto-launch
+        path also returns exit code 0.
+        **Validates: Requirements 11.1**"""
+        from ksm.commands.add import run_add
+
+        (
+            idx,
+            manifest,
+            ksm_dir,
+            target_local,
+            target_global,
+            _,
+        ) = self._setup(tmp_path)
+
+        args = _make_args(bundle_spec=None)
+
+        with (
+            patch("sys.stdin") as mock_stdin,
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch(
+                "ksm.commands.add.scope_select",
+                return_value=None,
+            ),
+        ):
+            mock_stdin.isatty.return_value = True
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        assert len(manifest.entries) == 0
+
+    # -- Property 40: selected scope is passed to
+    #    install_bundle --
+    # **Validates: Requirements 15.1, 15.2, 15.4**
+
+    def test_scope_local_passed_to_install_bundle(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 40: when scope_select returns "local",
+        install_bundle receives scope="local" and files
+        go to target_local.
+        **Validates: Requirements 15.1, 15.4**"""
+        from ksm.commands.add import run_add
+
+        (
+            idx,
+            manifest,
+            ksm_dir,
+            target_local,
+            target_global,
+            _,
+        ) = self._setup(tmp_path)
+
+        args = _make_args(
+            bundle_spec=None,
+            display=True,
+        )
+
+        with (
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch(
+                "ksm.commands.add.scope_select",
+                return_value="local",
+            ),
+            patch(
+                "ksm.commands.add.install_bundle",
+                wraps=__import__(
+                    "ksm.installer",
+                    fromlist=["install_bundle"],
+                ).install_bundle,
+            ) as mock_install,
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        mock_install.assert_called_once()
+        _, kwargs = mock_install.call_args
+        assert kwargs["scope"] == "local"
+        assert kwargs["target_dir"] == target_local
+
+    def test_scope_global_passed_to_install_bundle(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 40: when scope_select returns "global",
+        install_bundle receives scope="global" and files
+        go to target_global.
+        **Validates: Requirements 15.2, 15.4**"""
+        from ksm.commands.add import run_add
+
+        (
+            idx,
+            manifest,
+            ksm_dir,
+            target_local,
+            target_global,
+            _,
+        ) = self._setup(tmp_path)
+
+        args = _make_args(
+            bundle_spec=None,
+            display=True,
+        )
+
+        with (
+            patch("sys.stdin") as mock_stdin,
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch(
+                "ksm.commands.add.scope_select",
+                return_value="global",
+            ),
+            patch(
+                "ksm.commands.add.install_bundle",
+                wraps=__import__(
+                    "ksm.installer",
+                    fromlist=["install_bundle"],
+                ).install_bundle,
+            ) as mock_install,
+        ):
+            mock_stdin.isatty.return_value = True
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        mock_install.assert_called_once()
+        _, kwargs = mock_install.call_args
+        assert kwargs["scope"] == "global"
+        assert kwargs["target_dir"] == target_global
+
+    def test_flag_scope_passed_when_selector_skipped(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Property 40: when -g is provided and
+        scope_select is skipped, install_bundle
+        receives scope="global".
+        **Validates: Requirements 15.3**"""
+        from ksm.commands.add import run_add
+
+        (
+            idx,
+            manifest,
+            ksm_dir,
+            target_local,
+            target_global,
+            _,
+        ) = self._setup(tmp_path)
+
+        args = _make_args(
+            bundle_spec=None,
+            display=True,
+            global_=True,
+        )
+
+        with (
+            patch(
+                "ksm.commands.add.interactive_select",
+                return_value=["aws"],
+            ),
+            patch(
+                "ksm.commands.add.install_bundle",
+                wraps=__import__(
+                    "ksm.installer",
+                    fromlist=["install_bundle"],
+                ).install_bundle,
+            ) as mock_install,
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=(ksm_dir / "manifest.json"),
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        mock_install.assert_called_once()
+        _, kwargs = mock_install.call_args
+        assert kwargs["scope"] == "global"
+        assert kwargs["target_dir"] == target_global

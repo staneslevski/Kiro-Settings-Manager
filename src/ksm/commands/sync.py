@@ -9,7 +9,9 @@ Requirements: 13, 31.1
 import argparse
 import sys
 from pathlib import Path
+from typing import TextIO
 
+from ksm.color import bold, green
 from ksm.copier import format_diff_summary
 from ksm.errors import format_error, format_warning
 from ksm.git_ops import pull_repo
@@ -33,6 +35,7 @@ def _check_tty_for_prompt(yes_flag: bool) -> bool:
                 "Confirmation required but stdin is" " not a terminal.",
                 "Non-interactive mode detected.",
                 "Use --yes to skip confirmation.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -40,15 +43,18 @@ def _check_tty_for_prompt(yes_flag: bool) -> bool:
     return True
 
 
-def _build_confirmation_message(entries: list[ManifestEntry]) -> str:
+def _build_confirmation_message(
+    entries: list[ManifestEntry],
+    stream: TextIO | None = None,
+) -> str:
     """Build specific confirmation listing bundle names and file counts.
 
-    Format (Req 13.1, 13.2):
+    Format (Req 13.1, 13.2, 10.1–10.3):
       Syncing N bundles: name1, name2, ...
       This will overwrite M configuration files in .kiro/ and/or ~/.kiro/.
       Continue? [y/n]
     """
-    bundle_names = [e.bundle_name for e in entries]
+    bundle_names = [bold(e.bundle_name, stream=stream) for e in entries]
     total_files = sum(len(e.installed_files) for e in entries)
 
     scopes = {e.scope for e in entries}
@@ -59,9 +65,13 @@ def _build_confirmation_message(entries: list[ManifestEntry]) -> str:
     else:
         scope_desc = ".kiro/ and ~/.kiro/"
 
+    scope_str = bold(scope_desc, stream=stream)
+
     lines = [
-        f"Syncing {len(entries)} bundle(s): {', '.join(bundle_names)}",
-        f"This will overwrite {total_files} configuration file(s) " f"in {scope_desc}.",
+        f"Syncing {len(entries)} bundle(s):" f" {', '.join(bundle_names)}",
+        f"This will overwrite {total_files}"
+        f" configuration file(s)"
+        f" in {scope_str}.",
         "Continue? [y/n] ",
     ]
     return "\n".join(lines)
@@ -88,6 +98,7 @@ def run_sync(
                 "No bundles specified.",
                 "Provide bundle name(s) or use --all.",
                 "Example: ksm sync <bundle> or" " ksm sync --all",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -106,6 +117,7 @@ def run_sync(
                         f"Bundle '{name}' is not installed.",
                         "Cannot sync a bundle that is not" " installed.",
                         "Run `ksm list` to see installed" " bundles.",
+                        stream=sys.stderr,
                     ),
                     file=sys.stderr,
                 )
@@ -120,7 +132,7 @@ def run_sync(
         if not _check_tty_for_prompt(skip_confirm):
             return 1
         # Build specific confirmation message (Req 13.1, 13.2)
-        prompt = _build_confirmation_message(entries_to_sync)
+        prompt = _build_confirmation_message(entries_to_sync, stream=sys.stderr)
         try:
             response = input(prompt)
         except EOFError:
@@ -131,7 +143,9 @@ def run_sync(
     # Dry-run: preview without modifying (Req 12.3)
     if dry_run:
         print(
-            _build_confirmation_message(entries_to_sync).rstrip("\nContinue? [y/n] "),
+            _build_confirmation_message(entries_to_sync, stream=sys.stderr).rstrip(
+                "\nContinue? [y/n] "
+            ),
             file=sys.stderr,
         )
         return 0
@@ -166,6 +180,7 @@ def _pull_custom_registries(
                     format_warning(
                         f"Failed to pull {reg.name}: {e}",
                         "Sync will use the local cache.",
+                        stream=sys.stderr,
                     ),
                     file=sys.stderr,
                 )
@@ -189,6 +204,7 @@ def _sync_entry(
             format_warning(
                 f"Bundle '{entry.bundle_name}' not found" f" in registries: {searched}",
                 "Skipping sync for this bundle.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
@@ -210,13 +226,19 @@ def _sync_entry(
             format_warning(
                 f"Failed to sync '{entry.bundle_name}'.",
                 "The bundle may have changed upstream.",
+                stream=sys.stderr,
             ),
             file=sys.stderr,
         )
         return
 
     if results:
+        prefix = green("Synced:", stream=sys.stderr)
         print(
-            format_diff_summary(results),
+            f"{prefix} '{entry.bundle_name}'",
+            file=sys.stderr,
+        )
+        print(
+            format_diff_summary(results, stream=sys.stderr),
             file=sys.stderr,
         )

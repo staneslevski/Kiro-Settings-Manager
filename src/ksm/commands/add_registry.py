@@ -29,6 +29,7 @@ def run_add_registry(
             "ksm registry add",
             "v0.2.0",
             "v1.0.0",
+            stream=sys.stderr,
         ),
         file=sys.stderr,
     )
