@@ -1191,6 +1191,10 @@ def test_run_add_auto_launch_tty(
             "ksm.commands.add.interactive_select",
             return_value=["aws"],
         ) as mock_sel,
+        patch(
+            "ksm.commands.add.scope_select",
+            return_value="local",
+        ),
     ):
         mock_stdin.isatty.return_value = True
         code = run_add(
@@ -2433,7 +2437,6 @@ class TestScopeSelectionIntegration:
             patch(
                 "ksm.commands.add.scope_select",
                 return_value="local",
-                create=True,
             ) as mock_scope,
         ):
             code = run_add(
@@ -2477,7 +2480,6 @@ class TestScopeSelectionIntegration:
             patch(
                 "ksm.commands.add.scope_select",
                 return_value="local",
-                create=True,
             ) as mock_scope,
         ):
             mock_stdin.isatty.return_value = True
@@ -2529,7 +2531,6 @@ class TestScopeSelectionIntegration:
             patch(
                 "ksm.commands.add.scope_select",
                 return_value="local",
-                create=True,
             ) as mock_scope,
         ):
             code = run_add(
@@ -2576,7 +2577,6 @@ class TestScopeSelectionIntegration:
             patch(
                 "ksm.commands.add.scope_select",
                 return_value="global",
-                create=True,
             ) as mock_scope,
         ):
             code = run_add(
@@ -2628,7 +2628,6 @@ class TestScopeSelectionIntegration:
             patch(
                 "ksm.commands.add.scope_select",
                 return_value="local",
-                create=True,
             ) as mock_scope,
         ):
             mock_stdin.isatty.return_value = False
@@ -2680,7 +2679,6 @@ class TestScopeSelectionIntegration:
             patch(
                 "ksm.commands.add.scope_select",
                 return_value=None,
-                create=True,
             ),
         ):
             code = run_add(
@@ -2724,7 +2722,6 @@ class TestScopeSelectionIntegration:
             patch(
                 "ksm.commands.add.scope_select",
                 return_value=None,
-                create=True,
             ),
         ):
             mock_stdin.isatty.return_value = True
@@ -2776,7 +2773,6 @@ class TestScopeSelectionIntegration:
             patch(
                 "ksm.commands.add.scope_select",
                 return_value="local",
-                create=True,
             ),
             patch(
                 "ksm.commands.add.install_bundle",
@@ -2833,7 +2829,6 @@ class TestScopeSelectionIntegration:
             patch(
                 "ksm.commands.add.scope_select",
                 return_value="global",
-                create=True,
             ),
             patch(
                 "ksm.commands.add.install_bundle",
