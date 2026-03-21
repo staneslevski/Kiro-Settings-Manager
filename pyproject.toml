@@ -19,6 +19,7 @@ ksm = "ksm.cli:main"
 dev = [
     "pytest",
     "pytest-cov",
+    "pytest-asyncio",
     "hypothesis",
     "black",
     "flake8",

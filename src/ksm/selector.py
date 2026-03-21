@@ -5,23 +5,12 @@ removing bundles. Uses Textual TUI when available, falling
 back to a numbered-list prompt otherwise.
 
 All UI rendering goes to stderr to keep stdout clean for
-piped data (Req 25). Falls back to a numbered-list prompt
-when Textual is unavailable, stdin is not a TTY, or
-TERM=dumb (Reqs 7, 26, 29).
+piped data. Falls back to a numbered-list prompt when
+Textual is unavailable, stdin is not a TTY, or TERM=dumb.
 """
 
 import os
 import sys
-
-try:
-    import tty
-    import termios
-
-    _HAS_TERMIOS = True
-except ImportError:
-    tty = None  # type: ignore[assignment]
-    termios = None  # type: ignore[assignment]
-    _HAS_TERMIOS = False
 
 from ksm.color import bold, dim
 from ksm.manifest import ManifestEntry
@@ -37,7 +26,7 @@ def _can_run_textual() -> bool:
     - Textual is importable
 
     Returns False otherwise, signalling the caller to use
-    the numbered-list fallback. (Reqs 7.1, 7.2, 7.3, 8.5, 8.6)
+    the numbered-list fallback.
     """
     if not sys.stdin.isatty():
         return False
@@ -64,7 +53,7 @@ def _numbered_list_select(
     Displays items with 1-based indices, reads a number from
     stdin. Returns the 0-based index of the selected item, or
     None if the user enters ``q`` or EOF. Re-prompts on invalid
-    input. (Reqs 26, 29)
+    input.
     """
     sys.stderr.write(f"\n{header}\n\n")
     for i, (name, label) in enumerate(items, 1):
@@ -124,14 +113,13 @@ def render_add_selector(
     get an ``[installed]`` label. When ``multi_selected`` is
     provided, each line shows ``[✓]`` or ``[ ]`` indicators.
     Names are padded to align columns.
-    (Reqs 3, 14, 15)
     """
     sorted_bundles = sorted(bundles, key=lambda b: b.name.lower())
     if filter_text:
         ft = filter_text.lower()
         sorted_bundles = [b for b in sorted_bundles if ft in b.name.lower()]
 
-    # Detect ambiguous names (Req 4.1, 4.2)
+    # Detect ambiguous names
     name_counts: dict[str, int] = {}
     for b in sorted_bundles:
         name_counts[b.name] = name_counts.get(b.name, 0) + 1
@@ -187,12 +175,11 @@ def render_removal_selector(
     Returns a header line, an instruction line, a blank
     separator, then the entry list. Entries are sorted
     alphabetically by bundle name (case-insensitive) and
-    optionally filtered by ``filter_text`` (case-insensitive
-    substring match).
+    optionally filtered by ``filter_text``.
 
     When ``multi_selected`` is provided, each line shows
     ``[✓]`` or ``[ ]`` indicators. Names are padded to align
-    columns. (Req 3.1, 3.2, 3.3, 14, 15)
+    columns.
     """
     sorted_entries = sorted(entries, key=lambda e: e.bundle_name.lower())
     if filter_text:
@@ -217,55 +204,11 @@ def render_removal_selector(
     return lines
 
 
-def process_key(key_bytes: bytes, current_index: int, count: int) -> tuple[str, int]:
-    """Process a keypress and return (action, new_index).
-
-    Actions: ``"select"``, ``"quit"``, ``"navigate"``,
-    ``"toggle"``, ``"filter_char"``, ``"backspace"``,
-    ``"noop"``.
-    """
-    if key_bytes == b"\r" or key_bytes == b"\n":
-        return ("select", current_index)
-    if key_bytes == b"\x1b[A":  # Up arrow
-        return (
-            "navigate",
-            clamp_index(current_index - 1, count),
-        )
-    if key_bytes == b"\x1b[B":  # Down arrow
-        return (
-            "navigate",
-            clamp_index(current_index + 1, count),
-        )
-    if key_bytes == b" ":
-        return ("toggle", current_index)
-    if key_bytes == b"\x7f":
-        return ("backspace", current_index)
-    if key_bytes == b"\x1b":
-        return ("quit", current_index)
-    if key_bytes == b"q":
-        return ("quit", current_index)
-    # Single printable ASCII byte → filter character
-    if len(key_bytes) == 1 and 32 < key_bytes[0] < 127:
-        return ("filter_char", current_index)
-    return ("noop", current_index)
-
-
-def _read_key() -> bytes:
-    """Read a single keypress from stdin in raw mode."""
-    ch = sys.stdin.buffer.read(1)
-    if ch == b"\x1b":
-        # Could be an escape sequence
-        extra = sys.stdin.buffer.read(2)
-        return ch + extra
-    return ch
-
-
 _SCOPE_OPTIONS = [
     ("local", "Local (.kiro/)"),
     ("global", "Global (~/.kiro/)"),
 ]
 _SCOPE_HEADER = "Select installation scope:"
-_SCOPE_INSTRUCTIONS = "↑/↓ navigate, Enter select, q quit"
 
 
 def scope_select() -> str | None:
@@ -273,12 +216,10 @@ def scope_select() -> str | None:
 
     Returns ``"local"``, ``"global"``, or ``None`` (abort).
 
-    Raw mode: inline arrow-key navigation (no alternate
-    screen buffer). Fallback: numbered list prompt.
-    Non-TTY stdin in fallback: returns ``None`` (caller
-    defaults to ``"local"``).
-
-    (Reqs 11, 12, 13, 16)
+    Delegates to ScopeSelectorApp when Textual is available,
+    otherwise falls back to numbered-list prompt. Non-TTY
+    stdin in fallback returns ``None`` (caller defaults to
+    ``"local"``).
     """
     if not _can_run_textual():
         # Numbered-list fallback
@@ -305,43 +246,18 @@ def scope_select() -> str | None:
             sys.stderr.write("Invalid input. Enter 1-2 or q.\n")
             sys.stderr.flush()
 
-    # Raw mode path — inline rendering
-    selected = 0
-    count = len(_SCOPE_OPTIONS)
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
+    # Textual path
     try:
-        tty.setraw(fd)
-        while True:
-            lines: list[str] = [
-                bold(_SCOPE_HEADER, stream=sys.stderr),
-                dim(
-                    _SCOPE_INSTRUCTIONS,
-                    stream=sys.stderr,
-                ),
-                "",
-            ]
-            for i, (_key, label) in enumerate(_SCOPE_OPTIONS):
-                prefix = ">" if i == selected else " "
-                text = f"{prefix} {label}"
-                if i == selected:
-                    text = bold(text, stream=sys.stderr)
-                lines.append(text)
+        from ksm.tui import ScopeSelectorApp
 
-            output = "\r\n".join(lines) + "\r\n"
-            sys.stderr.write(output)
-            sys.stderr.flush()
-
-            key = _read_key()
-            action, selected = process_key(key, selected, count)
-            if action == "select":
-                return _SCOPE_OPTIONS[selected][0]
-            if action == "quit":
-                return None
+        app = ScopeSelectorApp()
+        app.run(inline=True)
+        return app.selected_scope
     except KeyboardInterrupt:
         return None
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    except Exception as exc:
+        print(f"Selector error: {exc}", file=sys.stderr)
+        return None
 
 
 def interactive_select(
@@ -351,15 +267,8 @@ def interactive_select(
     """Show interactive add-bundle selector.
 
     Returns a list of selected bundle names, or ``None`` if
-    the user quits with ``q`` or Escape. When multi-select
-    is used (Space to toggle), Enter confirms all toggled
-    items. Without any toggles, Enter returns a single-item
-    list.
-
-    All UI rendering goes to stderr (Req 25).
-    Uses alternate screen buffer in raw mode (Req 30).
-    Falls back to numbered-list prompt when raw mode
-    unavailable (Reqs 26, 29).
+    the user quits. Delegates to BundleSelectorApp when
+    Textual is available, otherwise falls back to numbered-list.
     """
     if not bundles:
         return None
@@ -380,68 +289,18 @@ def interactive_select(
             return None
         return [names[idx]]
 
-    selected = 0
-    filter_text = ""
-    multi_selected: set[int] = set()
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
+    # Textual path
     try:
-        tty.setraw(fd)
-        # Enter alternate screen buffer (Req 30)
-        sys.stderr.write("\033[?1049h")
-        sys.stderr.flush()
-        while True:
-            # Compute filtered names for index mapping
-            if filter_text:
-                ft = filter_text.lower()
-                filtered = [n for n in names if ft in n.lower()]
-            else:
-                filtered = names
-            count = len(filtered) if filtered else 1
-            selected = clamp_index(selected, count)
+        from ksm.tui import BundleSelectorApp
 
-            lines = render_add_selector(
-                bundles,
-                installed_names,
-                selected,
-                filter_text=filter_text,
-                multi_selected=(multi_selected if multi_selected else None),
-            )
-            output = "\r\n".join(lines) + "\r\n"
-            sys.stderr.write("\033[?25l\033[H" + output + "\033[J\033[?25h")
-            sys.stderr.flush()
-
-            key = _read_key()
-            action, selected = process_key(key, selected, count)
-            if action == "select":
-                if multi_selected:
-                    return [
-                        filtered[i] for i in sorted(multi_selected) if i < len(filtered)
-                    ]
-                if filtered:
-                    return [filtered[selected]]
-                return None
-            if action == "quit":
-                return None
-            if action == "filter_char":
-                filter_text += key.decode("ascii", "ignore")
-                selected = 0
-                multi_selected = set()
-            elif action == "backspace":
-                filter_text = filter_text[:-1]
-                selected = 0
-                multi_selected = set()
-            elif action == "toggle":
-                if selected in multi_selected:
-                    multi_selected.discard(selected)
-                else:
-                    multi_selected.add(selected)
-    finally:
-        sys.stderr.write("\033[?25h")
-        # Exit alternate screen buffer (Req 30)
-        sys.stderr.write("\033[?1049l")
-        sys.stderr.flush()
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        app = BundleSelectorApp(bundles, installed_names)
+        app.run()
+        return app.selected_names
+    except KeyboardInterrupt:
+        return None
+    except Exception as exc:
+        print(f"Selector error: {exc}", file=sys.stderr)
+        return None
 
 
 def interactive_removal_select(
@@ -450,15 +309,9 @@ def interactive_removal_select(
     """Show interactive removal selector.
 
     Returns a list of selected ManifestEntry objects, or
-    ``None`` if the user quits with ``q`` or Escape. When
-    multi-select is used (Space to toggle), Enter confirms
-    all toggled items. Without any toggles, Enter returns a
-    single-item list.
-
-    All UI rendering goes to stderr (Req 25).
-    Uses alternate screen buffer in raw mode (Req 30).
-    Falls back to numbered-list prompt when raw mode
-    unavailable (Reqs 26, 29).
+    ``None`` if the user quits. Delegates to RemovalSelectorApp
+    when Textual is available, otherwise falls back to
+    numbered-list.
     """
     if not entries:
         return None
@@ -472,64 +325,15 @@ def interactive_removal_select(
             return None
         return [sorted_entries[idx]]
 
-    selected = 0
-    filter_text = ""
-    multi_selected: set[int] = set()
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
+    # Textual path
     try:
-        tty.setraw(fd)
-        # Enter alternate screen buffer (Req 30)
-        sys.stderr.write("\033[?1049h")
-        sys.stderr.flush()
-        while True:
-            # Compute filtered entries for index mapping
-            if filter_text:
-                ft = filter_text.lower()
-                filtered = [e for e in sorted_entries if ft in e.bundle_name.lower()]
-            else:
-                filtered = sorted_entries
-            count = len(filtered) if filtered else 1
-            selected = clamp_index(selected, count)
+        from ksm.tui import RemovalSelectorApp
 
-            lines = render_removal_selector(
-                entries,
-                selected,
-                filter_text=filter_text,
-                multi_selected=(multi_selected if multi_selected else None),
-            )
-            output = "\r\n".join(lines) + "\r\n"
-            sys.stderr.write("\033[?25l\033[H" + output + "\033[J\033[?25h")
-            sys.stderr.flush()
-
-            key = _read_key()
-            action, selected = process_key(key, selected, count)
-            if action == "select":
-                if multi_selected:
-                    return [
-                        filtered[i] for i in sorted(multi_selected) if i < len(filtered)
-                    ]
-                if filtered:
-                    return [filtered[selected]]
-                return None
-            if action == "quit":
-                return None
-            if action == "filter_char":
-                filter_text += key.decode("ascii", "ignore")
-                selected = 0
-                multi_selected = set()
-            elif action == "backspace":
-                filter_text = filter_text[:-1]
-                selected = 0
-                multi_selected = set()
-            elif action == "toggle":
-                if selected in multi_selected:
-                    multi_selected.discard(selected)
-                else:
-                    multi_selected.add(selected)
-    finally:
-        sys.stderr.write("\033[?25h")
-        # Exit alternate screen buffer (Req 30)
-        sys.stderr.write("\033[?1049l")
-        sys.stderr.flush()
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        app = RemovalSelectorApp(entries)
+        app.run()
+        return app.selected_entries
+    except KeyboardInterrupt:
+        return None
+    except Exception as exc:
+        print(f"Selector error: {exc}", file=sys.stderr)
+        return None

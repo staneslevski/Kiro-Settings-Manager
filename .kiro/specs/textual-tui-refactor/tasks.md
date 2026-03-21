@@ -53,18 +53,18 @@ Replace the hand-rolled raw `tty`/`termios` terminal UI in `src/ksm/selector.py`
   - [x] 2.3 Checkpoint — Run full test suite, verify all tests pass
     → Agent: kiro
 
-- [ ] 3. Textual apps — Bundle and Removal selectors
+- [x] 3. Textual apps — Bundle and Removal selectors
 
-  - [ ] 3.1 Create `src/ksm/tui.py` with `BundleSelectorApp`
+  - [x] 3.1 Create `src/ksm/tui.py` with `BundleSelectorApp`
 
-    - [ ] 3.1.1 Implement `BundleSelectorApp` with OptionList, Input filter widget, multi-select via Space, header/instructions Static widgets, and selected-count footer
+    - [x] 3.1.1 Implement `BundleSelectorApp` with OptionList, Input filter widget, multi-select via Space, header/instructions Static widgets, and selected-count footer
       - Sort bundles alphabetically (case-insensitive), show `[installed]` badge, disambiguate duplicate names with `registry_name/bundle_name`
       - Render to stderr via `App(output=sys.stderr)`
       - CSS styling via class variable (header bold, instructions dim, installed badge dim, highlight visible without color)
       → Agent: terminal-ui-engineer
       _Requirements: 2.1–2.9, 3.1–3.6, 4.1–4.4, 10.1–10.5, 10.8, 10.9, 11.1, 15.1, 15.2, 15.4_
 
-    - [ ] 3.1.2 Write Textual pilot tests for `BundleSelectorApp` in `tests/test_tui.py`
+    - [x] 3.1.2 Write Textual pilot tests for `BundleSelectorApp` in `tests/test_tui.py`
       → Agent: terminal-ui-engineer
       **Property 4: Filter change resets highlight to 0 and clears multi-select toggles**
       **Property 5: Enter returns toggled items when any are toggled, otherwise returns highlighted item**
@@ -73,103 +73,103 @@ Replace the hand-rolled raw `tty`/`termios` terminal UI in `src/ksm/selector.py`
       - Example tests: up/down navigation, Home/End, Escape abort, Ctrl+C abort, empty filter state message, disambiguation display
       _Requirements: 2.1–2.9, 3.1–3.6, 4.1–4.4, 15.1, 15.2, 15.4_
 
-    - [ ] 3.1.3 Run tests and verify all pass
+    - [x] 3.1.3 Run tests and verify all pass
       → Agent: kiro
 
-  - [ ] 3.2 Add `RemovalSelectorApp` to `src/ksm/tui.py`
+  - [x] 3.2 Add `RemovalSelectorApp` to `src/ksm/tui.py`
 
-    - [ ] 3.2.1 Implement `RemovalSelectorApp` with OptionList, Input filter, multi-select, scope labels (`[local]`/`[global]`) in dim styling
+    - [x] 3.2.1 Implement `RemovalSelectorApp` with OptionList, Input filter, multi-select, scope labels (`[local]`/`[global]`) in dim styling
       - Render to stderr, consistent keybindings with BundleSelectorApp
       → Agent: terminal-ui-engineer
       _Requirements: 5.1–5.9, 10.6, 11.2, 15.1, 15.2, 15.4_
 
-    - [ ] 3.2.2 Write Textual pilot tests for `RemovalSelectorApp` in `tests/test_tui.py`
+    - [x] 3.2.2 Write Textual pilot tests for `RemovalSelectorApp` in `tests/test_tui.py`
       → Agent: terminal-ui-engineer
       - Enter returns ManifestEntry, scope labels displayed, filter/multi-select/abort behavior consistent with BundleSelectorApp
       _Requirements: 5.1–5.9_
 
-    - [ ] 3.2.3 Run tests and verify all pass
+    - [x] 3.2.3 Run tests and verify all pass
       → Agent: kiro
 
-  - [ ] 3.3 Checkpoint — Run full test suite, verify all tests pass
+  - [x] 3.3 Checkpoint — Run full test suite, verify all tests pass
     → Agent: kiro
 
-- [ ] 4. Textual apps — Scope selector
+- [x] 4. Textual apps — Scope selector
 
-  - [ ] 4.1 Add `ScopeSelectorApp` to `src/ksm/tui.py`
+  - [x] 4.1 Add `ScopeSelectorApp` to `src/ksm/tui.py`
 
-    - [ ] 4.1.1 Implement `ScopeSelectorApp` with OptionList (2 items: "Local (.kiro/)", "Global (~/.kiro/)"), inline rendering (no alternate screen buffer), no filter, no multi-select
+    - [x] 4.1.1 Implement `ScopeSelectorApp` with OptionList (2 items: "Local (.kiro/)", "Global (~/.kiro/)"), inline rendering (no alternate screen buffer), no filter, no multi-select
       - Default highlight on "Local (.kiro/)", header bold, render to stderr
       - `q` always aborts (no filter input to conflict with)
       → Agent: terminal-ui-engineer
       _Requirements: 6.1–6.8, 10.7, 11.3, 15.1, 15.3_
 
-    - [ ] 4.1.2 Write Textual pilot tests for `ScopeSelectorApp` in `tests/test_tui.py`
+    - [x] 4.1.2 Write Textual pilot tests for `ScopeSelectorApp` in `tests/test_tui.py`
       → Agent: terminal-ui-engineer
       - Enter returns "local"/"global", Escape/q/Ctrl+C abort, default highlight is Local, no filter/multi-select
       _Requirements: 6.1–6.8_
 
-    - [ ] 4.1.3 Run tests and verify all pass
+    - [x] 4.1.3 Run tests and verify all pass
       → Agent: kiro
 
-  - [ ] 4.2 Checkpoint — Run full test suite, verify all tests pass
+  - [x] 4.2 Checkpoint — Run full test suite, verify all tests pass
     → Agent: kiro
 
-- [ ] 5. Rewire `selector.py` public API to use Textual apps
+- [x] 5. Rewire `selector.py` public API to use Textual apps
 
-  - [ ] 5.1 Rewire `interactive_select()`
+  - [x] 5.1 Rewire `interactive_select()`
 
-    - [ ] 5.1.1 Refactor `interactive_select()` to delegate to `BundleSelectorApp` when `_can_run_textual()` is True, otherwise fall back to `_numbered_list_select()`
+    - [x] 5.1.1 Refactor `interactive_select()` to delegate to `BundleSelectorApp` when `_can_run_textual()` is True, otherwise fall back to `_numbered_list_select()`
       - Lazy import of `tui.py` inside the Textual path
       - Wrap `app.run()` in `try/except (KeyboardInterrupt, Exception)` returning None on abort/error
       - Return `None` immediately for empty bundle list
       → Agent: terminal-ui-engineer
       _Requirements: 2.1, 9.1, 14.1–14.4, 16.1_
 
-  - [ ] 5.2 Rewire `interactive_removal_select()`
+  - [x] 5.2 Rewire `interactive_removal_select()`
 
-    - [ ] 5.2.1 Refactor `interactive_removal_select()` to delegate to `RemovalSelectorApp`, same pattern as `interactive_select()`
+    - [x] 5.2.1 Refactor `interactive_removal_select()` to delegate to `RemovalSelectorApp`, same pattern as `interactive_select()`
       - Return `None` immediately for empty entry list
       → Agent: terminal-ui-engineer
       _Requirements: 5.1, 9.2, 14.1–14.4, 16.2_
 
-  - [ ] 5.3 Rewire `scope_select()`
+  - [x] 5.3 Rewire `scope_select()`
 
-    - [ ] 5.3.1 Refactor `scope_select()` to delegate to `ScopeSelectorApp`, same pattern
+    - [x] 5.3.1 Refactor `scope_select()` to delegate to `ScopeSelectorApp`, same pattern
       → Agent: terminal-ui-engineer
       _Requirements: 6.1, 9.3, 14.1–14.4_
 
-  - [ ] 5.4 Write stderr-only rendering test
+  - [x] 5.4 Write stderr-only rendering test
 
-    - [ ] 5.4.1 Write test verifying all three public functions produce zero stdout output in `tests/test_tui.py`
+    - [x] 5.4.1 Write test verifying all three public functions produce zero stdout output in `tests/test_tui.py`
       → Agent: terminal-ui-engineer
       **Property 8: All selector UI renders to stderr only — zero bytes on stdout**
       _Requirements: 2.8, 5.8, 6.5, 11.1–11.4_
 
-  - [ ] 5.5 Run tests and verify all pass
+  - [x] 5.5 Run tests and verify all pass
     → Agent: kiro
 
-  - [ ] 5.6 Checkpoint — Run full test suite, verify all tests pass
+  - [x] 5.6 Checkpoint — Run full test suite, verify all tests pass
     → Agent: kiro
 
-- [ ] 6. Remove raw terminal code and update pure render functions
+- [x] 6. Remove raw terminal code and update pure render functions
 
-  - [ ] 6.1 Strip raw-mode code from `selector.py`
+  - [x] 6.1 Strip raw-mode code from `selector.py`
 
-    - [ ] 6.1.1 Remove `tty`/`termios` imports, `_HAS_TERMIOS`, `_read_key()`, `process_key()`, and all manual ANSI escape sequences from `selector.py`
+    - [x] 6.1.1 Remove `tty`/`termios` imports, `_HAS_TERMIOS`, `_read_key()`, `process_key()`, and all manual ANSI escape sequences from `selector.py`
       - Retain `clamp_index()`, `render_add_selector()`, `render_removal_selector()`, `_numbered_list_select()`
       → Agent: terminal-ui-engineer
       _Requirements: 8.1–8.5, 9.4, 9.5, 12.1–12.4_
 
-  - [ ] 6.2 Write structural verification tests
+  - [x] 6.2 Write structural verification tests
 
-    - [ ] 6.2.1 Write tests in `tests/test_selector.py` asserting `selector.py` does not import `tty` or `termios`, does not contain `process_key`, and exports `clamp_index`
+    - [x] 6.2.1 Write tests in `tests/test_selector.py` asserting `selector.py` does not import `tty` or `termios`, does not contain `process_key`, and exports `clamp_index`
       → Agent: terminal-ui-engineer
       _Requirements: 8.1–8.4, 9.4, 9.5_
 
-  - [ ] 6.3 Update pure render function tests
+  - [x] 6.3 Update pure render function tests
 
-    - [ ] 6.3.1 Update existing property tests for `render_add_selector` and `render_removal_selector` in `tests/test_selector.py`
+    - [x] 6.3.1 Update existing property tests for `render_add_selector` and `render_removal_selector` in `tests/test_selector.py`
       → Agent: terminal-ui-engineer
       **Property 1: Bundle list sorting and installed-label accuracy**
       **Property 2: Ambiguous bundle name disambiguation**
@@ -178,39 +178,39 @@ Replace the hand-rolled raw `tty`/`termios` terminal UI in `src/ksm/selector.py`
       **Property 11: clamp_index bounds**
       _Requirements: 2.2, 2.3, 3.2, 3.3, 5.2, 9.4, 12.1–12.4_
 
-  - [ ] 6.4 Remove obsolete tests
+  - [x] 6.4 Remove obsolete tests
 
-    - [ ] 6.4.1 Remove `test_process_key_*` tests and any tests mocking `tty`/`termios`/`_read_key` from `tests/test_selector.py` and `tests/test_scope_select.py`
+    - [x] 6.4.1 Remove `test_process_key_*` tests and any tests mocking `tty`/`termios`/`_read_key` from `tests/test_selector.py` and `tests/test_scope_select.py`
       → Agent: terminal-ui-engineer
       _Requirements: 8.1–8.4, 9.5_
 
-  - [ ] 6.5 Run tests and verify all pass
+  - [x] 6.5 Run tests and verify all pass
     → Agent: kiro
 
-  - [ ] 6.6 Checkpoint — Run full test suite, verify all tests pass
+  - [x] 6.6 Checkpoint — Run full test suite, verify all tests pass
     → Agent: kiro
 
-- [ ] 7. Final integration, edge cases, and cleanup
+- [x] 7. Final integration, edge cases, and cleanup
 
-  - [ ] 7.1 Empty list and single-item edge cases
+  - [x] 7.1 Empty list and single-item edge cases
 
-    - [ ] 7.1.1 Write tests verifying empty-list returns None without launching app, and single-item still shows full UI in `tests/test_tui.py`
+    - [x] 7.1.1 Write tests verifying empty-list returns None without launching app, and single-item still shows full UI in `tests/test_tui.py`
       → Agent: terminal-ui-engineer
       _Requirements: 16.1, 16.2, 16.3_
 
-  - [ ] 7.2 NO_COLOR support verification
+  - [x] 7.2 NO_COLOR support verification
 
-    - [ ] 7.2.1 Write test verifying Textual apps respect `NO_COLOR` env var — structural indicators (reverse-video, `>` prefix) remain visible
+    - [x] 7.2.1 Write test verifying Textual apps respect `NO_COLOR` env var — structural indicators (reverse-video, `>` prefix) remain visible
       → Agent: terminal-ui-engineer
       _Requirements: 10.5, 10.9, 13.4_
 
-  - [ ] 7.3 Color module coexistence verification
+  - [x] 7.3 Color module coexistence verification
 
-    - [ ] 7.3.1 Write test verifying `color.py` functions are still used by `errors.py` and `copier.py`, and Textual apps use CSS-only styling
+    - [x] 7.3.1 Write test verifying `color.py` functions are still used by `errors.py` and `copier.py`, and Textual apps use CSS-only styling
       → Agent: terminal-ui-engineer
       _Requirements: 13.1–13.4_
 
-  - [ ] 7.4 Run full test suite, lint with black and flake8, type check with mypy
+  - [x] 7.4 Run full test suite, lint with black and flake8, type check with mypy
     → Agent: kiro
 
   - [ ] 7.5 Create pull request
