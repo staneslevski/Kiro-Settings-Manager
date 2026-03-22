@@ -3153,3 +3153,86 @@ class TestAddSuccessOutputVisualOverhaul:
         assert self._ACCENT_CODE in captured.err
         assert "Installed" in captured.err
         assert self._SUCCESS_CODE in captured.err
+
+
+# Feature: ux-visual-overhaul, Property 14: add success output format
+# **Validates: Requirements 7.1**
+
+
+@given(
+    bundle_name=st.from_regex(r"[a-z][a-z0-9\-]{0,9}", fullmatch=True),
+    use_global=st.booleans(),
+)
+def test_property_add_success_output_format(
+    bundle_name: str,
+    use_global: bool,
+) -> None:
+    """Property 14: add success output contains SYM_CHECK
+    styled with success, bundle name styled with accent,
+    SYM_ARROW, and scope path styled with muted."""
+    import io
+    import tempfile
+
+    from ksm.color import SYM_ARROW, SYM_CHECK
+    from ksm.commands.add import run_add
+
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td)
+        reg = base / "reg" / bundle_name / "skills"
+        reg.mkdir(parents=True)
+        (reg / "f.md").write_bytes(b"x")
+
+        target_local = base / "local" / ".kiro"
+        target_global = base / "global" / ".kiro"
+        ksm_dir = base / "ksm"
+        ksm_dir.mkdir()
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(base / "reg"),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(
+            bundle_spec=bundle_name,
+            global_=use_global,
+            local=not use_global,
+        )
+
+        captured = io.StringIO()
+        with patch(
+            "sys.stderr", new=captured
+        ):
+            with patch(
+                "ksm.color._color_level",
+                return_value=2,
+            ):
+                run_add(
+                    args,
+                    registry_index=idx,
+                    manifest=manifest,
+                    manifest_path=ksm_dir / "m.json",
+                    target_local=target_local,
+                    target_global=target_global,
+                )
+
+        output = captured.getvalue()
+        # success-styled SYM_CHECK
+        assert f"\033[92m{SYM_CHECK}\033[0m" in output
+        # accent-styled bundle name
+        assert f"\033[96m{bundle_name}\033[0m" in output
+        # SYM_ARROW present
+        assert SYM_ARROW in output
+        # muted scope
+        scope = "global" if use_global else "local"
+        assert f"\033[2m({scope})\033[0m" in output
+        # scope path
+        expected_path = (
+            "~/.kiro/" if use_global else ".kiro/"
+        )
+        assert expected_path in output

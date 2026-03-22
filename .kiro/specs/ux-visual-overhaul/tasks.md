@@ -149,103 +149,103 @@ Overhaul the `ksm` CLI visual layer across color utilities, error formatting, di
       - **Property 13: ls verbose mode shows indented muted file paths**
       - **Validates: Requirements 6.1-6.6, 16.1**
 
-  - [ ] 4.2 `ksm add` output formatting
+  - [x] 4.2 `ksm add` output formatting
 
-    - [x] 4.2.1 Write tests for add success output format  <!-- spec:in_progress -->
+    - [x] 4.2.1 Write tests for add success output format
       - Test SYM_CHECK + success, accent bundle name, SYM_ARROW, muted scope
       - Test file paths relative to .kiro/
       - _Requirements: 7.1-7.5_
 
-    - [~] 4.2.2 Update add command success output
+    - [x] 4.2.2 Update add command success output
       - Format: `✓ Installed <name> → <path> (<scope>)`
       - Pass base_path to format_diff_summary for relative paths
       - _Requirements: 7.1-7.5_
 
-    - [~] 4.2.3 Write property test for add output (Property 14)
+    - [x] 4.2.3 Write property test for add output (Property 14)
       - **Property 14: add success output format**
       - **Validates: Requirements 7.1**
 
-  - [ ] 4.3 `ksm rm` output formatting
+  - [x] 4.3 `ksm rm` output formatting
 
-    - [~] 4.3.1 Write tests for rm confirmation and result formatting
+    - [x] 4.3.1 Write tests for rm confirmation and result formatting
       - Test accent bundle name, info scope, muted file count/list
       - Test bold [y/n], SYM_CHECK + success result
       - Test missing file count in result summary
       - _Requirements: 8.1-8.4_
 
-    - [~] 4.3.2 Update rm confirmation and result formatting
+    - [x] 4.3.2 Update rm confirmation and result formatting
       - Use accent, info, muted, success, bold semantic colors
       - Format: `✓ Removed <name> — <count> files deleted (<scope>)`
       - Include missing file count when applicable
       - _Requirements: 8.1-8.4_
 
-    - [~] 4.3.3 Write property tests for rm output (Properties 15-16)
+    - [x] 4.3.3 Write property tests for rm output (Properties 15-16)
       - **Property 15: rm confirmation uses correct semantic styles**
       - **Property 16: rm result format with missing file handling**
       - **Validates: Requirements 8.1-8.4**
 
-  - [ ] 4.4 `ksm sync` output formatting
+  - [x] 4.4 `ksm sync` output formatting
 
-    - [~] 4.4.1 Write tests for sync confirmation and result formatting
+    - [x] 4.4.1 Write tests for sync confirmation and result formatting
       - Test bold count header, accent names, muted scope/count with SYM_DOT
       - Test bold [y/n], per-bundle SYM_CHECK + success result
       - _Requirements: 9.1-9.4_
 
-    - [~] 4.4.2 Update sync confirmation and result formatting
+    - [x] 4.4.2 Update sync confirmation and result formatting
       - List bundles with accent name, muted scope · file count
       - Per-bundle result: `✓ Synced <name>` with diff details
       - _Requirements: 9.1-9.4_
 
-    - [~] 4.4.3 Write property tests for sync output (Properties 17-18)
+    - [x] 4.4.3 Write property tests for sync output (Properties 17-18)
       - **Property 17: sync confirmation lists bundles with semantic styles**
       - **Property 18: sync per-bundle result format**
       - **Validates: Requirements 9.1-9.3**
 
-  - [ ] 4.5 `ksm info`, `search`, `registry ls`, `registry inspect`, `init`
+  - [x] 4.5 `ksm info`, `search`, `registry ls`, `registry inspect`, `init`
 
-    - [~] 4.5.1 Write tests for info output format
+    - [x] 4.5.1 Write tests for info output format
       - Test accent name, no colons on labels, muted values
       - Test flattened contents with SYM_DOT, no internal path
       - Test installed scope: success when installed, muted when not
       - _Requirements: 10.1-10.5_
 
-    - [~] 4.5.2 Update info command output
+    - [x] 4.5.2 Update info command output
       - Remove colons from labels, flatten contents, hide internal path
       - Use accent, muted, success semantic colors
       - _Requirements: 10.1-10.5_
 
-    - [~] 4.5.3 Write tests for search output format
+    - [x] 4.5.3 Write tests for search output format
       - Test accent names, muted registry/types, column alignment
       - Test empty state with accent query and subtle suggestion
       - _Requirements: 11.1-11.4_
 
-    - [~] 4.5.4 Update search command output
+    - [x] 4.5.4 Update search command output
       - Use _align_columns(), accent names, muted metadata
       - Add empty state message with accent query
       - _Requirements: 11.1-11.4_
 
-    - [~] 4.5.5 Write tests for registry ls and registry inspect output
+    - [x] 4.5.5 Write tests for registry ls and registry inspect output
       - Test single-line format with accent name, muted URL/count, alignment
       - Test inspect: bold name, muted URL, accent bundles, inline contents
       - Test no internal metadata displayed
       - _Requirements: 12.1-12.3, 13.1-13.4_
 
-    - [~] 4.5.6 Update registry ls and registry inspect output
+    - [x] 4.5.6 Update registry ls and registry inspect output
       - Single-line per registry with _align_columns()
       - Inspect: inline comma-separated items, no metadata
       - _Requirements: 12.1-12.3, 13.1-13.4_
 
-    - [~] 4.5.7 Write tests for init output format
+    - [x] 4.5.7 Write tests for init output format
       - Test SYM_CHECK + success, info .kiro/, subtle hint
       - Test already-exists muted message
       - _Requirements: 14.1-14.3_
 
-    - [~] 4.5.8 Update init command output
+    - [x] 4.5.8 Update init command output
       - Format: `✓ Initialised .kiro/ in current directory`
       - Add subtle next-step hint, muted already-exists message
       - _Requirements: 14.1-14.3_
 
-    - [~] 4.5.9 Write property tests for remaining commands (Properties 19-23)
+    - [x] 4.5.9 Write property tests for remaining commands (Properties 19-23)
       - **Property 19: info output format**
       - **Property 20: search output uses semantic colors and alignment**
       - **Property 21: registry ls single-line format with alignment**
@@ -253,7 +253,7 @@ Overhaul the `ksm` CLI visual layer across color utilities, error formatting, di
       - **Property 23: CLI output has no trailing blank lines**
       - **Validates: Requirements 10.1-10.5, 11.1-11.3, 12.1-12.3, 13.1-13.4, 16.3**
 
-  - [~] 4.6 Checkpoint — Command output formatting
+  - [x] 4.6 Checkpoint — Command output formatting
     - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 5. TUI theming (`tui.py`)
