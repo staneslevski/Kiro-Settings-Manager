@@ -442,7 +442,7 @@ class TestInfoColor:
         )
 
         args = argparse.Namespace(bundle_name="my-bundle")
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_info(
                 args,
                 registry_index=idx,
@@ -451,8 +451,8 @@ class TestInfoColor:
 
         assert code == 0
         out = capsys.readouterr().out
-        # Green ANSI wrapping around the scope string
-        assert "\033[32mlocal\033[0m" in out
+        # success ANSI wrapping around the scope string
+        assert "\033[92mlocal\033[0m" in out
 
     def test_installed_scopes_no_color_when_no_color_set(
         self,
@@ -517,7 +517,7 @@ class TestInfoColor:
         manifest = Manifest(entries=[])
 
         args = argparse.Namespace(bundle_name="my-bundle")
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_info(
                 args,
                 registry_index=idx,
@@ -534,7 +534,7 @@ class TestInfoColor:
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Verify bundle name is wrapped in bold."""
+        """Verify bundle name is wrapped in accent."""
         from ksm.commands.info import run_info
 
         reg_path = tmp_path / "reg"
@@ -548,7 +548,7 @@ class TestInfoColor:
         manifest = Manifest(entries=[])
 
         args = argparse.Namespace(bundle_name="my-bundle")
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_info(
                 args,
                 registry_index=idx,
@@ -557,7 +557,7 @@ class TestInfoColor:
 
         assert code == 0
         out = capsys.readouterr().out
-        assert "\033[1mmy-bundle\033[0m" in out
+        assert "\033[96mmy-bundle\033[0m" in out
 
     def test_registry_name_uses_dim(
         self,
@@ -578,7 +578,7 @@ class TestInfoColor:
         manifest = Manifest(entries=[])
 
         args = argparse.Namespace(bundle_name="my-bundle")
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_info(
                 args,
                 registry_index=idx,
@@ -604,7 +604,7 @@ class TestSearchColor:
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Req 9.1: search wraps bundle names in bold."""
+        """Req 11.1: search wraps bundle names in accent."""
         from ksm.commands.search import run_search
 
         reg_path = tmp_path / "reg"
@@ -616,20 +616,20 @@ class TestSearchColor:
             ]
         )
         args = argparse.Namespace(query="my-bundle")
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_search(args, registry_index=idx)
 
         assert code == 0
         out = capsys.readouterr().out
-        assert "\033[1mmy-bundle\033[0m" in out
+        assert "\033[96mmy-bundle\033[0m" in out
 
     def test_registry_name_and_subdirs_use_dim(
         self,
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Req 9.1: search wraps registry name and subdirs
-        in dim."""
+        """Req 11.2: search wraps registry name and subdirs
+        in muted."""
         from ksm.commands.search import run_search
 
         reg_path = tmp_path / "reg"
@@ -641,14 +641,14 @@ class TestSearchColor:
             ]
         )
         args = argparse.Namespace(query="my-bundle")
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_search(args, registry_index=idx)
 
         assert code == 0
         out = capsys.readouterr().out
-        # Registry name wrapped in dim
-        assert "\033[2m(default)\033[0m" in out
-        # Subdirectory list wrapped in dim
+        # Registry name wrapped in muted (no parens)
+        assert "\033[2mdefault\033[0m" in out
+        # Subdirectory list wrapped in muted
         assert "\033[2mskills\033[0m" in out
 
     def test_no_color_suppresses_ansi(

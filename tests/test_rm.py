@@ -1148,16 +1148,15 @@ class TestRmFormatterStreamParam:
 
 
 class TestRmGreenSuccessPrefix:
-    """Property 13: rm _format_result wraps "Removed" prefix
-    in green."""
+    """Property 13: rm _format_result uses success-styled
+    checkmark."""
 
-    _GREEN = "\033[32m"
+    _SUCCESS = "\033[92m"
     _RESET = "\033[0m"
 
-    def test_removed_prefix_green_on_tty(self) -> None:
-        """Property 13: _format_result wraps 'Removed' in
-        green when stream is a TTY.
-        **Validates: Requirements 3.2**"""
+    def test_removed_prefix_success_on_tty(self) -> None:
+        """Property 13: _format_result uses success style
+        when stream is a TTY."""
         from io import StringIO
         from unittest.mock import MagicMock
 
@@ -1179,16 +1178,13 @@ class TestRmGreenSuccessPrefix:
         ):
             output = _format_result("aws", "local", result, stream=stream)
 
-        assert self._GREEN in output
+        assert self._SUCCESS in output
         assert "Removed" in output
-        assert f"{self._GREEN}Removed{self._RESET}" in output
 
     def test_removed_prefix_plain_with_no_color(
         self,
     ) -> None:
-        """Property 13: 'Removed' is plain text when
-        NO_COLOR is set.
-        **Validates: Requirements 3.4**"""
+        """Property 13: output is plain text when NO_COLOR set."""
         from io import StringIO
         from unittest.mock import MagicMock
 
@@ -1324,15 +1320,12 @@ class TestRmConfirmationColor:
         scope: str,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Property 16: rm confirmation wraps scope
-        description in bold when stream is a TTY.
-        **Validates: Requirements 7.2**"""
+        """Property 16: rm confirmation wraps scope in info
+        and bundle name in accent when stream is a TTY."""
         from ksm.commands.rm import _format_confirmation
 
         monkeypatch.delenv("NO_COLOR", raising=False)
         monkeypatch.setenv("TERM", "xterm-256color")
-
-        scope_desc = ".kiro/" if scope == "local" else "~/.kiro/"
 
         entry = ManifestEntry(
             bundle_name="test-bundle",
@@ -1346,8 +1339,10 @@ class TestRmConfirmationColor:
         stream = FakeTTY()
         prompt = _format_confirmation(entry, stream=stream)
 
-        expected = f"{self._BOLD}{scope_desc}{self._RESET}"
-        assert expected in prompt
+        # Scope wrapped in info (94)
+        assert f"\033[94m{scope}\033[0m" in prompt
+        # Bundle name wrapped in accent (96)
+        assert "\033[96mtest-bundle\033[0m" in prompt
 
     # --- Plain text when stream is None ---
 
@@ -1375,9 +1370,7 @@ class TestRmConfirmationColor:
     def test_rm_confirm_plain_when_non_tty(
         self,
     ) -> None:
-        """rm confirmation is plain text when stream is
-        non-TTY.
-        **Validates: Requirements 7.3**"""
+        """rm confirmation is plain text when stream is non-TTY."""
         import io
 
         from ksm.commands.rm import _format_confirmation
@@ -1393,7 +1386,7 @@ class TestRmConfirmationColor:
 
         assert "\033[" not in prompt
         assert "steering/s.md" in prompt
-        assert "~/.kiro/" in prompt
+        assert "global" in prompt
 
     # --- Preserves existing structure (Req 7.4) ---
 
@@ -1420,8 +1413,9 @@ class TestRmConfirmationColor:
 
         assert "aws" in prompt
         assert "local" in prompt
-        assert "2 file(s)" in prompt
-        assert "Continue? [y/n]" in prompt
+        assert "2 files" in prompt
+        assert "Continue?" in prompt
+        assert "[y/n]" in prompt
 
 
 # --- Tests for rm -i scope behavior (Reqs 14.1, 14.2, 14.3) ---

@@ -11,23 +11,86 @@ from typing import ClassVar
 from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import Container
+from textual.theme import Theme
 from textual.widgets import Input, OptionList, Static
 from textual.widgets.option_list import Option
 
+from rich.text import Text
+
 from ksm.manifest import ManifestEntry
 from ksm.scanner import BundleInfo
+
+KSM_THEME = Theme(
+    name="ksm",
+    primary="#56b6c2",
+    secondary="#61afef",
+    accent="#56b6c2",
+    success="#98c379",
+    warning="#e5c07b",
+    error="#e06c75",
+    surface="#282c34",
+    panel="#21252b",
+)
 
 
 class BundleSelectorApp(App[None]):
     """Interactive bundle selector using Textual."""
 
     CSS: ClassVar[str] = """
-    .selector-header { text-style: bold; }
-    .selector-instructions { text-style: dim; }
-    .installed-badge { text-style: dim; }
-    .selected-count { text-style: bold; dock: bottom; }
-    OptionList { height: 1fr; }
-    Input { dock: top; }
+    Screen { background: $surface; layout: vertical; }
+
+    #container {
+        border: round $accent;
+        border-title-color: $accent;
+        border-title-style: bold;
+        padding: 0 1;
+        margin: 1 2;
+        height: 1fr;
+    }
+
+    Input {
+        dock: top;
+        margin: 0 0 1 0;
+        border: tall $accent 30%;
+        background: $surface-darken-1;
+    }
+    Input:focus { border: tall $accent; }
+    Input.-invalid { border: tall $error; }
+
+    OptionList {
+        height: 1fr;
+        background: transparent;
+        border: none;
+        scrollbar-color: $accent 30%;
+        scrollbar-color-hover: $accent 60%;
+        scrollbar-color-active: $accent;
+    }
+    OptionList > .option-list--option-highlighted {
+        background: $accent 15%;
+        text-style: bold;
+    }
+    OptionList > .option-list--option-hover {
+        background: $accent 8%;
+    }
+    OptionList:focus > .option-list--option-highlighted {
+        background: $accent 25%;
+    }
+
+    #selected-count {
+        dock: bottom;
+        text-style: bold;
+        color: $accent;
+        text-align: right;
+    }
+
+    #footer-bar {
+        dock: bottom;
+        height: 1;
+        background: $accent 15%;
+        color: $text-muted;
+        padding: 0 1;
+    }
     """
 
     BINDINGS: ClassVar[list[Binding]] = [
@@ -40,6 +103,8 @@ class BundleSelectorApp(App[None]):
         installed_names: set[str],
     ) -> None:
         super().__init__()
+        self.register_theme(KSM_THEME)
+        self.theme = "ksm"
         self.bundles = bundles
         self.installed_names = installed_names
         self.selected_names: list[str] | None = None
@@ -67,14 +132,19 @@ class BundleSelectorApp(App[None]):
         self.filtered_items = list(items)
 
     def compose(self) -> ComposeResult:
-        yield Static("Select a bundle to install", classes="selector-header")
+        with Container(id="container"):
+            yield Static("Select a bundle to install",
+                          classes="selector-header")
+            yield Input(placeholder="Type to filter...")
+            yield OptionList()
+            yield Static("", id="selected-count")
         yield Static(
-            "↑/↓ navigate, Space toggle, Enter confirm, q/Esc quit",
-            classes="selector-instructions",
+            " [bold $accent]↑↓[/] Navigate  "
+            "[bold $accent]Space[/] Toggle  "
+            "[bold $accent]Enter[/] Confirm  "
+            "[bold $accent]Esc[/] Cancel",
+            id="footer-bar",
         )
-        yield Input(placeholder="Type to filter...")
-        yield OptionList()
-        yield Static("", id="selected-count", classes="selected-count")
 
     def on_mount(self) -> None:
         self._refresh_options()
@@ -90,7 +160,12 @@ class BundleSelectorApp(App[None]):
                 else "[ ] " if self.multi_selected else ""
             )
             badge = " [installed]" if bundle.name in self.installed_names else ""
-            ol.add_option(Option(f"{check}{display}{badge}", id=str(i)))
+            label = Text()
+            label.append(check)
+            label.append(display, style="bold cyan")
+            if badge:
+                label.append(badge, style="dim")
+            ol.add_option(Option(label, id=str(i)))
         if not self.filtered_items:
             filter_val = self.query_one(Input).value
             ol.add_option(Option(f"No bundles match '{filter_val}'", disabled=True))
@@ -168,12 +243,59 @@ class RemovalSelectorApp(App[None]):
     """Interactive removal selector using Textual."""
 
     CSS: ClassVar[str] = """
-    .selector-header { text-style: bold; }
-    .selector-instructions { text-style: dim; }
-    .scope-label { text-style: dim; }
-    .selected-count { text-style: bold; dock: bottom; }
-    OptionList { height: 1fr; }
-    Input { dock: top; }
+    Screen { background: $surface; layout: vertical; }
+
+    #container {
+        border: round $accent;
+        border-title-color: $accent;
+        border-title-style: bold;
+        padding: 0 1;
+        margin: 1 2;
+        height: 1fr;
+    }
+
+    Input {
+        dock: top;
+        margin: 0 0 1 0;
+        border: tall $accent 30%;
+        background: $surface-darken-1;
+    }
+    Input:focus { border: tall $accent; }
+    Input.-invalid { border: tall $error; }
+
+    OptionList {
+        height: 1fr;
+        background: transparent;
+        border: none;
+        scrollbar-color: $accent 30%;
+        scrollbar-color-hover: $accent 60%;
+        scrollbar-color-active: $accent;
+    }
+    OptionList > .option-list--option-highlighted {
+        background: $accent 15%;
+        text-style: bold;
+    }
+    OptionList > .option-list--option-hover {
+        background: $accent 8%;
+    }
+    OptionList:focus > .option-list--option-highlighted {
+        background: $accent 25%;
+    }
+
+    #selected-count {
+        dock: bottom;
+        text-style: bold;
+        color: $accent;
+        text-align: right;
+    }
+
+    #footer-bar {
+        dock: bottom;
+        height: 1;
+        background: $accent 15%;
+        color: $text-muted;
+        padding: 0 1;
+    }
     """
 
     BINDINGS: ClassVar[list[Binding]] = [
@@ -182,20 +304,27 @@ class RemovalSelectorApp(App[None]):
 
     def __init__(self, entries: list[ManifestEntry]) -> None:
         super().__init__()
+        self.register_theme(KSM_THEME)
+        self.theme = "ksm"
         self.entries = sorted(entries, key=lambda e: e.bundle_name.lower())
         self.filtered_entries: list[ManifestEntry] = list(self.entries)
         self.selected_entries: list[ManifestEntry] | None = None
         self.multi_selected: set[int] = set()
 
     def compose(self) -> ComposeResult:
-        yield Static("Select a bundle to remove", classes="selector-header")
+        with Container(id="container"):
+            yield Static("Select a bundle to remove",
+                          classes="selector-header")
+            yield Input(placeholder="Type to filter...")
+            yield OptionList()
+            yield Static("", id="selected-count")
         yield Static(
-            "↑/↓ navigate, Space toggle, Enter confirm, q/Esc quit",
-            classes="selector-instructions",
+            " [bold $accent]↑↓[/] Navigate  "
+            "[bold $accent]Space[/] Toggle  "
+            "[bold $accent]Enter[/] Confirm  "
+            "[bold $accent]Esc[/] Cancel",
+            id="footer-bar",
         )
-        yield Input(placeholder="Type to filter...")
-        yield OptionList()
-        yield Static("", id="selected-count", classes="selected-count")
 
     def on_mount(self) -> None:
         self._refresh_options()
@@ -210,9 +339,11 @@ class RemovalSelectorApp(App[None]):
                 if i in self.multi_selected
                 else "[ ] " if self.multi_selected else ""
             )
-            ol.add_option(
-                Option(f"{check}{entry.bundle_name} [{entry.scope}]", id=str(i))
-            )
+            label = Text()
+            label.append(check)
+            label.append(entry.bundle_name, style="bold cyan")
+            label.append(f" [{entry.scope}]", style="dim")
+            ol.add_option(Option(label, id=str(i)))
         if not self.filtered_entries:
             filter_val = self.query_one(Input).value
             ol.add_option(Option(f"No bundles match '{filter_val}'", disabled=True))
@@ -294,9 +425,31 @@ class ScopeSelectorApp(App[None]):
     """
 
     CSS: ClassVar[str] = """
-    .selector-header { text-style: bold; }
-    .selector-instructions { text-style: dim; }
-    OptionList { height: auto; max-height: 6; }
+    Screen { background: $surface; align: center middle; }
+
+    #scope-container {
+        border: round $accent;
+        border-title-color: $accent;
+        border-title-style: bold;
+        padding: 1 2;
+        width: 40;
+        height: auto;
+        max-height: 12;
+    }
+
+    OptionList {
+        height: auto;
+        max-height: 4;
+        background: transparent;
+        border: none;
+    }
+    OptionList > .option-list--option-highlighted {
+        background: $accent 20%;
+        text-style: bold;
+    }
+    OptionList:focus > .option-list--option-highlighted {
+        background: $accent 30%;
+    }
     """
 
     BINDINGS: ClassVar[list[Binding]] = [
@@ -311,15 +464,18 @@ class ScopeSelectorApp(App[None]):
 
     def __init__(self) -> None:
         super().__init__()
+        self.register_theme(KSM_THEME)
+        self.theme = "ksm"
         self.selected_scope: str | None = None
 
     def compose(self) -> ComposeResult:
-        yield Static("Select installation scope:", classes="selector-header")
-        yield Static(
-            "↑/↓ navigate, Enter select, q/Esc quit",
-            classes="selector-instructions",
-        )
-        yield OptionList(*[Option(label, id=key) for key, label in self._SCOPE_OPTIONS])
+        with Container(id="scope-container"):
+            yield Static("Select installation scope:",
+                          classes="selector-header")
+            yield OptionList(
+                *[Option(label, id=key)
+                  for key, label in self._SCOPE_OPTIONS]
+            )
 
     def on_mount(self) -> None:
         ol = self.query_one(OptionList)

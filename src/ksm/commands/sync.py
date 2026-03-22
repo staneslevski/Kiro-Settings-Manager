@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from ksm.color import bold, green
+from ksm.color import SYM_CHECK, SYM_DOT, accent, bold, muted, success
 from ksm.copier import format_diff_summary
 from ksm.errors import format_error, format_warning
 from ksm.git_ops import pull_repo
@@ -47,33 +47,26 @@ def _build_confirmation_message(
     entries: list[ManifestEntry],
     stream: TextIO | None = None,
 ) -> str:
-    """Build specific confirmation listing bundle names and file counts.
-
-    Format (Req 13.1, 13.2, 10.1–10.3):
-      Syncing N bundles: name1, name2, ...
-      This will overwrite M configuration files in .kiro/ and/or ~/.kiro/.
-      Continue? [y/n]
-    """
-    bundle_names = [bold(e.bundle_name, stream=stream) for e in entries]
-    total_files = sum(len(e.installed_files) for e in entries)
-
-    scopes = {e.scope for e in entries}
-    if scopes == {"local"}:
-        scope_desc = ".kiro/"
-    elif scopes == {"global"}:
-        scope_desc = "~/.kiro/"
-    else:
-        scope_desc = ".kiro/ and ~/.kiro/"
-
-    scope_str = bold(scope_desc, stream=stream)
-
-    lines = [
-        f"Syncing {len(entries)} bundle(s):" f" {', '.join(bundle_names)}",
-        f"This will overwrite {total_files}"
-        f" configuration file(s)"
-        f" in {scope_str}.",
-        "Continue? [y/n] ",
-    ]
+    """Build confirmation listing bundles with scope and file count."""
+    count_header = bold(
+        f"Sync {len(entries)} bundles?", stream=stream
+    )
+    lines = [count_header]
+    for e in entries:
+        file_count = len(e.installed_files)
+        file_word = "file" if file_count == 1 else "files"
+        name = accent(e.bundle_name, stream=stream)
+        meta = muted(
+            f"{e.scope}  {SYM_DOT} {file_count} {file_word}",
+            stream=stream,
+        )
+        lines.append(f"  {name}  {meta}")
+    lines.append("")
+    yn = bold("[y/n]", stream=stream)
+    lines.append(
+        f"This will overwrite configuration files."
+        f" Continue? {yn} "
+    )
     return "\n".join(lines)
 
 
@@ -233,9 +226,10 @@ def _sync_entry(
         return
 
     if results:
-        prefix = green("Synced:", stream=sys.stderr)
+        check = success(SYM_CHECK, stream=sys.stderr)
+        name = accent(entry.bundle_name, stream=sys.stderr)
         print(
-            f"{prefix} '{entry.bundle_name}'",
+            f"{check} Synced {name}",
             file=sys.stderr,
         )
         print(

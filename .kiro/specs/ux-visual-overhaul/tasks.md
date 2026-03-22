@@ -6,7 +6,7 @@ Overhaul the `ksm` CLI visual layer across color utilities, error formatting, di
 
 ## Tasks
 
-- [ ] 1. Core color system (`color.py`)
+- [x] 1. Core color system (`color.py`)
 
   - [ ] 1.1 Terminal detection and semantic color foundations
 
@@ -77,7 +77,7 @@ Overhaul the `ksm` CLI visual layer across color utilities, error formatting, di
   - [ ] 1.3 Checkpoint — Core color system
     - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 2. Error formatting (`errors.py`)
+- [x] 2. Error formatting (`errors.py`)
 
   - [ ] 2.1 Error message formatting updates
 
@@ -101,7 +101,7 @@ Overhaul the `ksm` CLI visual layer across color utilities, error formatting, di
   - [ ] 2.2 Checkpoint — Error formatting
     - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 3. Diff summary formatting (`copier.py`)
+- [x] 3. Diff summary formatting (`copier.py`)
 
   - [ ] 3.1 Diff summary updates
 
@@ -126,7 +126,7 @@ Overhaul the `ksm` CLI visual layer across color utilities, error formatting, di
   - [ ] 3.2 Checkpoint — Diff summary
     - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Command output formatting
+- [x] 4. Command output formatting
 
   - [ ] 4.1 `ksm ls` output formatting
 
@@ -256,7 +256,7 @@ Overhaul the `ksm` CLI visual layer across color utilities, error formatting, di
   - [ ] 4.6 Checkpoint — Command output formatting
     - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. TUI theming (`tui.py`)
+- [x] 5. TUI theming (`tui.py`)
 
   - [ ] 5.1 Theme, containers, and footer bar
 

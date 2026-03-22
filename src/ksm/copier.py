@@ -11,7 +11,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TextIO
 
-from ksm.color import dim, green, yellow
+from ksm.color import dim, green, muted, success, warning_style, yellow
 
 
 class CopyStatus(Enum):
@@ -92,28 +92,38 @@ _STATUS_SYMBOLS: dict[CopyStatus, str] = {
 
 
 _STATUS_COLORS: dict[CopyStatus, Callable[..., str]] = {
-    CopyStatus.NEW: green,
-    CopyStatus.UPDATED: yellow,
-    CopyStatus.UNCHANGED: dim,
+    CopyStatus.NEW: success,
+    CopyStatus.UPDATED: warning_style,
+    CopyStatus.UNCHANGED: muted,
 }
 
 
 def format_diff_summary(
     results: list[CopyResult],
+    base_path: Path | None = None,
     stream: TextIO | None = None,
 ) -> str:
     """Format CopyResult list as file-level diff summary.
 
-    Each line shows a status symbol and the file path:
-      + steering/code-review.md (new)
-      ~ skills/refactor/SKILL.md (updated)
-      = hooks/pre-commit.json (unchanged)
+    Uses semantic colors and symbol constants:
+      + steering/code-review.md (new)      ← success + muted
+      ~ skills/refactor/SKILL.md (updated) ← warning_style + muted
+      = hooks/pre-commit.json (unchanged)  ← muted + muted
+
+    When base_path is provided, displays paths relative to it.
     """
     lines: list[str] = []
     for r in results:
         sym = _STATUS_SYMBOLS[r.status]
         color_fn = _STATUS_COLORS[r.status]
         colored_sym = color_fn(sym, stream=stream)
-        colored_label = color_fn(f"({r.status.value})", stream=stream)
-        lines.append(f"  {colored_sym} {r.path} {colored_label}")
+        display_path = r.path
+        if base_path is not None:
+            try:
+                display_path = r.path.relative_to(base_path)
+            except ValueError:
+                pass
+        colored_label = muted(f"({r.status.value})", stream=stream)
+        lines.append(f"  {colored_sym} {display_path} {colored_label}")
+    return "\n".join(lines)
     return "\n".join(lines)

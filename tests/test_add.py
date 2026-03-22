@@ -1991,7 +1991,7 @@ def test_run_add_qualified_name_not_found_error(
 
     assert code == 1
     captured = capsys.readouterr()
-    assert "Error:" in captured.err
+    assert "error:" in captured.err
 
 
 # --- Tests for stream=sys.stderr in formatter calls (Reqs 1.1-1.3, 2.1-2.3) ---
@@ -2190,20 +2190,19 @@ class TestAddFormatterStreamParam:
 
 
 class TestAddGreenSuccessPrefix:
-    """Property 12: add success message includes green
-    "Installed:" prefix."""
+    """Property 12: add success message includes
+    success-styled checkmark and bundle name."""
 
-    _GREEN = "\033[32m"
+    _SUCCESS = "\033[92m"
     _RESET = "\033[0m"
 
-    def test_installed_prefix_green_on_tty(
+    def test_installed_prefix_success_on_tty(
         self,
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Property 12: successful add prints green
-        'Installed:' prefix to stderr when stream is TTY.
-        **Validates: Requirements 3.1**"""
+        """Property 12: successful add prints success-styled
+        checkmark to stderr when stream is TTY."""
         from ksm.commands.add import run_add
 
         reg = _setup_registry(
@@ -2247,17 +2246,15 @@ class TestAddGreenSuccessPrefix:
 
         assert code == 0
         captured = capsys.readouterr()
-        assert "Installed:" in captured.err
-        assert self._GREEN in captured.err
+        assert "Installed" in captured.err
+        assert self._SUCCESS in captured.err
 
     def test_installed_prefix_plain_with_no_color(
         self,
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Property 12: 'Installed:' is plain text when
-        NO_COLOR is set.
-        **Validates: Requirements 3.4**"""
+        """Property 12: output is plain text when NO_COLOR set."""
         from ksm.commands.add import run_add
 
         reg = _setup_registry(
@@ -2297,7 +2294,7 @@ class TestAddGreenSuccessPrefix:
 
         assert code == 0
         captured = capsys.readouterr()
-        assert "Installed:" in captured.err
+        assert "Installed" in captured.err
         assert "\033[" not in captured.err
 
     def test_installed_prefix_contains_bundle_name(
@@ -2342,7 +2339,7 @@ class TestAddGreenSuccessPrefix:
 
         assert code == 0
         captured = capsys.readouterr()
-        assert "Installed:" in captured.err
+        assert "Installed" in captured.err
         assert "mybundle" in captured.err
 
 

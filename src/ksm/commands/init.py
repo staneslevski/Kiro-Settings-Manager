@@ -11,6 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from ksm.color import SYM_CHECK, info, muted, subtle, success
 from ksm.registry import RegistryIndex
 from ksm.manifest import Manifest
 from ksm.scanner import scan_registry
@@ -29,13 +30,19 @@ def run_init(
 
     if kiro_dir.exists():
         print(
-            "Already initialised — .kiro/ exists.",
+            muted("Already initialised — .kiro/ exists."),
             file=sys.stderr,
         )
     else:
         kiro_dir.mkdir(parents=True)
+        check = success(SYM_CHECK)
+        kiro = info(".kiro/")
         print(
-            "Initialised .kiro/ directory.",
+            f"{check} Initialised {kiro} in current directory",
+            file=sys.stderr,
+        )
+        print(
+            subtle("Run 'ksm add' to install your first bundle."),
             file=sys.stderr,
         )
 

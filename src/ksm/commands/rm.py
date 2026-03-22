@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from ksm.color import bold, dim, green
+from ksm.color import SYM_CHECK, accent, bold, info, muted, success
 from ksm.errors import format_deprecation, format_error, format_warning
 from ksm.manifest import Manifest, ManifestEntry, save_manifest
 from ksm.remover import RemovalResult, remove_bundle
@@ -44,27 +44,20 @@ def _format_confirmation(
     entry: ManifestEntry,
     stream: TextIO | None = None,
 ) -> str:
-    """Build confirmation prompt listing files to be removed.
-
-    Format (Req 1.1, 7.1–7.4):
-      This will remove <N> files from <scope> scope:
-        <file1>
-        <file2>
-        ...
-
-      Continue? [y/n]
-    """
+    """Build confirmation prompt listing files to be removed."""
     file_count = len(entry.installed_files)
-    raw_scope = ".kiro/" if entry.scope == "local" else "~/.kiro/"
-    scope_desc = bold(raw_scope, stream=stream)
+    name = accent(entry.bundle_name, stream=stream)
+    scope_label = info(entry.scope, stream=stream)
+    count_str = muted(f"{file_count} files in .kiro/:", stream=stream)
     lines = [
-        f"This will remove '{entry.bundle_name}'" f" ({entry.scope} scope):",
-        f"  {file_count} file(s) in {scope_desc}",
+        f"Remove {name} from {scope_label} scope?",
+        f"  {count_str}",
     ]
     for f in entry.installed_files:
-        lines.append(f"    {dim(f, stream=stream)}")
+        lines.append(f"    {muted(f, stream=stream)}")
     lines.append("")
-    lines.append("Continue? [y/n] ")
+    yn = bold("[y/n]", stream=stream)
+    lines.append(f"Continue? {yn} ")
     return "\n".join(lines)
 
 
@@ -74,29 +67,28 @@ def _format_result(
     result: RemovalResult,
     stream: TextIO | None = None,
 ) -> str:
-    """Build summary message from RemovalResult.
-
-    Format (Req 2.1, 2.2, 2.3):
-      Removed '<bundle>' (<scope>): <N> files deleted
-      Removed '<bundle>' (<scope>): <N> files deleted, <M> already missing
-    """
+    """Build summary message from RemovalResult."""
     removed = len(result.removed_files)
     skipped = len(result.skipped_files)
-    prefix = green("Removed", stream=stream)
+    check = success(SYM_CHECK, stream=stream)
+    name = accent(bundle_name, stream=stream)
 
     if skipped == 0:
-        return f"{prefix} '{bundle_name}' ({scope}):" f" {removed} file(s) deleted"
+        summary = muted(
+            f"{removed} files deleted ({scope})", stream=stream
+        )
     elif removed == 0:
-        return (
-            f"{prefix} '{bundle_name}' ({scope}): "
-            f"all {skipped} file(s) were already missing"
+        summary = muted(
+            f"all {skipped} files were already missing ({scope})",
+            stream=stream,
         )
     else:
-        return (
-            f"{prefix} '{bundle_name}' ({scope}): "
-            f"{removed} file(s) deleted,"
-            f" {skipped} already missing"
+        summary = muted(
+            f"{removed} files deleted,"
+            f" {skipped} already missing ({scope})",
+            stream=stream,
         )
+    return f"{check} Removed {name} — {summary}"
 
 
 def _format_dry_run_rm(entry: ManifestEntry) -> str:

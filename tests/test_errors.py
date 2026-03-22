@@ -98,11 +98,8 @@ def test_git_error_contains_url_and_cleaned_summary(
     )
     msg = str(err)
     assert url in msg
-    # Formatted message should contain URL and a single-line
-    # git summary (not the raw multi-line stderr)
     formatted = err.formatted_message()
     assert url in formatted
-    # The "Git said:" line should be a single line
     for line in formatted.splitlines():
         if line.strip().startswith("Git said:"):
             git_said = line.strip()[len("Git said:") :].strip()
@@ -204,18 +201,17 @@ def test_git_error_no_url_no_stderr() -> None:
     err = GitError("something broke")
     formatted = err.formatted_message()
     assert "something broke" in formatted
-    # No URL suggestion when no URL was provided
     assert "Check that the URL" not in formatted
 
 
-# --- format_error, format_warning, format_deprecation (Req 13) ---
+# --- format_error, format_warning, format_deprecation ---
+# Updated for lowercase prefixes (Req 5.1-5.6)
 
 
 class TestFormatError:
-    """Tests for format_error helper (Req 13.1, 13.2, 13.3)."""
+    """Tests for format_error helper (Req 5.1-5.6)."""
 
     def test_three_line_format(self) -> None:
-        """format_error produces exactly three lines."""
         result = format_error(
             "Cache directory already exists",
             "Registry 'default' was previously cloned here.",
@@ -224,13 +220,11 @@ class TestFormatError:
         lines = result.splitlines()
         assert len(lines) == 3
 
-    def test_error_prefix(self) -> None:
-        """format_error output starts with 'Error: '."""
+    def test_error_prefix_lowercase(self) -> None:
         result = format_error("what", "why", "fix")
-        assert result.startswith("Error: ")
+        assert result.startswith("error: ")
 
     def test_contains_all_parts(self) -> None:
-        """format_error includes what, why, and fix."""
         result = format_error(
             "Clone failed",
             "The previous cache was removed.",
@@ -241,24 +235,21 @@ class TestFormatError:
         assert "Re-add the registry." in result
 
     def test_indentation(self) -> None:
-        """Lines 2 and 3 are indented with two spaces."""
         result = format_error("what", "why", "fix")
         lines = result.splitlines()
         assert lines[1].startswith("  ")
         assert lines[2].startswith("  ")
 
     def test_first_line_structure(self) -> None:
-        """First line is 'Error: {what}'."""
         result = format_error("something broke", "reason", "action")
         first_line = result.splitlines()[0]
-        assert first_line == "Error: something broke"
+        assert first_line == "error: something broke"
 
 
 class TestFormatWarning:
-    """Tests for format_warning helper (Req 13.4)."""
+    """Tests for format_warning helper (Req 5.2)."""
 
     def test_two_line_format(self) -> None:
-        """format_warning produces exactly two lines."""
         result = format_warning(
             "Could not remove cache",
             "Permission denied.",
@@ -266,13 +257,11 @@ class TestFormatWarning:
         lines = result.splitlines()
         assert len(lines) == 2
 
-    def test_warning_prefix(self) -> None:
-        """format_warning output starts with 'Warning: '."""
+    def test_warning_prefix_lowercase(self) -> None:
         result = format_warning("something", "detail")
-        assert result.startswith("Warning: ")
+        assert result.startswith("warning: ")
 
     def test_contains_all_parts(self) -> None:
-        """format_warning includes what and detail."""
         result = format_warning(
             "Could not remove cache",
             "Permission denied. Cache remains.",
@@ -281,23 +270,20 @@ class TestFormatWarning:
         assert "Permission denied. Cache remains." in result
 
     def test_indentation(self) -> None:
-        """Second line is indented with two spaces."""
         result = format_warning("what", "detail")
         lines = result.splitlines()
         assert lines[1].startswith("  ")
 
     def test_first_line_structure(self) -> None:
-        """First line is 'Warning: {what}'."""
         result = format_warning("disk full", "detail")
         first_line = result.splitlines()[0]
-        assert first_line == "Warning: disk full"
+        assert first_line == "warning: disk full"
 
 
 class TestFormatDeprecation:
-    """Tests for format_deprecation helper (Req 13.5)."""
+    """Tests for format_deprecation helper (Req 5.3)."""
 
     def test_two_line_format(self) -> None:
-        """format_deprecation produces exactly two lines."""
         result = format_deprecation(
             "--display",
             "-i/--interactive",
@@ -307,13 +293,11 @@ class TestFormatDeprecation:
         lines = result.splitlines()
         assert len(lines) == 2
 
-    def test_deprecated_prefix(self) -> None:
-        """format_deprecation starts with 'Deprecated: '."""
+    def test_deprecated_prefix_lowercase(self) -> None:
         result = format_deprecation("old", "new", "v0.1.0", "v0.2.0")
-        assert result.startswith("Deprecated: ")
+        assert result.startswith("deprecated: ")
 
     def test_contains_old_and_new(self) -> None:
-        """format_deprecation mentions old and new names."""
         result = format_deprecation(
             "--display",
             "-i/--interactive",
@@ -324,7 +308,6 @@ class TestFormatDeprecation:
         assert "-i/--interactive" in result
 
     def test_contains_version_strings(self) -> None:
-        """format_deprecation includes since and removal versions."""
         result = format_deprecation(
             "ksm add-registry",
             "ksm registry add",
@@ -335,13 +318,11 @@ class TestFormatDeprecation:
         assert "v1.0.0" in result
 
     def test_indentation(self) -> None:
-        """Second line is indented with two spaces."""
         result = format_deprecation("old", "new", "v0.1.0", "v0.2.0")
         lines = result.splitlines()
         assert lines[1].startswith("  ")
 
     def test_first_line_structure(self) -> None:
-        """First line mentions deprecation with backtick-wrapped names."""
         result = format_deprecation(
             "--display",
             "-i/--interactive",
@@ -356,7 +337,6 @@ class TestFormatDeprecation:
 
 # --- Property 14: Message formatters produce correctly prefixed output ---
 
-# Strategy for single-line printable text (no embedded newlines)
 _single_line = st.text(
     alphabet=st.characters(
         blacklist_categories=("Cc", "Cs", "Zl", "Zp"),
@@ -368,10 +348,9 @@ _single_line = st.text(
 
 @given(what=_single_line, why=_single_line, fix=_single_line)
 def test_format_error_property(what: str, why: str, fix: str) -> None:
-    """Property 14: format_error starts with 'Error: ' and has
-    three lines. (Req 13.1, 13.3)"""
+    """Property 14: format_error starts with 'error: ' and has three lines."""
     result = format_error(what, why, fix)
-    assert result.startswith("Error: ")
+    assert result.startswith("error: ")
     lines = result.splitlines()
     assert len(lines) == 3
     assert what in lines[0]
@@ -381,10 +360,9 @@ def test_format_error_property(what: str, why: str, fix: str) -> None:
 
 @given(what=_single_line, detail=_single_line)
 def test_format_warning_property(what: str, detail: str) -> None:
-    """Property 14: format_warning starts with 'Warning: ' and
-    has two lines. (Req 13.4)"""
+    """Property 14: format_warning starts with 'warning: ' and has two lines."""
     result = format_warning(what, detail)
-    assert result.startswith("Warning: ")
+    assert result.startswith("warning: ")
     lines = result.splitlines()
     assert len(lines) == 2
     assert what in lines[0]
@@ -400,10 +378,9 @@ def test_format_warning_property(what: str, detail: str) -> None:
 def test_format_deprecation_property(
     old: str, new: str, since: str, removal: str
 ) -> None:
-    """Property 14: format_deprecation starts with 'Deprecated: '
-    and contains both version strings. (Req 13.5)"""
+    """Property 14: format_deprecation starts with 'deprecated: '."""
     result = format_deprecation(old, new, since, removal)
-    assert result.startswith("Deprecated: ")
+    assert result.startswith("deprecated: ")
     lines = result.splitlines()
     assert len(lines) == 2
     assert since in result
@@ -411,216 +388,146 @@ def test_format_deprecation_property(
 
 
 # ------------------------------------------------------------------
-# Colorized formatter tests (Reqs 1, 2) — stream parameter
-# ------------------------------------------------------------------
-# These tests verify that format_error, format_warning, and
-# format_deprecation apply ANSI color to their prefixes when a
-# TTY stream is passed, and return plain text otherwise.
-#
-# Helper utilities reuse the same patterns as test_color.py.
+# Colorized formatter tests — stream parameter
 # ------------------------------------------------------------------
 
 
 def _make_tty_stream() -> MagicMock:
-    """Create a mock stream that reports as a TTY."""
     stream = MagicMock(spec=StringIO)
     stream.isatty.return_value = True
     return stream
 
 
 def _make_non_tty_stream() -> StringIO:
-    """Create a non-TTY stream (StringIO has isatty=False)."""
     return StringIO()
 
 
 def _clean_env() -> dict[str, str]:
-    """Env dict with NO_COLOR removed and TERM set."""
     return {"TERM": "xterm-256color"}
 
 
-# ANSI escape code constants
-_RED = "\033[31m"
-_YELLOW = "\033[33m"
+# ANSI escape code constants (updated for semantic colors)
+_ERROR_STYLE = "\033[91m"  # bright red
+_WARNING_STYLE = "\033[93m"  # bright yellow
+_MUTED = "\033[2m"  # dim
+_SUBTLE = "\033[2;3m"  # dim italic
 _RESET = "\033[0m"
 
 
-# --- Property 1: format_error wraps "Error:" in red on TTY ---
-
-
 class TestFormatErrorColor:
-    """Validates: Requirements 1.1, 1.4"""
+    """Validates: Req 5.1, 5.4, 5.5."""
 
-    def test_error_prefix_red_on_tty(self) -> None:
-        """Property 1: format_error wraps 'Error:' in red
-        when stream is a TTY."""
+    def test_error_prefix_styled_on_tty(self) -> None:
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             result = format_error("what", "why", "fix", stream=stream)
-        assert _RED in result
-        assert f"{_RED}Error:{_RESET}" in result
+        assert f"{_ERROR_STYLE}error:{_RESET}" in result
 
-    def test_error_prefix_red_contains_what(self) -> None:
-        """Red prefix is followed by the 'what' message."""
+    def test_why_line_muted(self) -> None:
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
-            result = format_error(
-                "Clone failed",
-                "reason",
-                "action",
-                stream=stream,
-            )
-        first_line = result.splitlines()[0]
-        assert "Clone failed" in first_line
+            result = format_error("what", "why", "fix", stream=stream)
+        assert f"{_MUTED}why{_RESET}" in result
 
-
-# --- Property 2: format_warning wraps "Warning:" in yellow ---
+    def test_fix_line_subtle(self) -> None:
+        stream = _make_tty_stream()
+        with patch.dict("os.environ", _clean_env(), clear=True):
+            result = format_error("what", "why", "fix", stream=stream)
+        assert f"{_SUBTLE}fix{_RESET}" in result
 
 
 class TestFormatWarningColor:
-    """Validates: Requirements 2.1, 2.4"""
+    """Validates: Req 5.2."""
 
-    def test_warning_prefix_yellow_on_tty(self) -> None:
-        """Property 2: format_warning wraps 'Warning:' in
-        yellow when stream is a TTY."""
+    def test_warning_prefix_styled_on_tty(self) -> None:
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             result = format_warning("something", "detail", stream=stream)
-        assert _YELLOW in result
-        assert f"{_YELLOW}Warning:{_RESET}" in result
+        assert f"{_WARNING_STYLE}warning:{_RESET}" in result
 
-    def test_warning_prefix_yellow_contains_what(self) -> None:
-        """Yellow prefix is followed by the 'what' message."""
+    def test_detail_muted(self) -> None:
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
-            result = format_warning("disk full", "detail", stream=stream)
-        first_line = result.splitlines()[0]
-        assert "disk full" in first_line
-
-
-# --- Property 3: format_deprecation wraps "Deprecated:" in yellow
+            result = format_warning("what", "detail", stream=stream)
+        assert f"{_MUTED}detail{_RESET}" in result
 
 
 class TestFormatDeprecationColor:
-    """Validates: Requirements 2.2, 2.5"""
+    """Validates: Req 5.3."""
 
-    def test_deprecation_prefix_yellow_on_tty(self) -> None:
-        """Property 3: format_deprecation wraps 'Deprecated:'
-        in yellow when stream is a TTY."""
+    def test_deprecation_prefix_styled_on_tty(self) -> None:
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             result = format_deprecation(
-                "old",
-                "new",
-                "v0.1.0",
-                "v0.2.0",
-                stream=stream,
+                "old", "new", "v0.1.0", "v0.2.0", stream=stream
             )
-        assert _YELLOW in result
-        assert f"{_YELLOW}Deprecated:{_RESET}" in result
+        assert f"{_WARNING_STYLE}deprecated:{_RESET}" in result
 
-    def test_deprecation_prefix_yellow_contains_old(
-        self,
-    ) -> None:
-        """Yellow prefix is followed by old/new names."""
+    def test_timeline_subtle(self) -> None:
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             result = format_deprecation(
-                "--display",
-                "-i",
-                "v0.2.0",
-                "v1.0.0",
-                stream=stream,
+                "old", "new", "v0.1.0", "v0.2.0", stream=stream
             )
-        assert "--display" in result
-        assert "-i" in result
-
-
-# --- Property 4: All formatters return plain text when NO_COLOR
+        assert _SUBTLE in result
+        assert "v0.1.0" in result
 
 
 class TestFormattersNoColor:
-    """Validates: Requirements 1.2, 2.3"""
+    """Validates: plain text when NO_COLOR set."""
 
     def test_error_plain_when_no_color(self) -> None:
-        """Property 4: format_error returns plain text when
-        NO_COLOR is set."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", {"NO_COLOR": "1"}, clear=False):
             result = format_error("what", "why", "fix", stream=stream)
         assert "\033[" not in result
-        assert result.startswith("Error: ")
+        assert result.startswith("error: ")
 
     def test_warning_plain_when_no_color(self) -> None:
-        """Property 4: format_warning returns plain text when
-        NO_COLOR is set."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", {"NO_COLOR": "1"}, clear=False):
             result = format_warning("what", "detail", stream=stream)
         assert "\033[" not in result
-        assert result.startswith("Warning: ")
+        assert result.startswith("warning: ")
 
     def test_deprecation_plain_when_no_color(self) -> None:
-        """Property 4: format_deprecation returns plain text
-        when NO_COLOR is set."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", {"NO_COLOR": "1"}, clear=False):
             result = format_deprecation(
-                "old",
-                "new",
-                "v0.1.0",
-                "v0.2.0",
-                stream=stream,
+                "old", "new", "v0.1.0", "v0.2.0", stream=stream
             )
         assert "\033[" not in result
-        assert result.startswith("Deprecated: ")
-
-
-# --- Property 5: All formatters return plain text on non-TTY ---
+        assert result.startswith("deprecated: ")
 
 
 class TestFormattersNonTTY:
-    """Validates: Requirements 1.3, 1.5"""
+    """Validates: plain text on non-TTY."""
 
     def test_error_plain_when_non_tty(self) -> None:
-        """Property 5: format_error returns plain text when
-        stream is not a TTY."""
         stream = _make_non_tty_stream()
         result = format_error("what", "why", "fix", stream=stream)
         assert "\033[" not in result
-        assert result.startswith("Error: ")
+        assert result.startswith("error: ")
 
     def test_warning_plain_when_non_tty(self) -> None:
-        """Property 5: format_warning returns plain text when
-        stream is not a TTY."""
         stream = _make_non_tty_stream()
         result = format_warning("what", "detail", stream=stream)
         assert "\033[" not in result
-        assert result.startswith("Warning: ")
+        assert result.startswith("warning: ")
 
     def test_deprecation_plain_when_non_tty(self) -> None:
-        """Property 5: format_deprecation returns plain text
-        when stream is not a TTY."""
         stream = _make_non_tty_stream()
         result = format_deprecation(
-            "old",
-            "new",
-            "v0.1.0",
-            "v0.2.0",
-            stream=stream,
+            "old", "new", "v0.1.0", "v0.2.0", stream=stream
         )
         assert "\033[" not in result
-        assert result.startswith("Deprecated: ")
-
-
-# --- Property 6: All formatters preserve message structure ---
+        assert result.startswith("deprecated: ")
 
 
 class TestFormattersPreserveStructure:
-    """Validates: Requirements 1.4, 2.4, 2.5"""
+    """Validates: structure preserved with stream."""
 
     def test_error_three_lines_with_stream(self) -> None:
-        """Property 6: format_error still produces three lines
-        when stream is passed."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             result = format_error("what", "why", "fix", stream=stream)
@@ -631,35 +538,22 @@ class TestFormattersPreserveStructure:
         assert "fix" in lines[2]
 
     def test_warning_two_lines_with_stream(self) -> None:
-        """Property 6: format_warning still produces two lines
-        when stream is passed."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             result = format_warning("what", "detail", stream=stream)
         lines = result.splitlines()
         assert len(lines) == 2
-        assert "what" in lines[0]
-        assert "detail" in lines[1]
 
     def test_deprecation_two_lines_with_stream(self) -> None:
-        """Property 6: format_deprecation still produces two
-        lines when stream is passed."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             result = format_deprecation(
-                "old",
-                "new",
-                "v0.1.0",
-                "v0.2.0",
-                stream=stream,
+                "old", "new", "v0.1.0", "v0.2.0", stream=stream
             )
         lines = result.splitlines()
         assert len(lines) == 2
-        assert "v0.1.0" in result
-        assert "v0.2.0" in result
 
     def test_error_indentation_preserved(self) -> None:
-        """Lines 2 and 3 are still indented with stream."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             result = format_error("what", "why", "fix", stream=stream)
@@ -668,7 +562,6 @@ class TestFormattersPreserveStructure:
         assert lines[2].startswith("  ")
 
     def test_warning_indentation_preserved(self) -> None:
-        """Second line is still indented with stream."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             result = format_warning("what", "detail", stream=stream)
@@ -676,58 +569,40 @@ class TestFormattersPreserveStructure:
         assert lines[1].startswith("  ")
 
     def test_deprecation_indentation_preserved(self) -> None:
-        """Second line is still indented with stream."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             result = format_deprecation(
-                "old",
-                "new",
-                "v0.1.0",
-                "v0.2.0",
-                stream=stream,
+                "old", "new", "v0.1.0", "v0.2.0", stream=stream
             )
         lines = result.splitlines()
         assert lines[1].startswith("  ")
 
 
-# --- Property 7: All formatters return plain text on TERM=dumb
-
-
 class TestFormatterTermDumb:
-    """Validates: Requirements 1.5, 2.3"""
+    """Validates: plain text on TERM=dumb."""
 
     def test_error_plain_when_term_dumb(self) -> None:
-        """Property 7: format_error returns plain text when
-        TERM=dumb."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", {"TERM": "dumb"}, clear=True):
             result = format_error("what", "why", "fix", stream=stream)
         assert "\033[" not in result
-        assert result.startswith("Error: ")
+        assert result.startswith("error: ")
 
     def test_warning_plain_when_term_dumb(self) -> None:
-        """Property 7: format_warning returns plain text when
-        TERM=dumb."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", {"TERM": "dumb"}, clear=True):
             result = format_warning("what", "detail", stream=stream)
         assert "\033[" not in result
-        assert result.startswith("Warning: ")
+        assert result.startswith("warning: ")
 
     def test_deprecation_plain_when_term_dumb(self) -> None:
-        """Property 7: format_deprecation returns plain text
-        when TERM=dumb."""
         stream = _make_tty_stream()
         with patch.dict("os.environ", {"TERM": "dumb"}, clear=True):
             result = format_deprecation(
-                "old",
-                "new",
-                "v0.1.0",
-                "v0.2.0",
-                stream=stream,
+                "old", "new", "v0.1.0", "v0.2.0", stream=stream
             )
         assert "\033[" not in result
-        assert result.startswith("Deprecated: ")
+        assert result.startswith("deprecated: ")
 
 
 # --- Property-based tests for colorized formatters ---
@@ -735,13 +610,11 @@ class TestFormatterTermDumb:
 
 @given(what=_single_line, why=_single_line, fix=_single_line)
 def test_format_error_color_property(what: str, why: str, fix: str) -> None:
-    """Property 1 (PBT): format_error wraps 'Error:' in red
-    on TTY for arbitrary messages.
-    Validates: Requirements 1.1"""
+    """Property 1 (PBT): format_error wraps 'error:' in error_style on TTY."""
     stream = _make_tty_stream()
     with patch.dict("os.environ", _clean_env(), clear=True):
         result = format_error(what, why, fix, stream=stream)
-    assert _RED in result
+    assert _ERROR_STYLE in result
     assert _RESET in result
     assert what in result
     assert why in result
@@ -752,13 +625,11 @@ def test_format_error_color_property(what: str, why: str, fix: str) -> None:
 
 @given(what=_single_line, detail=_single_line)
 def test_format_warning_color_property(what: str, detail: str) -> None:
-    """Property 2 (PBT): format_warning wraps 'Warning:' in
-    yellow on TTY for arbitrary messages.
-    Validates: Requirements 2.1"""
+    """Property 2 (PBT): format_warning wraps 'warning:' in warning_style."""
     stream = _make_tty_stream()
     with patch.dict("os.environ", _clean_env(), clear=True):
         result = format_warning(what, detail, stream=stream)
-    assert _YELLOW in result
+    assert _WARNING_STYLE in result
     assert _RESET in result
     assert what in result
     assert detail in result
@@ -775,13 +646,11 @@ def test_format_warning_color_property(what: str, detail: str) -> None:
 def test_format_deprecation_color_property(
     old: str, new: str, since: str, removal: str
 ) -> None:
-    """Property 3 (PBT): format_deprecation wraps
-    'Deprecated:' in yellow on TTY for arbitrary messages.
-    Validates: Requirements 2.2"""
+    """Property 3 (PBT): format_deprecation wraps 'deprecated:' in warning_style."""
     stream = _make_tty_stream()
     with patch.dict("os.environ", _clean_env(), clear=True):
         result = format_deprecation(old, new, since, removal, stream=stream)
-    assert _YELLOW in result
+    assert _WARNING_STYLE in result
     assert _RESET in result
     assert since in result
     assert removal in result
@@ -791,9 +660,7 @@ def test_format_deprecation_color_property(
 
 @given(what=_single_line, why=_single_line, fix=_single_line)
 def test_format_error_no_color_property(what: str, why: str, fix: str) -> None:
-    """Property 4 (PBT): format_error returns plain text when
-    NO_COLOR is set, for arbitrary messages.
-    Validates: Requirements 1.2"""
+    """Property 4 (PBT): format_error returns plain text when NO_COLOR set."""
     stream = _make_tty_stream()
     with patch.dict("os.environ", {"NO_COLOR": "1"}, clear=False):
         result = format_error(what, why, fix, stream=stream)
@@ -803,9 +670,7 @@ def test_format_error_no_color_property(what: str, why: str, fix: str) -> None:
 
 @given(what=_single_line, detail=_single_line)
 def test_format_warning_no_color_property(what: str, detail: str) -> None:
-    """Property 4 (PBT): format_warning returns plain text
-    when NO_COLOR is set, for arbitrary messages.
-    Validates: Requirements 2.3"""
+    """Property 4 (PBT): format_warning returns plain text when NO_COLOR set."""
     stream = _make_tty_stream()
     with patch.dict("os.environ", {"NO_COLOR": "1"}, clear=False):
         result = format_warning(what, detail, stream=stream)
@@ -815,23 +680,19 @@ def test_format_warning_no_color_property(what: str, detail: str) -> None:
 
 @given(what=_single_line, why=_single_line, fix=_single_line)
 def test_format_error_non_tty_property(what: str, why: str, fix: str) -> None:
-    """Property 5 (PBT): format_error returns plain text when
-    stream is not a TTY, for arbitrary messages.
-    Validates: Requirements 1.3"""
+    """Property 5 (PBT): format_error returns plain text on non-TTY."""
     stream = _make_non_tty_stream()
     result = format_error(what, why, fix, stream=stream)
     assert "\033[" not in result
     assert what in result
-    assert result.splitlines()[0].startswith("Error: ")
+    assert result.splitlines()[0].startswith("error: ")
 
 
 @given(what=_single_line, detail=_single_line)
 def test_format_warning_non_tty_property(what: str, detail: str) -> None:
-    """Property 5 (PBT): format_warning returns plain text
-    when stream is not a TTY, for arbitrary messages.
-    Validates: Requirements 1.3"""
+    """Property 5 (PBT): format_warning returns plain text on non-TTY."""
     stream = _make_non_tty_stream()
     result = format_warning(what, detail, stream=stream)
     assert "\033[" not in result
     assert what in result
-    assert result.splitlines()[0].startswith("Warning: ")
+    assert result.splitlines()[0].startswith("warning: ")

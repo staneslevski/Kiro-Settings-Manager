@@ -471,7 +471,7 @@ class TestLsColor:
 
         manifest = Manifest(entries=[_make_entry("aws", "local")])
         args = _make_ls_args()
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             run_ls(args, manifest=manifest)
 
         out = capsys.readouterr().out
@@ -481,21 +481,20 @@ class TestLsColor:
         self,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Req 5.2: registry name and timestamp use dim."""
+        """Req 6.2: registry name and timestamp use muted."""
         from ksm.commands.ls import run_ls
 
         manifest = Manifest(entries=[_make_entry("aws", "local", "default")])
         args = _make_ls_args()
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             run_ls(args, manifest=manifest)
 
         out = capsys.readouterr().out
-        # Registry name wrapped in dim
-        assert "\033[2m(default)\033[0m" in out
-        # Timestamp also wrapped in dim (some relative time)
-        # Find a dim-wrapped segment after the registry
-        dim_count = out.count("\033[2m")
-        assert dim_count >= 2
+        # Registry name wrapped in muted (no parens)
+        assert "\033[2mdefault\033[0m" in out
+        # Timestamp also wrapped in muted
+        muted_count = out.count("\033[2m")
+        assert muted_count >= 2
 
     def test_no_color_suppresses_ansi(
         self,

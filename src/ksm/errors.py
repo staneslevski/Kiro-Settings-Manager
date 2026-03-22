@@ -2,7 +2,7 @@
 
 from typing import TextIO
 
-from ksm.color import red, yellow
+from ksm.color import accent, error_style, muted, subtle, warning_style
 
 
 class BundleNotFoundError(Exception):
@@ -114,12 +114,16 @@ def format_error(
     """Format a three-line error message.
 
     Returns:
-        Error: {what}
-          {why}
-          {fix}
+        error: {what}
+          {why}       ← muted
+          {fix}       ← subtle
+
+    Bundle names in {what} are styled with accent.
     """
-    prefix = red("Error:", stream=stream)
-    return f"{prefix} {what}\n  {why}\n  {fix}"
+    prefix = error_style("error:", stream=stream)
+    why_styled = muted(why, stream=stream)
+    fix_styled = subtle(fix, stream=stream)
+    return f"{prefix} {what}\n  {why_styled}\n  {fix_styled}"
 
 
 def format_warning(
@@ -130,11 +134,12 @@ def format_warning(
     """Format a two-line warning message.
 
     Returns:
-        Warning: {what}
-          {detail}
+        warning: {what}
+          {detail}    ← muted
     """
-    prefix = yellow("Warning:", stream=stream)
-    return f"{prefix} {what}\n  {detail}"
+    prefix = warning_style("warning:", stream=stream)
+    detail_styled = muted(detail, stream=stream)
+    return f"{prefix} {what}\n  {detail_styled}"
 
 
 def format_deprecation(
@@ -147,13 +152,16 @@ def format_deprecation(
     """Format a two-line deprecation message.
 
     Returns:
-        Deprecated: `{old}` is deprecated, use `{new}` instead.
-          Deprecated in {since}, will be removed in {removal}.
+        deprecated: `{old}` is deprecated, use `{new}` instead.
+          Deprecated in {since}, will be removed in {removal}.  ← subtle
     """
-    prefix = yellow("Deprecated:", stream=stream)
+    prefix = warning_style("deprecated:", stream=stream)
+    timeline = subtle(
+        f"Deprecated in {since}, will be removed in {removal}.",
+        stream=stream,
+    )
     return (
         f"{prefix} `{old}` is deprecated,"
         f" use `{new}` instead.\n"
-        f"  Deprecated in {since},"
-        f" will be removed in {removal}."
+        f"  {timeline}"
     )
