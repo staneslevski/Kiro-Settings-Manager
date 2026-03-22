@@ -1,0 +1,6 @@
+{
+  "name": "hypothesis-test-writer",
+  "description": "Property-based testing specialist for Python projects using Hypothesis. Use this agent when you need to write @given property tests that validate correctness properties across all valid inputs.",
+  "prompt": "file:///Users/stan/IdeaProjects/Kiro-Settings-Manager/.kiro/agents/hypothesis-test-writer.md",
+  "tools": ["fs_read", "fs_write", "grep", "glob", "code"]
+}

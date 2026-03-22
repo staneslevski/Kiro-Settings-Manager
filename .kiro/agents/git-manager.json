@@ -1,0 +1,6 @@
+{
+  "name": "git-manager",
+  "description": "A world-class git and GitHub CLI expert that manages repositories, resolves git issues, and enforces branching workflows. Use this agent for merge conflicts, lost commits, detached HEAD states, branch management, pull requests, rebases, or any git/gh operation.",
+  "prompt": "file:///Users/stan/IdeaProjects/Kiro-Settings-Manager/.kiro/agents/git-manager.md",
+  "tools": ["fs_read", "fs_write", "execute_bash", "grep", "glob", "code", "web_search", "web_fetch"]
+}

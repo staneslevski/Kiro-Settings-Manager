@@ -1,0 +1,6 @@
+{
+  "name": "task-agent-matcher",
+  "description": "Builds the tasks.md implementation plan for Kiro's spec-driven development workflow. Use this agent when a spec's requirements.md and design.md are complete and you need to produce a structured tasks.md.",
+  "prompt": "file:///Users/stan/IdeaProjects/Kiro-Settings-Manager/.kiro/agents/task-agent-matcher.md",
+  "tools": ["fs_read", "fs_write", "grep", "glob", "code"]
+}
