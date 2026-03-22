@@ -329,8 +329,8 @@ def _dispatch_add(args: argparse.Namespace) -> int:
         registry_index=registry_index,
         manifest=manifest,
         manifest_path=MANIFEST_FILE,
-        target_local=Path.cwd(),
-        target_global=Path.home(),
+        target_local=Path.cwd() / ".kiro",
+        target_global=Path.home() / ".kiro",
     )
 
 
@@ -356,8 +356,8 @@ def _dispatch_sync(args: argparse.Namespace) -> int:
         registry_index=registry_index,
         manifest=manifest,
         manifest_path=MANIFEST_FILE,
-        target_local=Path.cwd(),
-        target_global=Path.home(),
+        target_local=Path.cwd() / ".kiro",
+        target_global=Path.home() / ".kiro",
     )
 
 
@@ -387,8 +387,8 @@ def _dispatch_rm(args: argparse.Namespace) -> int:
         args,
         manifest=manifest,
         manifest_path=MANIFEST_FILE,
-        target_local=Path.cwd(),
-        target_global=Path.home(),
+        target_local=Path.cwd() / ".kiro",
+        target_global=Path.home() / ".kiro",
     )
 
 
