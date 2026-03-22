@@ -133,8 +133,10 @@ class BundleSelectorApp(App[None]):
 
     def compose(self) -> ComposeResult:
         with Container(id="container"):
-            yield Static("Select a bundle to install",
-                          classes="selector-header")
+            yield Static(
+                "Select a bundle to install",
+                classes="selector-header",
+            )
             yield Input(placeholder="Type to filter...")
             yield OptionList()
             yield Static("", id="selected-count")
@@ -159,7 +161,8 @@ class BundleSelectorApp(App[None]):
                 if i in self.multi_selected
                 else "[ ] " if self.multi_selected else ""
             )
-            badge = " [installed]" if bundle.name in self.installed_names else ""
+            installed = bundle.name in self.installed_names
+            badge = " [installed]" if installed else ""
             label = Text()
             label.append(check)
             label.append(display, style="bold cyan")
@@ -167,8 +170,13 @@ class BundleSelectorApp(App[None]):
                 label.append(badge, style="dim")
             ol.add_option(Option(label, id=str(i)))
         if not self.filtered_items:
-            filter_val = self.query_one(Input).value
-            ol.add_option(Option(f"No bundles match '{filter_val}'", disabled=True))
+            fv = self.query_one(Input).value
+            ol.add_option(
+                Option(
+                    f"No bundles match '{fv}'",
+                    disabled=True,
+                )
+            )
         elif ol.highlighted is None:
             ol.highlighted = 0
         self._update_count()
@@ -313,8 +321,10 @@ class RemovalSelectorApp(App[None]):
 
     def compose(self) -> ComposeResult:
         with Container(id="container"):
-            yield Static("Select a bundle to remove",
-                          classes="selector-header")
+            yield Static(
+                "Select a bundle to remove",
+                classes="selector-header",
+            )
             yield Input(placeholder="Type to filter...")
             yield OptionList()
             yield Static("", id="selected-count")
@@ -345,8 +355,13 @@ class RemovalSelectorApp(App[None]):
             label.append(f" [{entry.scope}]", style="dim")
             ol.add_option(Option(label, id=str(i)))
         if not self.filtered_entries:
-            filter_val = self.query_one(Input).value
-            ol.add_option(Option(f"No bundles match '{filter_val}'", disabled=True))
+            fv = self.query_one(Input).value
+            ol.add_option(
+                Option(
+                    f"No bundles match '{fv}'",
+                    disabled=True,
+                )
+            )
         elif ol.highlighted is None:
             ol.highlighted = 0
         self._update_count()
@@ -470,11 +485,12 @@ class ScopeSelectorApp(App[None]):
 
     def compose(self) -> ComposeResult:
         with Container(id="scope-container"):
-            yield Static("Select installation scope:",
-                          classes="selector-header")
+            yield Static(
+                "Select installation scope:",
+                classes="selector-header",
+            )
             yield OptionList(
-                *[Option(label, id=key)
-                  for key, label in self._SCOPE_OPTIONS]
+                *[Option(label, id=key) for key, label in self._SCOPE_OPTIONS]
             )
 
     def on_mount(self) -> None:

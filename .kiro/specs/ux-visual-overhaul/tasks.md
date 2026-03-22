@@ -258,58 +258,58 @@ Overhaul the `ksm` CLI visual layer across color utilities, error formatting, di
 
 - [x] 5. TUI theming (`tui.py`)
 
-  - [ ] 5.1 Theme, containers, and footer bar
+  - [x] 5.1 Theme, containers, and footer bar
 
-    - [~] 5.1.1 Write tests for KSM_THEME and app registration
+    - [x] 5.1.1 Write tests for KSM_THEME and app registration
       - Test theme color values match One Dark spec
       - Test all three apps register and activate KSM_THEME
       - _Requirements: 17.1, 17.2_
 
-    - [~] 5.1.2 Implement KSM_THEME and register in all apps
+    - [x] 5.1.2 Implement KSM_THEME and register in all apps
       - Define Theme with primary, secondary, accent, success, warning, error, surface, panel
       - Register and activate in BundleSelectorApp, RemovalSelectorApp, ScopeSelectorApp
       - _Requirements: 17.1, 17.2_
 
-    - [~] 5.1.3 Write tests for Container wrapping and footer bar
+    - [x] 5.1.3 Write tests for Container wrapping and footer bar
       - Test BundleSelectorApp/RemovalSelectorApp have Container#container
       - Test ScopeSelectorApp has Container#scope-container with width 40
       - Test footer bar presence with key hints
       - _Requirements: 18.1-18.3, 19.1-19.3_
 
-    - [~] 5.1.4 Update compose() methods with Container wrapping and footer bar
+    - [x] 5.1.4 Update compose() methods with Container wrapping and footer bar
       - Wrap content in Container(id="container") with border_title="ksm"
       - Add footer Static with key hints, replace instruction Static
       - ScopeSelectorApp: Container(id="scope-container"), width 40, max-height 12
       - _Requirements: 18.1-18.3, 19.1-19.3_
 
-  - [ ] 5.2 CSS overhaul and Rich Text
+  - [x] 5.2 CSS overhaul and Rich Text
 
-    - [~] 5.2.1 Write tests for CSS properties and OptionList styling
+    - [x] 5.2.1 Write tests for CSS properties and OptionList styling
       - Test OptionList transparent background, no border
       - Test highlight/hover/focus background opacity values
       - Test scrollbar colors, Input border states
       - _Requirements: 20.1-20.6_
 
-    - [~] 5.2.2 Update CSS for all three apps
+    - [x] 5.2.2 Update CSS for all three apps
       - BundleSelectorApp/RemovalSelectorApp: full CSS from design
       - ScopeSelectorApp: centered container CSS from design
       - _Requirements: 20.1-20.6_
 
-    - [~] 5.2.3 Write tests for Rich Text OptionList items
+    - [x] 5.2.3 Write tests for Rich Text OptionList items
       - Test bundle names use bold cyan Rich Text
       - Test installed badges use dim Rich Text
       - Test selected-count styled with bold accent
       - _Requirements: 21.1, 21.2_
 
-    - [~] 5.2.4 Update OptionList items to use Rich Text formatting
+    - [x] 5.2.4 Update OptionList items to use Rich Text formatting
       - Use `rich.text.Text` for label construction
       - Bold cyan bundle names, dim badges
       - _Requirements: 21.1, 21.2_
 
-  - [~] 5.3 Checkpoint — TUI theming
+  - [x] 5.3 Checkpoint — TUI theming
     - Ensure all tests pass, ask the user if questions arise.
 
-- [~] 6. Final checkpoint
+- [x] 6. Final checkpoint
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
