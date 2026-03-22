@@ -12,6 +12,7 @@ from ksm.manifest import ManifestEntry
 from ksm.scanner import BundleInfo
 from ksm.tui import BundleSelectorApp, RemovalSelectorApp, ScopeSelectorApp
 
+from rich.text import Text
 from textual.widgets import OptionList
 
 
@@ -329,6 +330,412 @@ class TestEdgeCases:
             assert header is not None
             await pilot.press("enter")
         assert app.selected_names == ["only-one"]
+
+
+# ---------------------------------------------------------------
+# Phase 5: KSM_THEME and app registration (Req 17.1, 17.2)
+# ---------------------------------------------------------------
+
+
+class TestKSMTheme:
+    """Tests for KSM_THEME definition and registration."""
+
+    def test_theme_name(self) -> None:
+        """KSM_THEME has name 'ksm'."""
+        from ksm.tui import KSM_THEME
+
+        assert KSM_THEME.name == "ksm"
+
+    def test_theme_one_dark_colors(self) -> None:
+        """Theme colors match One Dark spec."""
+        from ksm.tui import KSM_THEME
+
+        assert KSM_THEME.primary == "#56b6c2"
+        assert KSM_THEME.secondary == "#61afef"
+        assert KSM_THEME.accent == "#56b6c2"
+        assert KSM_THEME.success == "#98c379"
+        assert KSM_THEME.warning == "#e5c07b"
+        assert KSM_THEME.error == "#e06c75"
+        assert KSM_THEME.surface == "#282c34"
+        assert KSM_THEME.panel == "#21252b"
+
+    @pytest.mark.asyncio
+    async def test_bundle_selector_registers_ksm_theme(
+        self,
+    ) -> None:
+        """BundleSelectorApp registers and activates KSM_THEME."""
+        bundles = _make_bundles("alpha")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            assert app.theme == "ksm"
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_removal_selector_registers_ksm_theme(
+        self,
+    ) -> None:
+        """RemovalSelectorApp registers and activates KSM_THEME."""
+        entries = _make_entries(
+            ("alpha", "local"),
+        )
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            assert app.theme == "ksm"
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_scope_selector_registers_ksm_theme(
+        self,
+    ) -> None:
+        """ScopeSelectorApp registers and activates KSM_THEME."""
+        app = ScopeSelectorApp()
+        async with app.run_test() as pilot:
+            assert app.theme == "ksm"
+            await pilot.press("escape")
+
+
+# ---------------------------------------------------------------
+# Phase 5: Container wrapping and footer bar (Req 18, 19)
+# ---------------------------------------------------------------
+
+
+class TestContainerAndFooter:
+    """Tests for Container wrapping and footer bar."""
+
+    @pytest.mark.asyncio
+    async def test_bundle_selector_has_container(self) -> None:
+        """BundleSelectorApp has Container#container."""
+        bundles = _make_bundles("alpha")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            container = app.query_one("#container")
+            assert container is not None
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_removal_selector_has_container(self) -> None:
+        """RemovalSelectorApp has Container#container."""
+        entries = _make_entries(
+            ("alpha", "local"),
+        )
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            container = app.query_one("#container")
+            assert container is not None
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_scope_selector_has_scope_container(
+        self,
+    ) -> None:
+        """ScopeSelectorApp has Container#scope-container."""
+        app = ScopeSelectorApp()
+        async with app.run_test() as pilot:
+            container = app.query_one("#scope-container")
+            assert container is not None
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_bundle_selector_has_footer_bar(self) -> None:
+        """BundleSelectorApp has footer bar with key hints."""
+        bundles = _make_bundles("alpha")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            footer = app.query_one("#footer-bar")
+            assert footer is not None
+            rendered = str(footer.render())
+            assert "Navigate" in rendered
+            assert "Toggle" in rendered
+            assert "Confirm" in rendered
+            assert "Cancel" in rendered
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_removal_selector_has_footer_bar(self) -> None:
+        """RemovalSelectorApp has footer bar with key hints."""
+        entries = _make_entries(
+            ("alpha", "local"),
+        )
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            footer = app.query_one("#footer-bar")
+            assert footer is not None
+            rendered = str(footer.render())
+            assert "Navigate" in rendered
+            await pilot.press("escape")
+
+
+# ---------------------------------------------------------------
+# Phase 5: CSS and OptionList styling (Req 20)
+# ---------------------------------------------------------------
+
+
+class TestCSSProperties:
+    """Tests for CSS properties in all three apps."""
+
+    def test_bundle_selector_css_has_transparent_bg(
+        self,
+    ) -> None:
+        """BundleSelectorApp CSS sets OptionList transparent bg."""
+        assert "background: transparent" in BundleSelectorApp.CSS
+
+    def test_bundle_selector_css_has_no_border(self) -> None:
+        """BundleSelectorApp CSS sets OptionList border: none."""
+        assert "border: none" in BundleSelectorApp.CSS
+
+    def test_bundle_selector_css_has_highlight_opacity(
+        self,
+    ) -> None:
+        """BundleSelectorApp CSS has highlight bg opacity."""
+        assert "$accent 15%" in BundleSelectorApp.CSS
+        assert "$accent 25%" in BundleSelectorApp.CSS
+
+    def test_bundle_selector_css_has_scrollbar_colors(
+        self,
+    ) -> None:
+        """BundleSelectorApp CSS has scrollbar colors."""
+        assert "scrollbar-color: $accent 30%" in (BundleSelectorApp.CSS)
+
+    def test_bundle_selector_css_has_input_border(
+        self,
+    ) -> None:
+        """BundleSelectorApp CSS has Input border states."""
+        assert "Input:focus" in BundleSelectorApp.CSS
+        assert "Input.-invalid" in BundleSelectorApp.CSS
+
+    def test_removal_selector_css_matches_bundle(self) -> None:
+        """RemovalSelectorApp CSS has same key properties."""
+        assert "background: transparent" in RemovalSelectorApp.CSS
+        assert "border: none" in RemovalSelectorApp.CSS
+        assert "$accent 15%" in RemovalSelectorApp.CSS
+
+    def test_scope_selector_css_has_width_40(self) -> None:
+        """ScopeSelectorApp CSS has width: 40."""
+        assert "width: 40" in ScopeSelectorApp.CSS
+
+    def test_scope_selector_css_has_max_height_12(
+        self,
+    ) -> None:
+        """ScopeSelectorApp CSS has max-height: 12."""
+        assert "max-height: 12" in ScopeSelectorApp.CSS
+
+    def test_scope_selector_css_centered(self) -> None:
+        """ScopeSelectorApp CSS centers content."""
+        assert "align: center middle" in ScopeSelectorApp.CSS
+
+
+# ---------------------------------------------------------------
+# Phase 5: Rich Text OptionList items (Req 21)
+# ---------------------------------------------------------------
+
+
+class TestRichTextOptions:
+    """Tests for Rich Text formatting in OptionList items."""
+
+    @pytest.mark.asyncio
+    async def test_bundle_names_use_bold_cyan(self) -> None:
+        """Bundle names use bold cyan Rich Text."""
+        bundles = _make_bundles("alpha")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            option = ol.get_option_at_index(0)
+            prompt = option.prompt
+            assert isinstance(prompt, Text)
+            assert "bold cyan" in str(prompt._spans)
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_installed_badge_uses_dim(self) -> None:
+        """Installed badges use dim Rich Text."""
+        bundles = _make_bundles("alpha")
+        app = BundleSelectorApp(bundles, installed_names={"alpha"})
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            option = ol.get_option_at_index(0)
+            prompt = option.prompt
+            assert isinstance(prompt, Text)
+            plain = prompt.plain
+            assert "[installed]" in plain
+            assert "dim" in str(prompt._spans)
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_removal_names_use_bold_cyan(self) -> None:
+        """Removal selector bundle names use bold cyan."""
+        entries = _make_entries(
+            ("alpha", "local"),
+        )
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            option = ol.get_option_at_index(0)
+            prompt = option.prompt
+            assert isinstance(prompt, Text)
+            assert "bold cyan" in str(prompt._spans)
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_removal_scope_uses_dim(self) -> None:
+        """Removal selector scope badge uses dim."""
+        entries = _make_entries(
+            ("alpha", "local"),
+        )
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            option = ol.get_option_at_index(0)
+            prompt = option.prompt
+            assert isinstance(prompt, Text)
+            assert "dim" in str(prompt._spans)
+            await pilot.press("escape")
+
+
+# ---------------------------------------------------------------
+# Coverage: BundleSelectorApp missing paths
+# ---------------------------------------------------------------
+
+
+class TestBundleSelectorCoverage:
+    """Cover remaining BundleSelectorApp code paths."""
+
+    @pytest.mark.asyncio
+    async def test_no_match_filter_shows_message(self) -> None:
+        """Filter with no matches shows disabled message."""
+        bundles = _make_bundles("alpha", "beta")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            inp = app.query_one("Input")
+            inp.focus()
+            await pilot.press("z", "z", "z")
+            ol = app.query_one(OptionList)
+            assert ol.option_count == 1
+            opt = ol.get_option_at_index(0)
+            assert opt.disabled is True
+            assert "No bundles match" in str(opt.prompt)
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_clear_filter_restores_all(self) -> None:
+        """Clearing filter restores all items."""
+        bundles = _make_bundles("alpha", "beta")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            inp = app.query_one("Input")
+            inp.focus()
+            await pilot.press("a")
+            await pilot.press("backspace")
+            ol = app.query_one(OptionList)
+            assert ol.option_count == 2
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_enter_on_empty_filter_does_nothing(
+        self,
+    ) -> None:
+        """Enter with no filtered items does nothing."""
+        bundles = _make_bundles("alpha")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            inp = app.query_one("Input")
+            inp.focus()
+            await pilot.press("z", "z", "z")
+            await pilot.press("enter")
+            assert app.selected_names is None
+            await pilot.press("escape")
+
+
+# ---------------------------------------------------------------
+# Coverage: RemovalSelectorApp missing paths
+# ---------------------------------------------------------------
+
+
+class TestRemovalSelectorCoverage:
+    """Cover remaining RemovalSelectorApp code paths."""
+
+    @pytest.mark.asyncio
+    async def test_no_match_filter_shows_message(self) -> None:
+        """Filter with no matches shows disabled message."""
+        entries = _make_entries(("alpha", "local"), ("beta", "global"))
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            inp = app.query_one("Input")
+            inp.focus()
+            await pilot.press("z", "z", "z")
+            ol = app.query_one(OptionList)
+            assert ol.option_count == 1
+            opt = ol.get_option_at_index(0)
+            assert opt.disabled is True
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_clear_filter_restores_all(self) -> None:
+        """Clearing filter restores all entries."""
+        entries = _make_entries(("alpha", "local"), ("beta", "global"))
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            inp = app.query_one("Input")
+            inp.focus()
+            await pilot.press("a")
+            await pilot.press("backspace")
+            ol = app.query_one(OptionList)
+            assert ol.option_count == 2
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_q_aborts_when_filter_empty(self) -> None:
+        """q aborts RemovalSelectorApp when filter is empty."""
+        entries = _make_entries(
+            ("alpha", "local"),
+        )
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            await pilot.press("q")
+        assert app.selected_entries is None
+
+    @pytest.mark.asyncio
+    async def test_q_appends_when_filter_nonempty(
+        self,
+    ) -> None:
+        """q appends to filter when filter is non-empty."""
+        entries = _make_entries(("sql-queries", "local"), ("alpha", "local"))
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            inp = app.query_one("Input")
+            inp.focus()
+            await pilot.press("s")
+            await pilot.press("q")
+            assert inp.value == "sq"
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_enter_on_empty_filter_does_nothing(
+        self,
+    ) -> None:
+        """Enter with no filtered entries does nothing."""
+        entries = _make_entries(
+            ("alpha", "local"),
+        )
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            inp = app.query_one("Input")
+            inp.focus()
+            await pilot.press("z", "z", "z")
+            await pilot.press("enter")
+            assert app.selected_entries is None
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_space_toggles_in_removal(self) -> None:
+        """Space toggles multi-select in RemovalSelectorApp."""
+        entries = _make_entries(("alpha", "local"), ("beta", "global"))
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            await pilot.press("space")
+            assert 0 in app.multi_selected
+            await pilot.press("space")
+            assert 0 not in app.multi_selected
+            await pilot.press("escape")
 
 
 # ---------------------------------------------------------------

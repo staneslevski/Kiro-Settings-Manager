@@ -916,26 +916,25 @@ def test_sync_non_tty_without_yes_returns_error(
 
     assert code == 1
     captured = capsys.readouterr()
-    assert "Error:" in captured.err
+    assert "error:" in captured.err
     assert "--yes" in captured.err
 
 
 def test_sync_confirmation_message_global_scope(
     tmp_path: Path,
 ) -> None:
-    """_build_confirmation_message shows ~/.kiro/ for global scope."""
+    """_build_confirmation_message shows global scope per bundle."""
     from ksm.commands.sync import _build_confirmation_message
 
     entries = [_make_entry("aws", scope="global", files=["skills/f.md"])]
     msg = _build_confirmation_message(entries)
-    assert "~/.kiro/" in msg
-    assert ".kiro/ and" not in msg
+    assert "global" in msg
 
 
 def test_sync_confirmation_message_mixed_scope(
     tmp_path: Path,
 ) -> None:
-    """_build_confirmation_message shows both paths for mixed scopes."""
+    """_build_confirmation_message shows scope per bundle for mixed."""
     from ksm.commands.sync import _build_confirmation_message
 
     entries = [
@@ -943,7 +942,8 @@ def test_sync_confirmation_message_mixed_scope(
         _make_entry("team", scope="global", files=["steering/s.md"]),
     ]
     msg = _build_confirmation_message(entries)
-    assert ".kiro/ and ~/.kiro/" in msg
+    assert "local" in msg
+    assert "global" in msg
 
 
 def test_sync_dry_run_prints_preview(
@@ -985,10 +985,9 @@ def test_sync_dry_run_prints_preview(
     )
 
     assert code == 0
-    # File should remain unchanged (dry run)
     assert (target / "skills" / "f.md").read_bytes() == b"old"
     captured = capsys.readouterr()
-    assert "Syncing" in captured.err
+    assert "Sync" in captured.err
 
 
 # --- Tests for stream=sys.stderr in formatter calls (Reqs 1.1-1.3, 2.1-2.3) ---
@@ -1236,20 +1235,19 @@ class TestSyncFormatterStreamParam:
 
 
 class TestSyncGreenSuccessPrefix:
-    """Property 14: sync success message includes green
-    "Synced:" prefix."""
+    """Property 14: sync success message includes
+    success-styled checkmark and bundle name."""
 
-    _GREEN = "\033[32m"
+    _SUCCESS = "\033[92m"
     _RESET = "\033[0m"
 
-    def test_synced_prefix_green_on_tty(
+    def test_synced_prefix_success_on_tty(
         self,
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Property 14: successful sync prints green
-        'Synced:' prefix to stderr when stream is TTY.
-        **Validates: Requirements 3.3**"""
+        """Property 14: successful sync prints success-styled
+        checkmark to stderr when stream is TTY."""
         from ksm.commands.sync import run_sync
 
         reg = tmp_path / "reg"
@@ -1295,17 +1293,15 @@ class TestSyncGreenSuccessPrefix:
 
         assert code == 0
         captured = capsys.readouterr()
-        assert "Synced:" in captured.err
-        assert self._GREEN in captured.err
+        assert "Synced" in captured.err
+        assert self._SUCCESS in captured.err
 
     def test_synced_prefix_plain_with_no_color(
         self,
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Property 14: 'Synced:' is plain text when
-        NO_COLOR is set.
-        **Validates: Requirements 3.4**"""
+        """Property 14: output is plain text when NO_COLOR set."""
         from ksm.commands.sync import run_sync
 
         reg = tmp_path / "reg"
@@ -1347,7 +1343,7 @@ class TestSyncGreenSuccessPrefix:
 
         assert code == 0
         captured = capsys.readouterr()
-        assert "Synced:" in captured.err
+        assert "Synced" in captured.err
         assert "\033[" not in captured.err
 
     def test_synced_prefix_contains_bundle_name(
@@ -1394,7 +1390,7 @@ class TestSyncGreenSuccessPrefix:
 
         assert code == 0
         captured = capsys.readouterr()
-        assert "Synced:" in captured.err
+        assert "Synced" in captured.err
         assert "aws" in captured.err
 
 
@@ -1415,6 +1411,7 @@ class TestSyncConfirmationColor:
     names in bold and scope description in bold."""
 
     _BOLD = "\033[1m"
+    _ACCENT = "\033[96m"
     _RESET = "\033[0m"
 
     # --- Property 17: bundle names wrapped in bold ---
@@ -1449,10 +1446,10 @@ class TestSyncConfirmationColor:
         stream = FakeTTY()
         msg = _build_confirmation_message(entries, stream=stream)
 
-        expected = f"{self._BOLD}{bundle_name}{self._RESET}"
+        expected = f"{self._ACCENT}{bundle_name}{self._RESET}"
         assert expected in msg
 
-    # --- Property 18: scope description wrapped in bold ---
+    # --- Property 18: scope shown per bundle in muted ---
 
     @given(
         scope_combo=st.sampled_from(["local_only", "global_only", "mixed"]),
@@ -1463,9 +1460,7 @@ class TestSyncConfirmationColor:
         scope_combo: str,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Property 18: sync confirmation wraps scope
-        description in bold when stream is a TTY.
-        **Validates: Requirements 10.2**"""
+        """Property 18: sync confirmation shows scope per bundle."""
         from ksm.commands.sync import (
             _build_confirmation_message,
         )
@@ -1475,31 +1470,26 @@ class TestSyncConfirmationColor:
 
         if scope_combo == "local_only":
             entries = [_make_entry("aws", scope="local")]
-            scope_desc = ".kiro/"
         elif scope_combo == "global_only":
             entries = [_make_entry("aws", scope="global")]
-            scope_desc = "~/.kiro/"
         else:
             entries = [
                 _make_entry("aws", scope="local"),
                 _make_entry("team", scope="global"),
             ]
-            scope_desc = ".kiro/ and ~/.kiro/"
 
         stream = FakeTTY()
         msg = _build_confirmation_message(entries, stream=stream)
 
-        expected = f"{self._BOLD}{scope_desc}{self._RESET}"
-        assert expected in msg
+        for e in entries:
+            assert e.scope in msg
 
     # --- Plain text when stream is None ---
 
     def test_sync_confirm_plain_when_stream_none(
         self,
     ) -> None:
-        """sync confirmation is plain text when stream is
-        None.
-        **Validates: Requirements 10.3**"""
+        """sync confirmation is plain text when stream is None."""
         from ksm.commands.sync import (
             _build_confirmation_message,
         )
@@ -1516,16 +1506,14 @@ class TestSyncConfirmationColor:
 
         assert "\033[" not in msg
         assert "aws" in msg
-        assert ".kiro/" in msg
+        assert "local" in msg
 
     # --- Plain text when stream is non-TTY ---
 
     def test_sync_confirm_plain_when_non_tty(
         self,
     ) -> None:
-        """sync confirmation is plain text when stream is
-        non-TTY.
-        **Validates: Requirements 10.3**"""
+        """sync confirmation is plain text when stream is non-TTY."""
         import io
 
         from ksm.commands.sync import (
@@ -1545,7 +1533,7 @@ class TestSyncConfirmationColor:
 
         assert "\033[" not in msg
         assert "aws" in msg
-        assert "~/.kiro/" in msg
+        assert "global" in msg
 
     # --- Preserves existing structure ---
 
@@ -1553,8 +1541,7 @@ class TestSyncConfirmationColor:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Colored confirmation preserves existing prompt
-        structure."""
+        """Colored confirmation preserves prompt structure."""
         from ksm.commands.sync import (
             _build_confirmation_message,
         )
@@ -1578,6 +1565,6 @@ class TestSyncConfirmationColor:
         stream = FakeTTY()
         msg = _build_confirmation_message(entries, stream=stream)
 
-        assert "3 bundle(s)" in msg or "2 bundle(s)" in msg
-        assert "3 configuration file(s)" in msg
-        assert "Continue? [y/n]" in msg
+        assert "2 bundles" in msg
+        assert "Continue?" in msg
+        assert "[y/n]" in msg

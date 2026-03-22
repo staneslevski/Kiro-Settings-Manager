@@ -12,7 +12,7 @@ import json
 import sys
 from datetime import datetime, timezone
 
-from ksm.color import bold, dim
+from ksm.color import accent, bold, muted, _align_columns
 from ksm.manifest import Manifest, ManifestEntry
 
 
@@ -79,7 +79,6 @@ def _format_grouped(
         by_scope.setdefault(entry.scope, []).append(entry)
 
     lines: list[str] = []
-    # Show scopes in consistent order: local first, then global
     for scope in ["local", "global"]:
         group = by_scope.get(scope, [])
         if not group:
@@ -88,19 +87,25 @@ def _format_grouped(
         header = bold(f"{scope.capitalize()} bundles:")
         lines.append(header)
 
+        rows: list[tuple[str, ...]] = []
+        row_entries: list[ManifestEntry] = []
         for entry in sorted(group, key=lambda e: e.bundle_name):
             rel_time = _format_relative_time(entry.updated_at)
-            source = dim(f"({entry.source_registry})")
-            line = f"  {entry.bundle_name}  {source}" f"  {dim(rel_time)}"
-            lines.append(line)
+            name_col = accent(entry.bundle_name)
+            reg_col = muted(entry.source_registry)
+            time_col = muted(rel_time)
+            rows.append((name_col, reg_col, time_col))
+            row_entries.append(entry)
 
+        aligned = _align_columns(rows)
+        for i, line in enumerate(aligned):
+            lines.append(f"  {line}")
             if verbose:
-                for f in sorted(entry.installed_files):
-                    lines.append(f"    {dim(f)}")
+                for f in sorted(row_entries[i].installed_files):
+                    lines.append(f"    {muted(f)}")
 
-        lines.append("")  # blank line between groups
+        lines.append("")
 
-    # Remove trailing blank line
     if lines and lines[-1] == "":
         lines.pop()
 

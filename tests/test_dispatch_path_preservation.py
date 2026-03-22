@@ -9,7 +9,7 @@ These tests are expected to PASS on unfixed code (confirming baseline behavior).
 
 import argparse
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from hypothesis import given, settings
 from hypothesis import strategies as st

@@ -9,7 +9,7 @@ Requirements: 18.1, 18.2, 18.3
 import argparse
 import sys
 
-from ksm.color import bold, dim, green
+from ksm.color import SYM_DOT, accent, muted, success
 from ksm.errors import format_error
 from ksm.manifest import Manifest
 from ksm.registry import RegistryIndex
@@ -46,12 +46,11 @@ def run_info(
     ]
 
     lines: list[str] = []
-    lines.append(bold(resolved.name))
-    lines.append(f"  Registry: {dim(resolved.registry_name)}")
-    lines.append(f"  Path:     {dim(str(resolved.path))}")
+    lines.append(accent(resolved.name))
+    lines.append(f"  Registry   {muted(resolved.registry_name)}")
 
-    # Subdirectory breakdown
-    lines.append("  Contents:")
+    # Flattened contents
+    content_parts: list[str] = []
     for subdir in resolved.subdirectories:
         subdir_path = resolved.path / subdir
         items = (
@@ -59,14 +58,16 @@ def run_info(
             if subdir_path.is_dir()
             else []
         )
-        lines.append(f"    {subdir}/ " f"{dim(f'({len(items)} items)')}")
+        content_parts.append(f"{subdir}/ {len(items)} items")
+    contents_str = muted(f" {SYM_DOT} ".join(content_parts))
+    lines.append(f"  Contents   {contents_str}")
 
     # Installed status
     if installed_scopes:
         scopes_str = ", ".join(installed_scopes)
-        lines.append(f"  Installed: {green(scopes_str)}")
+        lines.append(f"  Installed  {success(scopes_str)}")
     else:
-        lines.append(f"  Installed: {dim('no')}")
+        lines.append(f"  Installed  {muted('no')}")
 
     print("\n".join(lines))
     return 0

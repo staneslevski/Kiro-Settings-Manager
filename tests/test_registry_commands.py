@@ -93,7 +93,6 @@ class TestRegistryLs:
         out = capsys.readouterr().out
         assert "my-reg" in out
         assert "https://example.com/repo.git" in out
-        assert str(reg_path) in out
         assert "2 bundles" in out
 
     def test_ls_local_registry_shows_local_label(
@@ -166,7 +165,6 @@ class TestRegistryLs:
             out = buf.getvalue()
             assert name in out
             assert url in out
-            assert str(reg_path) in out
 
 
 # ── registry ls color ────────────────────────────────────────
@@ -199,7 +197,7 @@ class TestRegistryLsColor:
             ]
         )
         args = argparse.Namespace()
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_registry_ls(args, registry_index=idx)
 
         assert code == 0
@@ -229,7 +227,7 @@ class TestRegistryLsColor:
             ]
         )
         args = argparse.Namespace()
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_registry_ls(args, registry_index=idx)
 
         assert code == 0
@@ -272,7 +270,7 @@ class TestRegistryLsColor:
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Verify registry name is wrapped in bold."""
+        """Verify registry name is wrapped in accent."""
         from ksm.commands.registry_ls import run_registry_ls
 
         reg_path = tmp_path / "my-reg"
@@ -288,12 +286,12 @@ class TestRegistryLsColor:
             ]
         )
         args = argparse.Namespace()
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_registry_ls(args, registry_index=idx)
 
         assert code == 0
         out = capsys.readouterr().out
-        assert "\033[1mmy-reg\033[0m" in out
+        assert "\033[96mmy-reg\033[0m" in out
 
 
 # ── registry rm ──────────────────────────────────────────────
@@ -533,7 +531,7 @@ class TestRegistryRm:
         assert "locked" not in remaining
         # Warning printed
         captured = capsys.readouterr()
-        assert "Warning:" in captured.err
+        assert "warning:" in captured.err
         assert "Permission denied" in captured.err or (
             "permission" in captured.err.lower()
         )
@@ -576,7 +574,7 @@ class TestRegistryRm:
         assert code == 1
         captured = capsys.readouterr()
         # Three-line format_error structure
-        assert "Error:" in captured.err
+        assert "error:" in captured.err
         assert "missing" in captured.err
         # All registered names listed
         assert "default" in captured.err
@@ -763,7 +761,7 @@ class TestRegistryRm:
 
             assert code == 1
             output = captured.getvalue()
-            assert "Error:" in output
+            assert "error:" in output
             for name in registered:
                 assert name in output
 
@@ -943,7 +941,8 @@ class TestRegistryInspect:
 
         assert code == 0
         out = capsys.readouterr().out
-        assert "yes" in out.lower()
+        assert "def-reg" in out
+        assert "bundle-a" in out
 
     def test_inspect_output_default_no(
         self,
@@ -1003,7 +1002,9 @@ class TestRegistryInspect:
 
         assert code == 0
         out = capsys.readouterr().out
-        assert str(reg_path) in out
+        # Path no longer shown per Req 13.4
+        assert "path-reg" in out
+        assert "bundle-a" in out
 
     def test_inspect_output_lists_bundles_with_subdirs(
         self,
@@ -1136,13 +1137,6 @@ class TestRegistryInspect:
                 assert url in out
             else:
                 assert "(local)" in out
-            # Must contain path
-            assert str(reg_path) in out
-            # Must contain default status
-            if is_default:
-                assert "yes" in out.lower()
-            else:
-                assert "no" in out.lower()
             # Must contain all bundle names
             for bname in bundle_names:
                 assert bname in out
@@ -1821,23 +1815,22 @@ class TestRegistryInspectColor:
             ]
         )
         args = argparse.Namespace(registry_name="my-reg")
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_registry_inspect(args, registry_index=idx)
 
         assert code == 0
         out = capsys.readouterr().out
-        # Registry header in bold
-        assert "\033[1mRegistry: my-reg\033[0m" in out
-        # Bundle name in bold
-        assert "\033[1mbundle-a\033[0m" in out
+        # Registry name in bold
+        assert "\033[1mmy-reg\033[0m" in out
+        # Bundle name in accent
+        assert "\033[96mbundle-a\033[0m" in out
 
     def test_path_item_counts_and_names_use_dim(
         self,
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Req 8.4: inspect wraps path, item counts, and
-        item names in dim."""
+        """Req 13.3: inspect wraps subdirectory names in muted."""
         from ksm.commands.registry_inspect import (
             run_registry_inspect,
         )
@@ -1855,17 +1848,15 @@ class TestRegistryInspectColor:
             ]
         )
         args = argparse.Namespace(registry_name="my-reg")
-        with patch("ksm.color._color_enabled", return_value=True):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_registry_inspect(args, registry_index=idx)
 
         assert code == 0
         out = capsys.readouterr().out
-        # Path line wrapped in dim
+        # Subdirectory name wrapped in muted
         assert "\033[2m" in out
-        # Item count like "(1 items)" wrapped in dim
-        assert "\033[2m(1 items)\033[0m" in out
-        # Item name "example.md" wrapped in dim
-        assert "\033[2mexample.md\033[0m" in out
+        # Items listed inline
+        assert "example.md" in out
 
     def test_no_color_suppresses_ansi(
         self,

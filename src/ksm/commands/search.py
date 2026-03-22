@@ -10,7 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from ksm.color import bold, dim
+from ksm.color import _align_columns, accent, muted, subtle
 from ksm.registry import RegistryIndex
 from ksm.scanner import BundleInfo, scan_registry
 
@@ -38,17 +38,22 @@ def run_search(
 
     if not results:
         print(
-            f"No bundles matching '{query}'.",
+            f"No bundles matching {accent(query)}.",
+            file=sys.stderr,
+        )
+        print(
+            subtle("Try a different search term or run"
+                   " `ksm registry ls` to check registries."),
             file=sys.stderr,
         )
         return 0
 
-    lines: list[str] = []
+    rows: list[tuple[str, ...]] = []
     for reg_name, bundle in results:
         subdirs = ", ".join(bundle.subdirectories)
-        lines.append(
-            f"  {bold(bundle.name)}  " f"{dim(f'({reg_name})')}  " f"{dim(subdirs)}"
-        )
+        rows.append((accent(bundle.name), muted(reg_name), muted(subdirs)))
 
-    print("\n".join(lines))
+    aligned = _align_columns(rows)
+    for line in aligned:
+        print(f"  {line}")
     return 0

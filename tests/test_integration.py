@@ -681,7 +681,7 @@ class TestLegacyAddRegistryDelegation:
         mock_add.assert_called_once()
         # Should print deprecation warning
         err = capsys.readouterr().err
-        assert "Deprecated:" in err
+        assert "deprecated:" in err
         assert "ksm add-registry" in err
         assert "ksm registry add" in err
 

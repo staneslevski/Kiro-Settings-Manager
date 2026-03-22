@@ -404,7 +404,7 @@ class TestAddRegistryDeprecationWrapper:
             )
 
         captured = capsys.readouterr()
-        assert "Deprecated:" in captured.err
+        assert "deprecated:" in captured.err
         assert "add-registry" in captured.err
         assert "registry add" in captured.err
         # Version numbers present (Req 8.4)
@@ -478,7 +478,7 @@ class TestAddRegistryDeprecationWrapper:
         mock_delegate.assert_called_once()
         # Deprecation warning was printed
         captured = capsys.readouterr()
-        assert "Deprecated:" in captured.err
+        assert "deprecated:" in captured.err
 
     def test_passes_force_flag_through(
         self,

@@ -14,7 +14,7 @@ from ksm.dot_notation import (
     parse_dot_notation,
     validate_dot_selection,
 )
-from ksm.color import green
+from ksm.color import SYM_ARROW, SYM_CHECK, accent, muted, success
 from ksm.copier import format_diff_summary
 from ksm.errors import (
     GitError,
@@ -388,9 +388,13 @@ def run_add(
             return 1
 
         if results:
-            prefix = green("Installed:", stream=sys.stderr)
+            scope_path = ".kiro/" if scope == "local" else "~/.kiro/"
+            check = success(SYM_CHECK, stream=sys.stderr)
+            name = accent(bundle_spec, stream=sys.stderr)
+            scope_label = muted(f"({scope})", stream=sys.stderr)
             print(
-                f"{prefix} '{bundle_spec}'",
+                f"{check} Installed {name} {SYM_ARROW}"
+                f" {scope_path} {scope_label}",
                 file=sys.stderr,
             )
             print(
@@ -500,9 +504,13 @@ def _handle_ephemeral(
             return 1
 
         if results:
-            prefix = green("Installed:", stream=sys.stderr)
+            scope_path = ".kiro/" if scope == "local" else "~/.kiro/"
+            check = success(SYM_CHECK, stream=sys.stderr)
+            name = accent(bundle_name, stream=sys.stderr)
+            scope_label = muted(f"({scope})", stream=sys.stderr)
             print(
-                f"{prefix} '{bundle_name}'",
+                f"{check} Installed {name} {SYM_ARROW}"
+                f" {scope_path} {scope_label}",
                 file=sys.stderr,
             )
             print(

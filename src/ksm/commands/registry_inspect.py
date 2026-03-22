@@ -10,7 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from ksm.color import bold, dim
+from ksm.color import accent, bold, muted
 from ksm.errors import format_error
 from ksm.registry import RegistryIndex
 from ksm.scanner import scan_registry
@@ -56,24 +56,21 @@ def run_registry_inspect(
         return 0
 
     lines: list[str] = []
-    lines.append(bold(f"Registry: {name}"))
-    lines.append(f"  URL:     {match.url or '(local)'}")
-    lines.append(dim(f"  Path:    {match.local_path}"))
-    lines.append(f"  Default: {'yes' if match.is_default else 'no'}")
-    lines.append(f"  Bundles: {len(bundles)}")
+    url_display = muted(match.url or "(local)")
+    lines.append(f"{bold(name)}  {url_display}")
     lines.append("")
 
     for bundle in bundles:
-        lines.append(f"  {bold(bundle.name)}")
+        lines.append(f"  {accent(bundle.name)}")
         for subdir in bundle.subdirectories:
-            # List items in each subdirectory
             subdir_path = bundle.path / subdir
             items = sorted(
                 p.name for p in subdir_path.iterdir() if p.is_dir() or p.is_file()
             )
-            lines.append(f"    {subdir}/ " f"{dim(f'({len(items)} items)')}")
-            for item in items:
-                lines.append(f"      {dim(item)}")
+            items_str = ", ".join(items)
+            lines.append(
+                f"    {muted(f'{subdir}/')}  {items_str}"
+            )
         lines.append("")
 
     # Remove trailing blank line
