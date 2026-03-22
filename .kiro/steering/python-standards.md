@@ -36,7 +36,7 @@ pip install -r requirements.txt
 ```
 
 ### Setup Process
-1. Create virtual environment: `python3.13 -m venv .venv`
+1. Create virtual environment: `python -m venv .venv`
 2. Activate and upgrade pip: `source .venv/bin/activate && pip install --upgrade pip`
 3. Install dependencies: `source .venv/bin/activate && pip install -e .`
 4. All subsequent commands follow the same `source .venv/bin/activate && ...` pattern

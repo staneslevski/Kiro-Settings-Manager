@@ -2,33 +2,59 @@
 
 ## Purpose
 
-This repository is a staging area for Kiro global configuration files. Files are authored under `docs/` and then installed to the user's home directory via scripts.
+This repository contains `ksm` (Kiro Settings Manager), a Python CLI tool for managing Kiro IDE configuration bundles. It lets users install, remove, sync, and organise bundles of skills, steering files, hooks, and agents across workspace (`.kiro/`) and global (`~/.kiro/`) scopes.
 
-## Directory layout
+## Directory Layout
 
-- `docs/steering/` — Steering files to be installed globally to `~/.kiro/steering/`
-- `docs/skills/` — Skill folders to be installed globally to `~/.kiro/skills/`
-- `docs/hooks/` — Hook files to be installed globally to `~/.kiro/hooks/`
-- `scripts/copy-steering.sh` — Installs steering files from `docs/steering/` to `~/.kiro/steering/`
-- `scripts/install-steering-and-skills.sh` — Installs steering files and skill folders from `docs/` to `~/.kiro/`
-- `scripts/install-hooks.sh` — Installs hook files from `docs/hooks/` to `~/.kiro/hooks/`
+- `src/ksm/` — Application source code (CLI, commands, core modules)
+- `src/ksm/commands/` — Individual CLI command implementations (`add`, `rm`, `ls`, `sync`, etc.)
+- `config_bundles/` — Built-in configuration bundles shipped with the tool (the default registry)
+- `tests/` — Test suite mirroring `src/ksm/` modules
+- `scripts/` — Utility shell scripts for syncing settings and installing legacy docs
+- `settings/` — Kiro allowed-commands list (`allowed_commands.txt`)
+- `docs/` — Project documentation and review notes
+- `.kiro/` — Workspace-level Kiro configuration (steering, agents, hooks, skills, specs)
 
-## Default behavior
+## Key Files
 
-When asked to write a skill, steering file, or hook, write it under `docs/` (not `.kiro/`). These are staging copies intended for global installation.
+- `pyproject.toml` — Project metadata, dependencies, and all tool configuration
+- `src/ksm/cli.py` — Argument parsing and command dispatch (entry point: `ksm`)
+- `config_bundles/` — Each subdirectory is a bundle containing any combination of `skills/`, `steering/`, `hooks/`, `agents/`
 
-- "Write a skill" → create it in `docs/skills/<skill-name>/SKILL.md`
-- "Write a steering file" → create it in `docs/steering/<filename>.md`
-- "Write a hook" → create it in `docs/hooks/<hook-name>.json`
+## Config Bundles
 
-Only write directly into `.kiro/steering/`, `.kiro/skills/`, or `.kiro/hooks/` if the user explicitly asks for a local (workspace-level) configuration.
+Bundles live in `config_bundles/` and are the default registry for `ksm`. Current bundles:
 
-## Installation
+- `aws` — AWS skills and steering (IAM, MCP availability)
+- `cli-tools` — CLI engineering agent
+- `example_conf_bund` — Example bundle demonstrating all subdirectory types
+- `git_and_github` — Git branching steering, GitHub PR skill, git/readme agents
+- `kiro_power_usage` — Task builder agent, skill-creating skill
+- `project_foundations` — Project structure/script-writing skills, planning/process steering
+- `python_dev` — Python and testing standards steering, hypothesis/argparse agents
+- `ux-design` — UX designer agent
 
-After authoring or updating files in `docs/`, run the appropriate install script:
+## Default Behavior
 
-```bash
-./scripts/copy-steering.sh                # installs steering files
-./scripts/install-steering-and-skills.sh  # installs steering files and skill folders
-./scripts/install-hooks.sh                # installs hook files
-```
+- New business logic goes in `src/ksm/`
+- New CLI commands go in `src/ksm/commands/`
+- New config bundles go in `config_bundles/<bundle-name>/`
+- Tests go in `tests/` with filenames matching `test_<module>.py`
+
+## Writing Steering, Skills, Hooks, or Agents
+
+DO NOT write steering files, skills, hooks, or agents into `.kiro/` unless the user explicitly asks for a workspace-level override. The `.kiro/` directory is for this repo's own local config — it is not the authoring location for distributable content.
+
+This repo's purpose is to manage config bundles that users install elsewhere. All distributable content belongs in `config_bundles/`.
+
+When asked to create or update a steering file, skill, hook, or agent:
+
+1. Ask the user which config bundle it should belong to (e.g. `python_dev`, `aws`, `git_and_github`, or a new bundle).
+2. Write the file into `config_bundles/<bundle-name>/<type>/` where `<type>` is one of `steering/`, `skills/`, `hooks/`, `agents/`.
+3. Only write into `.kiro/` if the user explicitly says "workspace-level", "local", or "just for this repo".
+
+## Scripts
+
+- `scripts/install-steering-and-skills.sh` — Copies `docs/steering/` and `docs/skills/` to `~/.kiro/` (legacy)
+- `scripts/sync-to-kiro-settings.sh` — Merges `settings/allowed_commands.txt` into Kiro's `settings.json`
+- `scripts/update-allowed-commands.sh` — Extracts trusted commands from Kiro's `settings.json` into `settings/allowed_commands.txt`
