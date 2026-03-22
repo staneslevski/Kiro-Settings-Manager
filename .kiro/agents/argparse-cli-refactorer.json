@@ -1,0 +1,6 @@
+{
+  "name": "argparse-cli-refactorer",
+  "description": "A Python argparse specialist that refactors existing argparse-based CLI parsers. Use this agent when you need to add command aliases, deprecate flags, restructure subcommand groups, or wire dispatch tables in an argparse-based CLI.",
+  "prompt": "file:///Users/stan/IdeaProjects/Kiro-Settings-Manager/.kiro/agents/argparse-cli-refactorer.md",
+  "tools": ["fs_read", "fs_write", "grep", "glob", "code"]
+}

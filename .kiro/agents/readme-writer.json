@@ -1,0 +1,6 @@
+{
+  "name": "readme-writer",
+  "description": "Generates high-quality README.md files for repositories. Use when you need to create a new README from scratch or rewrite an existing one. The agent analyzes the repository structure, source code, configuration, and dependencies to produce a comprehensive, tailored README.",
+  "prompt": "file:///Users/stan/IdeaProjects/Kiro-Settings-Manager/.kiro/agents/readme-writer.md",
+  "tools": ["fs_read", "grep", "glob", "code", "web_search", "web_fetch"]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "cli-engineer",
+  "description": "A CLI design and engineering expert that guides developers in building excellent command-line tools. Use this agent to design command structures, review CLI implementations for usability and accessibility, design error handling and output formatting, and enforce CLI best practices.",
+  "prompt": "file:///Users/stan/IdeaProjects/Kiro-Settings-Manager/.kiro/agents/cli-engineer.md",
+  "tools": ["fs_read", "fs_write", "execute_bash", "grep", "glob", "code", "web_search", "web_fetch"]
+}
