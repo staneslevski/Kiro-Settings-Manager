@@ -278,9 +278,7 @@ class TestDiffSummaryNewSuccess:
         assert f"{_MUTED}(new){_RESET}" in output
 
     def test_new_path_present(self) -> None:
-        results = [
-            CopyResult(path=Path("steering/code.md"), status=CopyStatus.NEW)
-        ]
+        results = [CopyResult(path=Path("steering/code.md"), status=CopyStatus.NEW)]
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             output = format_diff_summary(results, stream=stream)
@@ -291,18 +289,14 @@ class TestDiffSummaryUpdatedWarning:
     """Validates: Req 15.3 — UPDATED uses warning_style."""
 
     def test_updated_symbol_warning_on_tty(self) -> None:
-        results = [
-            CopyResult(path=Path("skills/SKILL.md"), status=CopyStatus.UPDATED)
-        ]
+        results = [CopyResult(path=Path("skills/SKILL.md"), status=CopyStatus.UPDATED)]
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             output = format_diff_summary(results, stream=stream)
         assert f"{_WARNING_STYLE}~{_RESET}" in output
 
     def test_updated_label_muted_on_tty(self) -> None:
-        results = [
-            CopyResult(path=Path("skills/SKILL.md"), status=CopyStatus.UPDATED)
-        ]
+        results = [CopyResult(path=Path("skills/SKILL.md"), status=CopyStatus.UPDATED)]
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             output = format_diff_summary(results, stream=stream)
@@ -313,18 +307,14 @@ class TestDiffSummaryUnchangedMuted:
     """Validates: Req 15.4 — UNCHANGED uses muted."""
 
     def test_unchanged_symbol_muted_on_tty(self) -> None:
-        results = [
-            CopyResult(path=Path("review.md"), status=CopyStatus.UNCHANGED)
-        ]
+        results = [CopyResult(path=Path("review.md"), status=CopyStatus.UNCHANGED)]
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             output = format_diff_summary(results, stream=stream)
         assert f"{_MUTED}={_RESET}" in output
 
     def test_unchanged_label_muted_on_tty(self) -> None:
-        results = [
-            CopyResult(path=Path("review.md"), status=CopyStatus.UNCHANGED)
-        ]
+        results = [CopyResult(path=Path("review.md"), status=CopyStatus.UNCHANGED)]
         stream = _make_tty_stream()
         with patch.dict("os.environ", _clean_env(), clear=True):
             output = format_diff_summary(results, stream=stream)
@@ -341,9 +331,7 @@ class TestDiffSummaryRelativePaths:
                 status=CopyStatus.NEW,
             )
         ]
-        output = format_diff_summary(
-            results, base_path=Path("/home/user/.kiro")
-        )
+        output = format_diff_summary(results, base_path=Path("/home/user/.kiro"))
         assert "steering/code.md" in output
         assert "/home/user/.kiro" not in output
 
@@ -436,20 +424,21 @@ class TestDiffSummaryMixed:
 # --- Property-based tests for colorized diff summary ---
 
 _status_strategy = st.sampled_from(list(CopyStatus))
-_filename_strategy = st.from_regex(
-    r"[a-z]{1,6}/[a-z]{1,6}\.[a-z]{1,3}", fullmatch=True
-)
+_filename_strategy = st.from_regex(r"[a-z]{1,6}/[a-z]{1,6}\.[a-z]{1,3}", fullmatch=True)
 
 
+# Feature: ux-visual-overhaul, Property 9: Diff summary uses
+# semantic colors per status
+# **Validates: Requirements 7.2-7.4, 9.4, 15.2, 15.3, 15.4**
 @given(
     statuses=st.lists(_status_strategy, min_size=1, max_size=10),
     filenames=st.lists(_filename_strategy, min_size=1, max_size=10),
 )
-def test_property_diff_summary_color_on_tty(
+def test_property_diff_summary_semantic_colors(
     statuses: list[CopyStatus],
     filenames: list[str],
 ) -> None:
-    """Property 9-10 (PBT): Each status uses correct semantic color."""
+    """Property 9: Each status uses correct semantic color."""
     from ksm.copier import _STATUS_SYMBOLS
 
     color_map = {
@@ -466,9 +455,36 @@ def test_property_diff_summary_color_on_tty(
         sym = _STATUS_SYMBOLS[r.status]
         expected_color = color_map[r.status]
         assert f"{expected_color}{sym}{_RESET}" in output
-        # Labels are always muted now
         assert f"{_MUTED}({r.status.value}){_RESET}" in output
         assert str(r.path) in output
+
+
+# Feature: ux-visual-overhaul, Property 10: Diff summary displays
+# relative paths
+# **Validates: Requirements 7.5, 15.1**
+@given(
+    statuses=st.lists(_status_strategy, min_size=1, max_size=10),
+    subdirs=st.lists(
+        st.from_regex(
+            r"[a-z]{1,6}/[a-z]{1,6}\.[a-z]{1,3}",
+            fullmatch=True,
+        ),
+        min_size=1,
+        max_size=10,
+    ),
+)
+def test_property_diff_summary_relative_paths(
+    statuses: list[CopyStatus],
+    subdirs: list[str],
+) -> None:
+    """Property 10: Paths displayed relative to base_path."""
+    base = Path("/home/user/.kiro")
+    pairs = list(zip(statuses, subdirs))
+    results = [CopyResult(path=base / rel, status=s) for s, rel in pairs]
+    output = format_diff_summary(results, base_path=base)
+    for s, rel in pairs:
+        assert rel in output
+        assert str(base / rel) not in output
 
 
 @given(
@@ -489,3 +505,60 @@ def test_property_diff_summary_plain_no_color(
     for r in results:
         assert str(r.path) in output
         assert f"({r.status.value})" in output
+
+
+# ------------------------------------------------------------------
+# Additional unit tests for format_diff_summary (Task 3.1.1)
+# Validates: Requirements 15.1, 15.2, 15.3, 15.4
+# ------------------------------------------------------------------
+
+
+class TestDiffSummarySymbolConstants:
+    """Validates: Req 15.2-15.4 — symbols match color.py constants."""
+
+    def test_status_symbols_match_color_constants(self) -> None:
+        """_STATUS_SYMBOLS values match SYM_NEW/UPDATED/UNCHANGED."""
+        from ksm.color import SYM_NEW, SYM_UNCHANGED, SYM_UPDATED
+        from ksm.copier import _STATUS_SYMBOLS
+
+        assert _STATUS_SYMBOLS[CopyStatus.NEW] == SYM_NEW
+        assert _STATUS_SYMBOLS[CopyStatus.UPDATED] == SYM_UPDATED
+        assert _STATUS_SYMBOLS[CopyStatus.UNCHANGED] == SYM_UNCHANGED
+
+    def test_symbols_are_fixed_values(self) -> None:
+        """SYM_NEW=+, SYM_UPDATED=~, SYM_UNCHANGED==."""
+        from ksm.color import SYM_NEW, SYM_UNCHANGED, SYM_UPDATED
+
+        assert SYM_NEW == "+"
+        assert SYM_UPDATED == "~"
+        assert SYM_UNCHANGED == "="
+
+
+class TestDiffSummaryEdgeCases:
+    """Edge cases for format_diff_summary."""
+
+    def test_empty_results_returns_empty_string(self) -> None:
+        output = format_diff_summary([])
+        assert output == ""
+
+    def test_base_path_fallback_when_not_relative(self) -> None:
+        """When path is not under base_path, absolute path shown."""
+        results = [
+            CopyResult(
+                path=Path("/other/place/file.md"),
+                status=CopyStatus.NEW,
+            )
+        ]
+        output = format_diff_summary(results, base_path=Path("/home/user/.kiro"))
+        assert "/other/place/file.md" in output
+
+    def test_each_line_has_two_space_indent(self) -> None:
+        """Each output line starts with 2-space indent (Req 16.2)."""
+        results = [
+            CopyResult(path=Path("a.md"), status=CopyStatus.NEW),
+            CopyResult(path=Path("b.md"), status=CopyStatus.UPDATED),
+            CopyResult(path=Path("c.md"), status=CopyStatus.UNCHANGED),
+        ]
+        output = format_diff_summary(results)
+        for line in output.splitlines():
+            assert line.startswith("  ")

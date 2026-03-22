@@ -11,7 +11,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TextIO
 
-from ksm.color import dim, green, muted, success, warning_style, yellow
+from ksm.color import muted, success, warning_style
 
 
 class CopyStatus(Enum):
@@ -125,5 +125,4 @@ def format_diff_summary(
                 pass
         colored_label = muted(f"({r.status.value})", stream=stream)
         lines.append(f"  {colored_sym} {display_path} {colored_label}")
-    return "\n".join(lines)
     return "\n".join(lines)

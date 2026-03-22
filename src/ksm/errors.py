@@ -2,7 +2,7 @@
 
 from typing import TextIO
 
-from ksm.color import accent, error_style, muted, subtle, warning_style
+from ksm.color import error_style, muted, subtle, warning_style
 
 
 class BundleNotFoundError(Exception):
@@ -160,8 +160,4 @@ def format_deprecation(
         f"Deprecated in {since}, will be removed in {removal}.",
         stream=stream,
     )
-    return (
-        f"{prefix} `{old}` is deprecated,"
-        f" use `{new}` instead.\n"
-        f"  {timeline}"
-    )
+    return f"{prefix} `{old}` is deprecated," f" use `{new}` instead.\n" f"  {timeline}"

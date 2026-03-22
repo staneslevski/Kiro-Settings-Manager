@@ -14,7 +14,6 @@ import re
 import sys
 from typing import TextIO
 
-
 # ---------------------------------------------------------------------------
 # Terminal capability detection
 # ---------------------------------------------------------------------------
@@ -111,8 +110,7 @@ def _wrap(text: str, code: str, stream: TextIO | None = None) -> str:
         # Downgrade bright variants in compound codes
         parts = code.split(";")
         parts = [
-            str(int(p) - 60) if p.isdigit() and 90 <= int(p) <= 97 else p
-            for p in parts
+            str(int(p) - 60) if p.isdigit() and 90 <= int(p) <= 97 else p for p in parts
         ]
         code = ";".join(parts)
     return f"\033[{code}m{text}\033[0m"

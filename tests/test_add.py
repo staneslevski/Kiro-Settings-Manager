@@ -2908,3 +2908,248 @@ class TestScopeSelectionIntegration:
         _, kwargs = mock_install.call_args
         assert kwargs["scope"] == "global"
         assert kwargs["target_dir"] == target_global
+
+
+# ── Phase 4.2: UX Visual Overhaul — add success output ──────
+# Feature: ux-visual-overhaul
+# **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.5**
+
+
+class TestAddSuccessOutputVisualOverhaul:
+    """Tests for add command success output formatting.
+
+    Verifies the output format:
+      ✓ Installed <name> → <path> (<scope>)
+    with semantic colors: success checkmark, accent name,
+    SYM_ARROW, muted scope.
+    """
+
+    _SUCCESS_CODE = "\033[92m"
+    _ACCENT_CODE = "\033[96m"
+    _MUTED_CODE = "\033[2m"
+    _RESET = "\033[0m"
+
+    def _run_add_with_color(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+        bundle_name: str = "mybundle",
+        use_global: bool = False,
+    ) -> str:
+        """Helper: run add with color enabled, return stderr."""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {bundle_name: {"skills": {"S.md": b"skill"}}},
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+        args = _make_args(
+            bundle_spec=bundle_name,
+            global_=use_global,
+        )
+
+        with patch(
+            "ksm.color._color_level", return_value=2
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=target_global,
+            )
+
+        assert code == 0
+        return capsys.readouterr().err
+
+    def test_accent_styled_bundle_name(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 7.1: bundle name styled with accent (96)."""
+        err = self._run_add_with_color(
+            tmp_path, capsys, "mybundle"
+        )
+        assert f"{self._ACCENT_CODE}mybundle{self._RESET}" in err
+
+    def test_sym_arrow_in_output(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 7.1: SYM_ARROW present in success line."""
+        from ksm.color import SYM_ARROW
+
+        err = self._run_add_with_color(
+            tmp_path, capsys
+        )
+        assert SYM_ARROW in err
+
+    def test_muted_scope_label_local(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 7.1: scope label styled with muted (2)."""
+        err = self._run_add_with_color(
+            tmp_path, capsys, use_global=False
+        )
+        assert f"{self._MUTED_CODE}(local){self._RESET}" in err
+
+    def test_muted_scope_label_global(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 7.1: global scope label styled with muted."""
+        err = self._run_add_with_color(
+            tmp_path, capsys, use_global=True
+        )
+        assert f"{self._MUTED_CODE}(global){self._RESET}" in err
+
+    def test_scope_path_local(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 7.1: local scope shows .kiro/ path."""
+        err = self._run_add_with_color(
+            tmp_path, capsys, use_global=False
+        )
+        assert ".kiro/" in err
+
+    def test_scope_path_global(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 7.1: global scope shows ~/.kiro/ path."""
+        err = self._run_add_with_color(
+            tmp_path, capsys, use_global=True
+        )
+        assert "~/.kiro/" in err
+
+    def test_success_styled_checkmark(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 7.1: SYM_CHECK styled with success (92)."""
+        from ksm.color import SYM_CHECK
+
+        err = self._run_add_with_color(
+            tmp_path, capsys
+        )
+        expected = (
+            f"{self._SUCCESS_CODE}{SYM_CHECK}{self._RESET}"
+        )
+        assert expected in err
+
+    def test_full_format_pattern(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 7.1: full output matches expected pattern."""
+        from ksm.color import SYM_ARROW, SYM_CHECK
+
+        err = self._run_add_with_color(
+            tmp_path, capsys, "testbundle"
+        )
+        check = (
+            f"{self._SUCCESS_CODE}{SYM_CHECK}{self._RESET}"
+        )
+        name = (
+            f"{self._ACCENT_CODE}testbundle{self._RESET}"
+        )
+        scope = (
+            f"{self._MUTED_CODE}(local){self._RESET}"
+        )
+        expected = (
+            f"{check} Installed {name}"
+            f" {SYM_ARROW} .kiro/ {scope}"
+        )
+        assert expected in err
+
+    def test_diff_summary_present(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 7.2-7.4: diff summary lines present."""
+        err = self._run_add_with_color(
+            tmp_path, capsys
+        )
+        # New file should show + symbol and (new)
+        assert "+" in err
+        assert "(new)" in err
+
+    def test_ephemeral_add_same_format(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Req 7.1: --from ephemeral uses same format."""
+        from ksm.commands.add import run_add
+
+        clone_dir = tmp_path / "clone"
+        bundle_path = clone_dir / "mybundle"
+        (bundle_path / "skills").mkdir(parents=True)
+        (bundle_path / "skills" / "S.md").write_bytes(
+            b"skill"
+        )
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(registries=[])
+        manifest = Manifest(entries=[])
+        args = _make_args(
+            bundle_spec="mybundle",
+            from_url="https://github.com/org/repo.git",
+        )
+
+        with (
+            patch(
+                "ksm.commands.add.clone_ephemeral",
+                return_value=clone_dir,
+            ),
+            patch("ksm.commands.add.shutil.rmtree"),
+            patch(
+                "ksm.color._color_level",
+                return_value=2,
+            ),
+        ):
+            code = run_add(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=tmp_path / "home" / ".kiro",
+            )
+
+        assert code == 0
+        captured = capsys.readouterr()
+        assert self._ACCENT_CODE in captured.err
+        assert "Installed" in captured.err
+        assert self._SUCCESS_CODE in captured.err
