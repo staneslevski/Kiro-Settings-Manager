@@ -267,7 +267,6 @@ def interactive_select(
         bundles,
         key=lambda b: (b.name.lower(), b.registry_name.lower()),
     )
-    names = [b.name for b in sorted_bundles]
 
     if not _can_run_textual():
         items = []
@@ -282,7 +281,10 @@ def interactive_select(
         idx = _numbered_list_select(items, "Select a bundle to install:")
         if idx is None:
             return None
-        return [names[idx]]
+        selected = sorted_bundles[idx]
+        if selected.registry_name:
+            return [f"{selected.registry_name}/{selected.name}"]
+        return [selected.name]
 
     # Textual path
     try:

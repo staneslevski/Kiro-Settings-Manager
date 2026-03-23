@@ -525,6 +525,7 @@ If something goes wrong:
 3. Create the PR with a clear title and description using `gh pr create`.
 4. Add appropriate labels, reviewers, and assignees.
 5. Verify CI checks pass: `gh pr checks`.
+6. **MANDATORY**: After creating or updating a PR, you MUST present the user with a clickable link to the PR on GitHub. Use the format `https://github.com/<owner>/<repo>/pull/<number>` so the user can review it directly in their browser. Never skip this step.
 
 ## Tone
 
