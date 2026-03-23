@@ -114,22 +114,12 @@ class BundleSelectorApp(App[None]):
         self._build_display_items()
 
     def _build_display_items(self) -> None:
-        sorted_bundles = sorted(self.bundles, key=lambda b: b.name.lower())
-        name_counts: dict[str, int] = {}
-        for b in sorted_bundles:
-            name_counts[b.name] = name_counts.get(b.name, 0) + 1
-        ambiguous = {n for n, c in name_counts.items() if c > 1}
-
-        items: list[tuple[str, BundleInfo]] = []
-        for b in sorted_bundles:
-            if b.name in ambiguous and b.registry_name:
-                display = f"{b.registry_name}/{b.name}"
-            else:
-                display = b.name
-            items.append((display, b))
-        items.sort(key=lambda p: p[0].lower())
-        self.display_items = items
-        self.filtered_items = list(items)
+        sorted_bundles = sorted(
+            self.bundles,
+            key=lambda b: (b.name.lower(), b.registry_name.lower()),
+        )
+        self.display_items = [(b.name, b) for b in sorted_bundles]
+        self.filtered_items = list(self.display_items)
 
     def compose(self) -> ComposeResult:
         with Container(id="container"):
@@ -155,6 +145,10 @@ class BundleSelectorApp(App[None]):
     def _refresh_options(self) -> None:
         ol = self.query_one(OptionList)
         ol.clear_options()
+        max_name = max(
+            (len(name) for name, _ in self.filtered_items),
+            default=0,
+        )
         for i, (display, bundle) in enumerate(self.filtered_items):
             check = (
                 "[✓] "
@@ -165,9 +159,11 @@ class BundleSelectorApp(App[None]):
             badge = " [installed]" if installed else ""
             label = Text()
             label.append(check)
-            label.append(display, style="bold cyan")
+            label.append(display.ljust(max_name), style="bold cyan")
             if badge:
                 label.append(badge, style="dim")
+            if bundle.registry_name:
+                label.append(f"  {bundle.registry_name}", style="dim")
             ol.add_option(Option(label, id=str(i)))
         if not self.filtered_items:
             fv = self.query_one(Input).value
@@ -190,7 +186,9 @@ class BundleSelectorApp(App[None]):
         ft = event.value.lower()
         if ft:
             self.filtered_items = [
-                item for item in self.display_items if ft in item[0].lower()
+                item
+                for item in self.display_items
+                if ft in item[0].lower() or ft in item[1].registry_name.lower()
             ]
         else:
             self.filtered_items = list(self.display_items)

@@ -233,3 +233,60 @@ def test_property_empty_registry_produces_bare_name(
     assert parsed_name == bundle_name, (
         f"Bundle name mismatch: expected {bundle_name!r}, " f"got {parsed_name!r}"
     )
+
+
+# Feature: registry-aware-interactive-add, Property 5:
+# Filter matches both bundle name and registry name
+@given(
+    bundles=st.lists(
+        _bundle_info_st,
+        min_size=1,
+        max_size=8,
+    ),
+    filter_str=st.from_regex(r"[a-z0-9\-]{1,3}", fullmatch=True),
+)
+def test_property_filter_matches_both_fields(
+    bundles: list[BundleInfo],
+    filter_str: str,
+) -> None:
+    """Property 5: Filter matches both bundle name and registry name.
+
+    For any filter string and list of BundleInfo objects, the
+    filtered result set includes a bundle iff the filter string
+    is a case-insensitive substring of either bundle.name or
+    bundle.registry_name.
+    **Validates: Requirements 5.1**
+    """
+    from ksm.selector import render_add_selector
+
+    lines = render_add_selector(
+        bundles,
+        installed_names=set(),
+        selected=0,
+        filter_text=filter_str,
+    )
+
+    # First 3 lines are header, instructions, filter indicator
+    bundle_lines = lines[3:]
+
+    # Compute expected matches
+    ft = filter_str.lower()
+    expected = [
+        b
+        for b in sorted(
+            bundles,
+            key=lambda b: (b.name.lower(), b.registry_name.lower()),
+        )
+        if ft in b.name.lower() or ft in b.registry_name.lower()
+    ]
+
+    assert len(bundle_lines) == len(expected), (
+        f"Expected {len(expected)} bundle lines for "
+        f"filter {filter_str!r}, got {len(bundle_lines)}"
+    )
+
+    for i, bundle in enumerate(expected):
+        stripped = _strip_ansi(bundle_lines[i])
+        assert bundle.name in stripped, (
+            f"Expected bundle name {bundle.name!r} in line " f"{i}: {stripped!r}"
+        )

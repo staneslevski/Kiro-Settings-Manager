@@ -1351,9 +1351,8 @@ def test_property_selector_qualifies_ambiguous_names(
     for rn in reg_names:
         assert rn in full_output, f"Registry '{rn}' missing from output"
 
-    # Each ambiguous bundle gets its own line
-    shared_lines = [ln for ln in bundle_lines if shared_name in _ANSI_RE.sub("", ln)]
-    assert len(shared_lines) == len(reg_names)
+    # Total bundle lines equals total bundles (no dedup)
+    assert len(bundle_lines) == len(bundles)
 
 
 # --- Tests for colored selector UI elements (Req 6) ---

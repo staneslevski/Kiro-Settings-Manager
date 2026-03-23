@@ -66,36 +66,36 @@ Make the `ksm add -i` interactive selector registry-aware end-to-end. Changes ar
     - [x] 2.2 Checkpoint
         - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 3. TUI display and filter changes
+- [x] 3. TUI display and filter changes
 
-    - [ ] 3.1 Update TUI `_build_display_items` and `_refresh_options`
+    - [x] 3.1 Update TUI `_build_display_items` and `_refresh_options`
 
-        - [ ] 3.1.1 Refactor `_build_display_items` in `tui.py`
+        - [x] 3.1.1 Refactor `_build_display_items` in `tui.py`
             - Remove ambiguity detection logic
             - Store `(bundle_name, bundle)` tuples sorted by `(name, registry_name)`
             - _Requirements: 1.1, 1.2, 4.1_
 
-        - [ ] 3.1.2 Update `_refresh_options` in `tui.py` to render two-column layout
+        - [x] 3.1.2 Update `_refresh_options` in `tui.py` to render two-column layout
             - Render bundle name in bold cyan, registry name in dim style with padding
             - _Requirements: 1.2_
 
-    - [ ] 3.2 Update TUI filter to match both fields
+    - [x] 3.2 Update TUI filter to match both fields
 
-        - [ ] 3.2.1 Write property test for filter matches both bundle name and registry name
+        - [x] 3.2.1 Write property test for filter matches both bundle name and registry name
             - **Property 5: Filter matches both bundle name and registry name**
             - Generate random bundles and a filter substring
             - Call `render_add_selector()` with filter, assert result matches expected filter logic
             - **Validates: Requirements 5.1**
 
-        - [ ] 3.2.2 Implement dual-field filter in `on_input_changed` in `tui.py`
+        - [x] 3.2.2 Implement dual-field filter in `on_input_changed` in `tui.py`
             - Match filter text against both `bundle.name` and `bundle.registry_name` (case-insensitive)
             - _Requirements: 5.1, 5.2_
 
-        - [ ] 3.2.3 Update filter in `render_add_selector` in `selector.py` to match both fields
+        - [x] 3.2.3 Update filter in `render_add_selector` in `selector.py` to match both fields
             - Filter against both `bundle.name` and `bundle.registry_name`
             - _Requirements: 5.1, 5.2_
 
-    - [ ] 3.3 Checkpoint
+    - [x] 3.3 Checkpoint
         - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 4. Integration wiring
