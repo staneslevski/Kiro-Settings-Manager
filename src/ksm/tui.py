@@ -223,20 +223,29 @@ class BundleSelectorApp(App[None]):
                 ol.highlighted = idx
             event.prevent_default()
 
+    @staticmethod
+    def _qualified_name(bundle: BundleInfo) -> str:
+        """Build qualified name from a BundleInfo."""
+        if bundle.registry_name:
+            return f"{bundle.registry_name}/{bundle.name}"
+        return bundle.name
+
     def _confirm_selection(self) -> None:
         if not self.filtered_items:
             return
         ol = self.query_one(OptionList)
         if self.multi_selected:
             self.selected_names = [
-                self.filtered_items[i][1].name
+                self._qualified_name(self.filtered_items[i][1])
                 for i in sorted(self.multi_selected)
                 if i < len(self.filtered_items)
             ]
         else:
             idx = ol.highlighted if ol.highlighted is not None else 0
             if idx < len(self.filtered_items):
-                self.selected_names = [self.filtered_items[idx][1].name]
+                self.selected_names = [
+                    self._qualified_name(self.filtered_items[idx][1])
+                ]
         self.exit()
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:

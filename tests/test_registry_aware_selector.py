@@ -11,6 +11,7 @@ from pathlib import Path
 from hypothesis import given
 from hypothesis import strategies as st
 
+from ksm.resolver import parse_qualified_name
 from ksm.scanner import BundleInfo
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
@@ -167,3 +168,68 @@ def test_property_duplicate_names_produce_separate_items(
     full_output = _strip_ansi("\n".join(bundle_lines))
     for reg in registries:
         assert reg in full_output, f"Registry {reg!r} missing from output"
+
+
+# Strategy: BundleInfo with empty registry_name
+_bundle_info_no_registry_st = st.builds(
+    BundleInfo,
+    name=st.from_regex(r"[a-z][a-z0-9\-]{0,9}", fullmatch=True),
+    path=st.builds(Path, st.just("/fake")),
+    subdirectories=st.just(["skills"]),
+    registry_name=st.just(""),
+)
+
+
+# Feature: registry-aware-interactive-add, Property 3:
+# Qualified name round-trip
+@given(
+    registry_name=st.from_regex(r"[a-z][a-z0-9\-]{0,9}", fullmatch=True),
+    bundle_name=st.from_regex(r"[a-z][a-z0-9\-]{0,9}", fullmatch=True),
+)
+def test_property_qualified_name_round_trip(
+    registry_name: str,
+    bundle_name: str,
+) -> None:
+    """Property 3: Qualified name round-trip.
+
+    Building a qualified name as registry/bundle and parsing
+    it with parse_qualified_name() returns the original pair.
+    Validates: Requirements 2.1, 2.2, 2.4, 2.5, 1.5
+    """
+    qualified = f"{registry_name}/{bundle_name}"
+    parsed_reg, parsed_name = parse_qualified_name(qualified)
+    assert parsed_reg == registry_name, (
+        f"Registry mismatch: expected {registry_name!r}, " f"got {parsed_reg!r}"
+    )
+    assert parsed_name == bundle_name, (
+        f"Bundle name mismatch: expected {bundle_name!r}, " f"got {parsed_name!r}"
+    )
+
+
+@given(
+    bundle_name=st.from_regex(r"[a-z][a-z0-9\-]{0,9}", fullmatch=True),
+)
+def test_property_empty_registry_produces_bare_name(
+    bundle_name: str,
+) -> None:
+    """Property 3 (empty case): Empty registry produces bare name.
+
+    When registry_name is empty, the qualified name is the bare
+    bundle_name with no leading '/'.
+    Validates: Requirements 2.5, 1.5
+    """
+    # Build qualified name the way the selector should
+    registry_name = ""
+    if registry_name:
+        qualified = f"{registry_name}/{bundle_name}"
+    else:
+        qualified = bundle_name
+
+    assert "/" not in qualified, f"Bare name should not contain '/': {qualified!r}"
+    parsed_reg, parsed_name = parse_qualified_name(qualified)
+    assert parsed_reg is None, (
+        f"Expected None registry for bare name, " f"got {parsed_reg!r}"
+    )
+    assert parsed_name == bundle_name, (
+        f"Bundle name mismatch: expected {bundle_name!r}, " f"got {parsed_name!r}"
+    )

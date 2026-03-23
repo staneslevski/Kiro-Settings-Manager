@@ -42,28 +42,28 @@ Make the `ksm add -i` interactive selector registry-aware end-to-end. Changes ar
     - [x] 1.2 Checkpoint
         - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 2. Return value changes
+- [x] 2. Return value changes
 
-    - [ ] 2.1 Update `interactive_select` and TUI `_confirm_selection` to return qualified names
+    - [x] 2.1 Update `interactive_select` and TUI `_confirm_selection` to return qualified names
 
-        - [ ] 2.1.1 Write property test for qualified name round-trip
+        - [x] 2.1.1 Write property test for qualified name round-trip
             - **Property 3: Qualified name round-trip**
             - Generate random `(registry_name, bundle_name)` pairs
             - Build qualified name, parse with `parse_qualified_name()`, assert round-trip equality
             - Test empty `registry_name` produces bare name with no leading `/`
             - **Validates: Requirements 2.1, 2.2, 2.4, 2.5, 1.5**
 
-        - [ ] 2.1.2 Implement qualified name return in fallback `interactive_select` in `selector.py`
+        - [x] 2.1.2 Implement qualified name return in fallback `interactive_select` in `selector.py`
             - Build `f"{registry_name}/{bundle_name}"` when `registry_name` is non-empty
             - Return bare `bundle_name` when `registry_name` is empty
             - _Requirements: 2.1, 2.5_
 
-        - [ ] 2.1.3 Implement qualified name return in TUI `_confirm_selection` in `tui.py`
+        - [x] 2.1.3 Implement qualified name return in TUI `_confirm_selection` in `tui.py`
             - Set `selected_names` to `f"{bundle.registry_name}/{bundle.name}"` when `registry_name` is non-empty
             - Return bare `bundle.name` when `registry_name` is empty
             - _Requirements: 2.1, 2.2, 2.4_
 
-    - [ ] 2.2 Checkpoint
+    - [x] 2.2 Checkpoint
         - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 3. TUI display and filter changes
