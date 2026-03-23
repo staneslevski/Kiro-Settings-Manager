@@ -114,32 +114,19 @@ def render_add_selector(
     provided, each line shows ``[✓]`` or ``[ ]`` indicators.
     Names are padded to align columns.
     """
-    sorted_bundles = sorted(bundles, key=lambda b: b.name.lower())
+    sorted_bundles = sorted(
+        bundles,
+        key=lambda b: (b.name.lower(), b.registry_name.lower()),
+    )
     if filter_text:
         ft = filter_text.lower()
-        sorted_bundles = [b for b in sorted_bundles if ft in b.name.lower()]
+        sorted_bundles = [
+            b
+            for b in sorted_bundles
+            if ft in b.name.lower() or ft in b.registry_name.lower()
+        ]
 
-    # Detect ambiguous names
-    name_counts: dict[str, int] = {}
-    for b in sorted_bundles:
-        name_counts[b.name] = name_counts.get(b.name, 0) + 1
-    ambiguous = {n for n, c in name_counts.items() if c > 1}
-
-    # Build display names
-    display_names: list[str] = []
-    for b in sorted_bundles:
-        if b.name in ambiguous and b.registry_name:
-            display_names.append(f"{b.registry_name}/{b.name}")
-        else:
-            display_names.append(b.name)
-
-    # Re-sort by display name
-    paired = list(zip(display_names, sorted_bundles))
-    paired.sort(key=lambda p: p[0].lower())
-    display_names = [p[0] for p in paired]
-    sorted_bundles = [p[1] for p in paired]
-
-    max_name = max((len(dn) for dn in display_names), default=0)
+    max_name = max((len(b.name) for b in sorted_bundles), default=0)
     lines: list[str] = [
         bold(_ADD_HEADER, stream=sys.stderr),
         dim(_ADD_INSTRUCTIONS, stream=sys.stderr),
@@ -152,7 +139,7 @@ def render_add_selector(
         check = ""
         if multi_selected is not None:
             check = "[✓] " if i in multi_selected else "[ ] "
-        padded = display_names[i].ljust(max_name)
+        padded = bundle.name.ljust(max_name)
         if i == selected:
             padded = bold(padded, stream=sys.stderr)
         label = (
@@ -160,7 +147,10 @@ def render_add_selector(
             if bundle.name in installed_names
             else ""
         )
-        lines.append(f"{prefix} {check}{padded}{label}")
+        reg_col = ""
+        if bundle.registry_name:
+            reg_col = "  " + dim(bundle.registry_name, stream=sys.stderr)
+        lines.append(f"{prefix} {check}{padded}{label}{reg_col}")
     return lines
 
 
@@ -273,17 +263,22 @@ def interactive_select(
     if not bundles:
         return None
 
-    sorted_bundles = sorted(bundles, key=lambda b: b.name.lower())
+    sorted_bundles = sorted(
+        bundles,
+        key=lambda b: (b.name.lower(), b.registry_name.lower()),
+    )
     names = [b.name for b in sorted_bundles]
 
     if not _can_run_textual():
-        items = [
-            (
-                b.name,
-                "[installed]" if b.name in installed_names else "",
-            )
-            for b in sorted_bundles
-        ]
+        items = []
+        for b in sorted_bundles:
+            label_parts: list[str] = []
+            if b.registry_name:
+                label_parts.append(f"({b.registry_name})")
+            if b.name in installed_names:
+                label_parts.append("[installed]")
+            items.append((b.name, "  ".join(label_parts)))
+
         idx = _numbered_list_select(items, "Select a bundle to install:")
         if idx is None:
             return None

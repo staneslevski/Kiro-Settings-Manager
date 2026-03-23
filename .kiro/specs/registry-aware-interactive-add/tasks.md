@@ -6,40 +6,40 @@ Make the `ksm add -i` interactive selector registry-aware end-to-end. Changes ar
 
 ## Tasks
 
-- [ ] 1. Selector rendering changes
+- [x] 1. Selector rendering changes
 
-    - [ ] 1.1 Update `render_add_selector` two-column layout
+    - [x] 1.1 Update `render_add_selector` two-column layout
 
-        - [ ] 1.1.1 Write property test for display contains bundle name and registry name
+        - [x] 1.1.1 Write property test for display contains bundle name and registry name
             - **Property 1: Display contains bundle name and registry name**
             - Generate random `BundleInfo` lists with non-empty `registry_name`
             - Call `render_add_selector()`, assert each bundle's `name` and `registry_name` appear in output
             - **Validates: Requirements 1.1, 1.3**
 
-        - [ ] 1.1.2 Write property test for installed detection uses bare name
+        - [x] 1.1.2 Write property test for installed detection uses bare name
             - **Property 2: Installed detection uses bare name**
             - Generate random bundles and random `installed_names` subsets
             - Call `render_add_selector()`, assert `[installed]` appears iff `bundle.name in installed_names`
             - **Validates: Requirements 1.4**
 
-        - [ ] 1.1.3 Write property test for duplicate bundle names produce separate items
+        - [x] 1.1.3 Write property test for duplicate bundle names produce separate items
             - **Property 4: Duplicate bundle names produce separate items**
             - Generate bundles with same `name` but different `registry_name` values
             - Call `render_add_selector()`, assert one selectable line per `BundleInfo`
             - **Validates: Requirements 4.1**
 
-        - [ ] 1.1.4 Implement two-column layout in `render_add_selector` in `selector.py`
+        - [x] 1.1.4 Implement two-column layout in `render_add_selector` in `selector.py`
             - Remove ambiguity detection logic (`name_counts`, `ambiguous` set)
             - Always display `bundle_name` padded + dimmed `registry_name` as second column
             - Sort by `(bundle_name, registry_name)` for stable ordering
             - Skip registry column when `registry_name` is empty
             - _Requirements: 1.1, 1.2, 1.3, 1.5, 4.1_
 
-        - [ ] 1.1.5 Update fallback path in `interactive_select` to show `bundle_name  (registry_name)` format
+        - [x] 1.1.5 Update fallback path in `interactive_select` to show `bundle_name  (registry_name)` format
             - Pass `(registry_name)` as label to `_numbered_list_select`
             - _Requirements: 1.3_
 
-    - [ ] 1.2 Checkpoint
+    - [x] 1.2 Checkpoint
         - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 2. Return value changes

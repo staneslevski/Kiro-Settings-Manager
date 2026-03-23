@@ -79,7 +79,7 @@ def test_render_add_selector_installed_label() -> None:
 
 
 def test_render_add_selector_shows_registry_name() -> None:
-    """Selector shows qualified name for ambiguous bundles."""
+    """Selector shows registry name as second column for all bundles."""
     from ksm.selector import render_add_selector
 
     bundles = [
@@ -99,8 +99,10 @@ def test_render_add_selector_shows_registry_name() -> None:
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
     bundle_lines = lines[3:]
-    assert "default/aws" in bundle_lines[0]
-    assert "team-repo/aws" in bundle_lines[1]
+    plain = [_ANSI_RE.sub("", ln) for ln in bundle_lines]
+    # Two-column layout: bundle name + registry name
+    assert "aws" in plain[0] and "default" in plain[0]
+    assert "aws" in plain[1] and "team-repo" in plain[1]
 
 
 def test_render_add_selector_multi_registry_sorted() -> None:
@@ -1217,7 +1219,7 @@ def test_property_multi_select_correct_indicators(
 
 
 def test_render_add_selector_ambiguous_shows_qualified() -> None:
-    """Ambiguous bundle names show registry/bundle format."""
+    """Ambiguous bundle names show registry as second column."""
     from ksm.selector import render_add_selector
 
     bundles = [
@@ -1243,26 +1245,20 @@ def test_render_add_selector_ambiguous_shows_qualified() -> None:
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
     bundle_lines = lines[3:]
-    # "aws" appears in two registries → qualified
+    # "aws" appears in two registries → both shown with registry col
     aws_lines = [ln for ln in bundle_lines if "aws" in ln]
     assert len(aws_lines) == 2
-    assert "first/aws" in aws_lines[0]
-    assert "second/aws" in aws_lines[1]
+    plain = [_ANSI_RE.sub("", ln) for ln in aws_lines]
+    assert "first" in plain[0]
+    assert "second" in plain[1]
 
-    # "unique" appears in one registry → plain name
+    # "unique" appears in one registry → still shows registry col
     unique_lines = [ln for ln in bundle_lines if "unique" in ln]
     assert len(unique_lines) == 1
-    assert (
-        "/" not in unique_lines[0].split()[1]
-        if len(unique_lines[0].split()) > 1
-        else True
-    )
-    # More precise: should NOT contain "first/unique"
-    assert "first/unique" not in unique_lines[0]
 
 
 def test_render_add_selector_unique_shows_plain_name() -> None:
-    """Unique bundle names show plain name without registry."""
+    """Unique bundle names show name as primary column, registry as second."""
     from ksm.selector import render_add_selector
 
     bundles = [
@@ -1282,11 +1278,15 @@ def test_render_add_selector_unique_shows_plain_name() -> None:
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
     bundle_lines = lines[3:]
-    # Both names are unique → no qualified format
-    alpha_line = [ln for ln in bundle_lines if "alpha" in ln][0]
-    beta_line = [ln for ln in bundle_lines if "beta" in ln][0]
+    # Two-column layout: name is primary, registry is secondary
+    alpha_line = _ANSI_RE.sub("", [ln for ln in bundle_lines if "alpha" in ln][0])
+    beta_line = _ANSI_RE.sub("", [ln for ln in bundle_lines if "beta" in ln][0])
+    # No registry/name prefix format
     assert "default/alpha" not in alpha_line
     assert "team/beta" not in beta_line
+    # Registry shown as separate column
+    assert "default" in alpha_line
+    assert "team" in beta_line
 
 
 # Property 6: Selector qualifies ambiguous bundle names
@@ -1311,7 +1311,7 @@ def test_property_selector_qualifies_ambiguous_names(
     reg_names: list[str],
     unique_names: list[str],
 ) -> None:
-    """Property 6: Ambiguous names qualified, unique unqualified."""
+    """Property 6: All bundles show registry as second column."""
     from ksm.selector import render_add_selector
 
     # Filter unique_names to avoid collision with shared_name
@@ -1345,26 +1345,15 @@ def test_property_selector_qualifies_ambiguous_names(
 
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
     bundle_lines = lines[3:]
+    full_output = _ANSI_RE.sub("", "\n".join(bundle_lines))
 
-    # Ambiguous bundles should show registry/name format
+    # All registries should appear in the output as columns
     for rn in reg_names:
-        qualified = f"{rn}/{shared_name}"
-        matching = [
-            ln for ln in bundle_lines if qualified in _ANSI_RE.sub("", ln).split()
-        ]
-        assert len(matching) == 1, (
-            f"Expected '{qualified}' as token in exactly"
-            f" one line, found {len(matching)}"
-        )
+        assert rn in full_output, f"Registry '{rn}' missing from output"
 
-    # Unique bundles should NOT show qualified format
-    for un in unique_names:
-        un_lines = [ln for ln in bundle_lines if un in ln]
-        for ln in un_lines:
-            plain = _ANSI_RE.sub("", ln)
-            assert f"/{un}" not in plain or (
-                f"{reg_names[0]}/{un}" not in plain
-            ), f"Unique name '{un}' should not be qualified"
+    # Each ambiguous bundle gets its own line
+    shared_lines = [ln for ln in bundle_lines if shared_name in _ANSI_RE.sub("", ln)]
+    assert len(shared_lines) == len(reg_names)
 
 
 # --- Tests for colored selector UI elements (Req 6) ---
