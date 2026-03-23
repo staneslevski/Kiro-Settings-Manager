@@ -120,16 +120,16 @@ Make the `ksm add -i` interactive selector registry-aware end-to-end. Changes ar
     - [x] 4.2 Checkpoint
         - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Backward compatibility verification
+- [x] 5. Backward compatibility verification
 
-    - [ ] 5.1 Verify existing non-interactive workflows unchanged
+    - [x] 5.1 Verify existing non-interactive workflows unchanged
 
-        - [ ] 5.1.1 Write unit tests for backward compatibility
+        - [x] 5.1.1 Write unit tests for backward compatibility
             - `run_add()` with bare name still calls `resolve_bundle()`
             - `run_add()` with `registry/bundle` still calls `resolve_qualified_bundle()`
             - _Requirements: 6.1, 6.2_
 
-    - [ ] 5.2 Final checkpoint
+    - [x] 5.2 Final checkpoint
         - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

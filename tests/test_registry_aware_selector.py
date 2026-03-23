@@ -545,3 +545,168 @@ def test_empty_registry_handle_display_returns_bare_name(
     result = _handle_display(index, manifest)
     assert result == "my-bundle"
     assert "/" not in result
+
+
+# ------------------------------------------------------------------
+# Unit tests for backward compatibility (Task 5.1.1)
+# ------------------------------------------------------------------
+
+
+def test_run_add_bare_name_calls_resolve_bundle(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """run_add() with a bare name (no '/') calls resolve_bundle().
+
+    Validates: Requirement 6.1
+    """
+    import argparse
+    from unittest.mock import MagicMock
+
+    from ksm.commands.add import run_add
+    from ksm.manifest import Manifest
+    from ksm.registry import RegistryEntry, RegistryIndex
+    from ksm.resolver import ResolvedBundle, ResolvedBundleResult
+
+    resolved = ResolvedBundle(
+        name="my-bundle",
+        path=tmp_path / "reg" / "my-bundle",
+        registry_name="default",
+        subdirectories=["skills"],
+    )
+    result = ResolvedBundleResult(
+        matches=[resolved],
+        searched=["default"],
+    )
+
+    mock_resolve = MagicMock(return_value=result)
+    mock_resolve_qualified = MagicMock()
+
+    monkeypatch.setattr("ksm.commands.add.resolve_bundle", mock_resolve)
+    monkeypatch.setattr(
+        "ksm.commands.add.resolve_qualified_bundle",
+        mock_resolve_qualified,
+    )
+    monkeypatch.setattr(
+        "ksm.commands.add.install_bundle",
+        MagicMock(return_value=[]),
+    )
+    monkeypatch.setattr("ksm.commands.add.save_manifest", MagicMock())
+
+    index = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(tmp_path / "reg"),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+    manifest_path = tmp_path / "manifest.json"
+
+    args = argparse.Namespace()
+    args.bundle_spec = "my-bundle"
+    args.display = False
+    args.interactive = False
+    setattr(args, "global_", False)
+    args.local = True
+    args.skills_only = False
+    args.steering_only = False
+    args.hooks_only = False
+    args.agents_only = False
+    args.from_url = None
+    args.dry_run = False
+    args.yes = False
+
+    code = run_add(
+        args,
+        registry_index=index,
+        manifest=manifest,
+        manifest_path=manifest_path,
+        target_local=tmp_path / ".kiro",
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    mock_resolve.assert_called_once_with("my-bundle", index)
+    mock_resolve_qualified.assert_not_called()
+
+
+def test_run_add_qualified_name_calls_resolve_qualified_bundle(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """run_add() with registry/bundle calls resolve_qualified_bundle().
+
+    Validates: Requirement 6.2
+    """
+    import argparse
+    from unittest.mock import MagicMock
+
+    from ksm.commands.add import run_add
+    from ksm.manifest import Manifest
+    from ksm.registry import RegistryEntry, RegistryIndex
+    from ksm.resolver import ResolvedBundle
+
+    resolved = ResolvedBundle(
+        name="my-bundle",
+        path=tmp_path / "reg" / "my-bundle",
+        registry_name="my-registry",
+        subdirectories=["skills"],
+    )
+
+    mock_resolve = MagicMock()
+    mock_resolve_qualified = MagicMock(return_value=resolved)
+
+    monkeypatch.setattr("ksm.commands.add.resolve_bundle", mock_resolve)
+    monkeypatch.setattr(
+        "ksm.commands.add.resolve_qualified_bundle",
+        mock_resolve_qualified,
+    )
+    monkeypatch.setattr(
+        "ksm.commands.add.install_bundle",
+        MagicMock(return_value=[]),
+    )
+    monkeypatch.setattr("ksm.commands.add.save_manifest", MagicMock())
+
+    index = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="my-registry",
+                url=None,
+                local_path=str(tmp_path / "reg"),
+                is_default=False,
+            )
+        ]
+    )
+    manifest = Manifest(entries=[])
+    manifest_path = tmp_path / "manifest.json"
+
+    args = argparse.Namespace()
+    args.bundle_spec = "my-registry/my-bundle"
+    args.display = False
+    args.interactive = False
+    setattr(args, "global_", False)
+    args.local = True
+    args.skills_only = False
+    args.steering_only = False
+    args.hooks_only = False
+    args.agents_only = False
+    args.from_url = None
+    args.dry_run = False
+    args.yes = False
+
+    code = run_add(
+        args,
+        registry_index=index,
+        manifest=manifest,
+        manifest_path=manifest_path,
+        target_local=tmp_path / ".kiro",
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    mock_resolve_qualified.assert_called_once_with("my-registry/my-bundle", index)
+    mock_resolve.assert_not_called()
