@@ -91,7 +91,7 @@ ls -lh "$DIST_DIR"/
 # Upload
 # -------------------------------------------------------------------
 info "Uploading to $REPOSITORY"
-twine upload "${TWINE_ARGS[@]}" "$DIST_DIR"/*
+twine upload ${TWINE_ARGS[@]+"${TWINE_ARGS[@]}"} "$DIST_DIR"/*
 
 ok "Published to $REPOSITORY successfully"
 
