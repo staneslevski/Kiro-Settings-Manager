@@ -57,7 +57,7 @@ class TestBundleSelectorApp:
         app = BundleSelectorApp(bundles, installed_names=set())
         async with app.run_test() as pilot:
             await pilot.press("enter")
-        assert app.selected_names == ["alpha"]
+        assert app.selected_names == ["default/alpha"]
 
     @pytest.mark.asyncio
     async def test_navigate_down_and_select(self) -> None:
@@ -67,7 +67,7 @@ class TestBundleSelectorApp:
         async with app.run_test() as pilot:
             await pilot.press("down")
             await pilot.press("enter")
-        assert app.selected_names == ["beta"]
+        assert app.selected_names == ["default/beta"]
 
     @pytest.mark.asyncio
     async def test_escape_aborts(self) -> None:
@@ -95,7 +95,7 @@ class TestBundleSelectorApp:
         async with app.run_test() as pilot:
             await pilot.press("end")
             await pilot.press("enter")
-        assert app.selected_names == ["gamma"]
+        assert app.selected_names == ["default/gamma"]
 
     @pytest.mark.asyncio
     async def test_multi_select_with_space(self) -> None:
@@ -108,7 +108,7 @@ class TestBundleSelectorApp:
             await pilot.press("space")  # toggle beta
             await pilot.press("enter")
         assert app.selected_names is not None
-        assert set(app.selected_names) == {"alpha", "beta"}
+        assert set(app.selected_names) == {"default/alpha", "default/beta"}
 
     @pytest.mark.asyncio
     async def test_filter_narrows_list(self) -> None:
@@ -121,7 +121,7 @@ class TestBundleSelectorApp:
             input_widget.focus()
             await pilot.press("b", "e", "t")
             await pilot.press("enter")
-        assert app.selected_names == ["beta"]
+        assert app.selected_names == ["default/beta"]
 
     @pytest.mark.asyncio
     async def test_filter_change_resets_highlight_and_toggles(self) -> None:
@@ -167,7 +167,7 @@ class TestBundleSelectorApp:
         async with app.run_test() as pilot:
             await pilot.press("enter")
         # Should return the bundle name (not qualified)
-        assert app.selected_names == ["utils"]
+        assert app.selected_names == ["reg1/utils"]
 
     @pytest.mark.asyncio
     async def test_q_appends_to_filter_when_nonempty(self) -> None:
@@ -329,7 +329,7 @@ class TestEdgeCases:
             header = app.query_one(".selector-header")
             assert header is not None
             await pilot.press("enter")
-        assert app.selected_names == ["only-one"]
+        assert app.selected_names == ["default/only-one"]
 
 
 # ---------------------------------------------------------------
@@ -755,7 +755,7 @@ class TestNoColor:
             mp.setenv("NO_COLOR", "1")
             async with app.run_test() as pilot:
                 await pilot.press("enter")
-        assert app.selected_names == ["alpha"]
+        assert app.selected_names == ["default/alpha"]
 
 
 # ---------------------------------------------------------------

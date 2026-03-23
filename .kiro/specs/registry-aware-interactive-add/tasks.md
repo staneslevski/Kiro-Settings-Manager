@@ -98,26 +98,26 @@ Make the `ksm add -i` interactive selector registry-aware end-to-end. Changes ar
     - [x] 3.3 Checkpoint
         - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Integration wiring
+- [x] 4. Integration wiring
 
-    - [ ] 4.1 Wire `_handle_display` pass-through and end-to-end resolution
+    - [x] 4.1 Wire `_handle_display` pass-through and end-to-end resolution
 
-        - [ ] 4.1.1 Write property test for qualified name resolves to correct registry
+        - [x] 4.1.1 Write property test for qualified name resolves to correct registry
             - **Property 6: Qualified name resolves to correct registry**
             - Build a `RegistryIndex` with duplicate bundles across registries
             - Call `resolve_qualified_bundle()`, assert returned `registry_name` matches input
             - **Validates: Requirements 3.3, 4.2**
 
-        - [ ] 4.1.2 Write unit tests for `_handle_display` pass-through
+        - [x] 4.1.2 Write unit tests for `_handle_display` pass-through
             - Verify `_handle_display()` returns the qualified name from `interactive_select()` unchanged
             - Test cancellation returns `None`
             - _Requirements: 3.1_
 
-        - [ ] 4.1.3 Write unit tests for empty `registry_name` edge case
+        - [x] 4.1.3 Write unit tests for empty `registry_name` edge case
             - Display shows bare name, return is bare name, no leading `/`
             - _Requirements: 1.5_
 
-    - [ ] 4.2 Checkpoint
+    - [x] 4.2 Checkpoint
         - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 5. Backward compatibility verification
