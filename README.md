@@ -37,20 +37,43 @@ A CLI tool for managing [Kiro IDE](https://kiro.dev) configuration bundles. `ksm
 
 ## Installation
 
+### From PyPI (recommended)
+
 ```bash
-# Clone the repository
-git clone <repo-url>
+pip install kiro-settings-manager
+```
+
+Once installed, the `ksm` command is available in your shell. If you prefer an isolated install that won't affect your global Python environment, use [pipx](https://pipx.pypa.io/):
+
+```bash
+pipx install kiro-settings-manager
+```
+
+### From GitHub
+
+```bash
+# Latest from main
+pip install git+https://github.com/staneslevski/Kiro-Settings-Manager.git
+
+# Specific version tag
+pip install git+https://github.com/staneslevski/Kiro-Settings-Manager.git@v0.1.0
+
+# Specific branch
+pip install git+https://github.com/staneslevski/Kiro-Settings-Manager.git@branch-name
+```
+
+### From source (for development)
+
+```bash
+git clone https://github.com/staneslevski/Kiro-Settings-Manager.git
 cd Kiro-Settings-Manager
 
-# Create and activate a virtual environment
 python -m venv .venv
 source .venv/bin/activate
-
-# Install in editable mode with dev dependencies
 pip install -e ".[dev]"
 ```
 
-After installation the `ksm` command is available in your shell (while the venv is active).
+See the [Development](#development) section for the full dev workflow.
 
 ## Quick Start
 
