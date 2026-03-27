@@ -33,9 +33,7 @@ def run_registry_ls(
 
         name_str = accent(entry.name)
         url_str = muted(entry.url if entry.url else "(local)")
-        count_str = muted(
-            f"{bundle_count} bundle{'s' if bundle_count != 1 else ''}"
-        )
+        count_str = muted(f"{bundle_count} bundle{'s' if bundle_count != 1 else ''}")
         rows.append((name_str, url_str, count_str))
 
     aligned = _align_columns(rows)

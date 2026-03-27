@@ -1,6 +1,7 @@
 """Tests for ksm.commands.sync module."""
 
 import argparse
+import io
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1399,7 +1400,7 @@ class TestSyncGreenSuccessPrefix:
 # **Validates: Requirements 10.1, 10.2, 10.3**
 
 
-class FakeTTY:
+class FakeTTY(io.StringIO):
     """A fake stream that reports isatty() = True."""
 
     def isatty(self) -> bool:

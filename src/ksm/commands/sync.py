@@ -48,9 +48,7 @@ def _build_confirmation_message(
     stream: TextIO | None = None,
 ) -> str:
     """Build confirmation listing bundles with scope and file count."""
-    count_header = bold(
-        f"Sync {len(entries)} bundles?", stream=stream
-    )
+    count_header = bold(f"Sync {len(entries)} bundles?", stream=stream)
     lines = [count_header]
     for e in entries:
         file_count = len(e.installed_files)
@@ -63,10 +61,7 @@ def _build_confirmation_message(
         lines.append(f"  {name}  {meta}")
     lines.append("")
     yn = bold("[y/n]", stream=stream)
-    lines.append(
-        f"This will overwrite configuration files."
-        f" Continue? {yn} "
-    )
+    lines.append(f"This will overwrite configuration files." f" Continue? {yn} ")
     return "\n".join(lines)
 
 

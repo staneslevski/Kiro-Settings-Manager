@@ -624,11 +624,12 @@ class TestAlignColumns:
         assert _align_columns([]) == []
 
     def test_single_row(self) -> None:
-        result = _align_columns([("a", "b")])
+        rows: list[tuple[str, ...]] = [("a", "b")]
+        result = _align_columns(rows)
         assert result == ["a  b"]
 
     def test_alignment_with_ansi(self) -> None:
-        rows = [
+        rows: list[tuple[str, ...]] = [
             ("\033[96mshort\033[0m", "val1"),
             ("\033[96mlonger-name\033[0m", "val2"),
         ]
@@ -640,7 +641,10 @@ class TestAlignColumns:
         assert pos1 == pos2
 
     def test_last_column_no_trailing_padding(self) -> None:
-        rows = [("a", "b"), ("cc", "d")]
+        rows: list[tuple[str, ...]] = [
+            ("a", "b"),
+            ("cc", "d"),
+        ]
         result = _align_columns(rows)
         # Last column should not have trailing spaces
         for line in result:
@@ -648,7 +652,10 @@ class TestAlignColumns:
 
     def test_varying_column_counts(self) -> None:
         """Shorter rows are handled; longer rows set widths."""
-        rows = [("a", "b", "c"), ("dd",)]
+        rows: list[tuple[str, ...]] = [
+            ("a", "b", "c"),
+            ("dd",),
+        ]
         result = _align_columns(rows)
         assert len(result) == 2
         # First row has all three columns
@@ -660,7 +667,10 @@ class TestAlignColumns:
 
     def test_custom_gap(self) -> None:
         """Custom gap parameter controls inter-column spacing."""
-        rows = [("a", "b"), ("cc", "d")]
+        rows: list[tuple[str, ...]] = [
+            ("a", "b"),
+            ("cc", "d"),
+        ]
         result = _align_columns(rows, gap=4)
         stripped = [_strip_ansi(line) for line in result]
         # "cc" is widest col0 (2 chars), so "a" gets 2+4=6 pad
@@ -672,7 +682,7 @@ class TestAlignColumns:
 
     def test_three_columns_alignment(self) -> None:
         """Three columns align correctly across rows."""
-        rows = [
+        rows: list[tuple[str, ...]] = [
             ("name", "registry", "2d ago"),
             ("longer-name", "reg", "5m ago"),
         ]
@@ -689,7 +699,7 @@ class TestAlignColumns:
 
     def test_ansi_cells_consistent_visible_positions(self) -> None:
         """ANSI-colored cells produce consistent visible positions."""
-        rows = [
+        rows: list[tuple[str, ...]] = [
             (
                 "\033[96mfoo\033[0m",
                 "\033[2mdefault\033[0m",
@@ -713,7 +723,7 @@ class TestAlignColumns:
 
     def test_last_column_no_padding_three_cols(self) -> None:
         """Last column has no trailing padding with 3+ columns."""
-        rows = [
+        rows: list[tuple[str, ...]] = [
             ("short", "mid", "end"),
             ("longer-name", "m", "e"),
         ]
@@ -900,6 +910,7 @@ def test_color_level_valid_and_priority(
     """
     env = _build_env(no_color, term, colorterm)
 
+    stream: MagicMock | StringIO
     if is_tty:
         stream = _make_tty_stream()
     else:

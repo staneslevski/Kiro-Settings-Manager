@@ -44,6 +44,7 @@ def test_load_registry_index_persists_default_on_first_run(
 
     assert filepath.exists()
     data = read_json(filepath)
+    assert isinstance(data, dict)
     assert len(data["registries"]) == 1
     assert data["registries"][0]["name"] == "default"
 
