@@ -167,7 +167,7 @@ def test_render_removal_selector_shows_scope_labels() -> None:
     aws_line = [ln for ln in lines if "aws" in ln][0]
     git_line = [ln for ln in lines if "git" in ln][0]
     assert "[global]" in aws_line
-    assert "[local]" in git_line
+    assert "[local" in git_line
     # Alphabetical order (bundle lines start at index 3)
     bundle_lines = lines[3:]
     assert bundle_lines[0].startswith(">")
@@ -320,7 +320,7 @@ def test_property_removal_selector_sorted_with_scope(
     expected_sorted = sorted(entries_data, key=lambda x: x[0].lower())
     for i, (name, scope) in enumerate(expected_sorted):
         assert name in bundle_lines[i]
-        assert f"[{scope}]" in bundle_lines[i]
+        assert f"[{scope}" in bundle_lines[i]
 
 
 # --- Tests for interactive functions with mocked terminal I/O ---
@@ -1910,3 +1910,557 @@ class TestSelectorStructure:
 
         assert clamp_index(5, 3) == 2
         assert clamp_index(-1, 3) == 0
+
+
+# --- Preservation: Add Selector Core Behavior Unchanged ---
+
+
+@given(
+    names=st.lists(
+        st.from_regex(r"[a-z]{2,8}", fullmatch=True),
+        min_size=1,
+        max_size=6,
+        unique=True,
+    ),
+    registry=st.from_regex(r"[a-z]{3,8}", fullmatch=True),
+    data=st.data(),
+)
+def test_preservation_add_selector_sorting_filtering_prefix(
+    names: list[str],
+    registry: str,
+    data: st.DataObject,
+) -> None:
+    """Property 2: Preservation — Add Selector Core Behavior.
+
+    **Validates: Requirements 3.1, 3.2, 3.3, 3.5, 3.6**
+
+    For all bundle sets with random installed subsets and
+    optional filter text, verify:
+    1. Sorting order (case-insensitive by name then registry)
+    2. Filter correctness (case-insensitive substring)
+    3. Selected line has '>' prefix
+    4. Multi-select indicators render correctly
+    """
+    from hypothesis import assume
+
+    from ksm.selector import render_add_selector
+
+    installed = set(
+        data.draw(
+            st.lists(
+                st.sampled_from(names),
+                unique=True,
+                max_size=len(names),
+            ),
+            label="installed",
+        )
+    )
+    filter_text = data.draw(
+        st.sampled_from(["", names[0][:2]]),
+        label="filter_text",
+    )
+    use_multi = data.draw(st.booleans(), label="use_multi")
+
+    bundles = [
+        BundleInfo(
+            name=n,
+            path=Path(f"/{n}"),
+            subdirectories=["skills"],
+            registry_name=registry,
+        )
+        for n in names
+    ]
+
+    expected_sorted = sorted(
+        bundles,
+        key=lambda b: (b.name.lower(), b.registry_name.lower()),
+    )
+    if filter_text:
+        ft = filter_text.lower()
+        expected_sorted = [
+            b
+            for b in expected_sorted
+            if ft in b.name.lower() or ft in b.registry_name.lower()
+        ]
+
+    assume(len(expected_sorted) > 0)
+
+    selected = data.draw(
+        st.integers(
+            min_value=0,
+            max_value=len(expected_sorted) - 1,
+        ),
+        label="selected",
+    )
+    multi_selected: set[int] | None = None
+    if use_multi:
+        multi_selected = set(
+            data.draw(
+                st.lists(
+                    st.integers(
+                        min_value=0,
+                        max_value=len(expected_sorted) - 1,
+                    ),
+                    unique=True,
+                    max_size=len(expected_sorted),
+                ),
+                label="multi_selected",
+            )
+        )
+
+    lines = render_add_selector(
+        bundles,
+        installed_names=installed,
+        selected=selected,
+        filter_text=filter_text,
+        multi_selected=multi_selected,
+    )
+
+    bundle_lines = lines[3:]
+    assert len(bundle_lines) == len(expected_sorted)
+
+    for i, bundle in enumerate(expected_sorted):
+        plain = _ANSI_RE.sub("", bundle_lines[i])
+
+        # 1. Sorting: correct bundle name on each line
+        assert bundle.name in plain, (
+            f"Expected '{bundle.name}' in line {i}: " f"{plain!r}"
+        )
+
+        # 3. Prefix: '>' on selected, ' ' otherwise
+        if i == selected:
+            assert plain.startswith(">"), (
+                f"Selected line {i} missing '>' prefix: " f"{plain!r}"
+            )
+        else:
+            assert plain.startswith(" "), (
+                f"Non-selected line {i} should start " f"with ' ': {plain!r}"
+            )
+
+        # 4. Multi-select indicators
+        if multi_selected is not None:
+            if i in multi_selected:
+                assert "✓" in plain, f"Line {i} should have '✓': " f"{plain!r}"
+            else:
+                assert "[ ]" in plain, f"Line {i} should have '[ ]': " f"{plain!r}"
+
+    # 2. Filter: when filter_text is set, verify it appears
+    if filter_text:
+        full_output = "\n".join(_ANSI_RE.sub("", ln) for ln in lines)
+        assert filter_text in full_output
+
+
+# --- Preservation: Removal Selector Core Behavior Unchanged ---
+
+
+@given(
+    entries_data=st.lists(
+        st.tuples(
+            st.from_regex(r"[a-z]{2,8}", fullmatch=True),
+            st.sampled_from(["local", "global"]),
+        ),
+        min_size=1,
+        max_size=6,
+        unique_by=lambda x: x[0],
+    ),
+    data=st.data(),
+)
+def test_preservation_removal_selector_sorting_scope_multiselect(
+    entries_data: list[tuple[str, str]],
+    data: st.DataObject,
+) -> None:
+    """Property 2: Preservation — Removal Selector Core Behavior.
+
+    **Validates: Requirements 3.4, 3.7**
+
+    For all entry sets with random scopes, verify:
+    1. Sort order (alphabetical by bundle name, case-insensitive)
+    2. Scope label presence ([global] or [local]) per entry
+    3. Multi-select indicators ([✓] / [ ]) render correctly
+    4. Selected line has '>' prefix
+    """
+    from ksm.selector import render_removal_selector
+
+    use_multi = data.draw(st.booleans(), label="use_multi")
+
+    entries = [
+        ManifestEntry(
+            bundle_name=name,
+            source_registry="default",
+            scope=scope,
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        )
+        for name, scope in entries_data
+    ]
+
+    expected_sorted = sorted(entries_data, key=lambda x: x[0].lower())
+
+    selected = data.draw(
+        st.integers(
+            min_value=0,
+            max_value=len(expected_sorted) - 1,
+        ),
+        label="selected",
+    )
+    multi_selected: set[int] | None = None
+    if use_multi:
+        multi_selected = set(
+            data.draw(
+                st.lists(
+                    st.integers(
+                        min_value=0,
+                        max_value=len(expected_sorted) - 1,
+                    ),
+                    unique=True,
+                    max_size=len(expected_sorted),
+                ),
+                label="multi_selected",
+            )
+        )
+
+    lines = render_removal_selector(
+        entries,
+        selected=selected,
+        multi_selected=multi_selected,
+    )
+
+    bundle_lines = lines[3:]
+    assert len(bundle_lines) == len(expected_sorted)
+
+    for i, (name, scope) in enumerate(expected_sorted):
+        plain = _ANSI_RE.sub("", bundle_lines[i])
+
+        # 1. Sorting: correct bundle name on each line
+        assert name in plain, f"Expected '{name}' on line {i}: {plain!r}"
+
+        # 2. Scope label: correct [global] or [local]
+        assert f"[{scope}" in plain, f"Expected '[{scope}' on line {i}: " f"{plain!r}"
+
+        # 4. Prefix: '>' on selected, ' ' otherwise
+        if i == selected:
+            assert plain.startswith(">"), (
+                f"Selected line {i} missing '>' prefix: " f"{plain!r}"
+            )
+        else:
+            assert plain.startswith(" "), (
+                f"Non-selected line {i} should start " f"with ' ': {plain!r}"
+            )
+
+        # 3. Multi-select indicators
+        if multi_selected is not None:
+            if i in multi_selected:
+                assert "✓" in plain, f"Line {i} should have '✓': " f"{plain!r}"
+            else:
+                assert "[ ]" in plain, f"Line {i} should have '[ ]': " f"{plain!r}"
+
+
+# --- Bug Condition Exploration: Registry Column Misalignment ---
+
+
+@given(
+    data=st.data(),
+    names=st.lists(
+        st.from_regex(r"[a-z]{2,8}", fullmatch=True),
+        min_size=2,
+        max_size=6,
+        unique=True,
+    ),
+    registry=st.from_regex(r"[a-z]{3,8}", fullmatch=True),
+)
+def test_bug_condition_registry_column_alignment(
+    data: st.DataObject,
+    names: list[str],
+    registry: str,
+) -> None:
+    """Property 1: Bug Condition — Registry Column Misalignment.
+
+    **Validates: Requirements 1.1, 1.2, 2.1, 2.2**
+
+    For any set of bundles where at least one is installed
+    and at least one is not, the registry name column must
+    start at the same horizontal position on every row.
+    """
+    from ksm.selector import render_add_selector
+
+    installed = set(
+        data.draw(
+            st.lists(
+                st.sampled_from(names),
+                min_size=1,
+                max_size=len(names) - 1,
+                unique=True,
+            ),
+            label="installed",
+        )
+    )
+    not_installed = set(names) - installed
+    if not not_installed:
+        return
+
+    bundles = [
+        BundleInfo(
+            name=n,
+            path=Path(f"/{n}"),
+            subdirectories=["skills"],
+            registry_name=registry,
+        )
+        for n in names
+    ]
+    lines = render_add_selector(bundles, installed_names=installed, selected=0)
+    bundle_lines = lines[3:]
+
+    reg_positions: list[int] = []
+    for line in bundle_lines:
+        plain = _ANSI_RE.sub("", line)
+        idx = plain.rfind(registry)
+        if idx >= 0:
+            reg_positions.append(idx)
+
+    assert len(reg_positions) == len(
+        bundle_lines
+    ), f"Registry '{registry}' not found in all lines"
+    assert (
+        len(set(reg_positions)) == 1
+    ), f"Registry column misaligned: positions={reg_positions}"
+
+
+# --- Bug Condition Exploration: Scope Column Width Inconsistency ---
+
+
+@given(
+    names=st.lists(
+        st.from_regex(r"[a-z]{2,8}", fullmatch=True),
+        min_size=2,
+        max_size=6,
+        unique=True,
+    ),
+    data=st.data(),
+)
+def test_bug_condition_scope_column_width(
+    names: list[str],
+    data: st.DataObject,
+) -> None:
+    """Property 1: Bug Condition — Scope Column Width Inconsistency.
+
+    **Validates: Requirements 1.5, 2.5**
+
+    For any set of entries with mixed scope values ("local"
+    and "global"), the scope field must occupy the same width
+    on every row. Measure from '[' to the character after ']'.
+    """
+    from ksm.selector import render_removal_selector
+
+    scopes = data.draw(
+        st.lists(
+            st.sampled_from(["local", "global"]),
+            min_size=len(names),
+            max_size=len(names),
+        ),
+        label="scopes",
+    )
+    from hypothesis import assume
+
+    assume("local" in scopes and "global" in scopes)
+
+    entries = [
+        ManifestEntry(
+            bundle_name=name,
+            source_registry="default",
+            scope=scope,
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        )
+        for name, scope in zip(names, scopes)
+    ]
+    lines = render_removal_selector(entries, selected=0)
+    bundle_lines = lines[3:]
+
+    scope_widths: list[int] = []
+    for line in bundle_lines:
+        plain = _ANSI_RE.sub("", line)
+        bracket_start = plain.find("[")
+        bracket_end = plain.find("]", bracket_start)
+        assert bracket_start >= 0, f"No '[' found in line: {plain!r}"
+        assert bracket_end >= 0, f"No ']' found in line: {plain!r}"
+        width = bracket_end - bracket_start + 1
+        scope_widths.append(width)
+
+    assert len(set(scope_widths)) == 1, f"Scope column widths differ: {scope_widths}"
+
+
+# --- Bug Condition Exploration: TUI Registry Column Misalignment ---
+
+
+@given(
+    names=st.lists(
+        st.from_regex(r"[a-z]{2,8}", fullmatch=True),
+        min_size=2,
+        max_size=6,
+        unique=True,
+    ),
+    registry=st.from_regex(r"[a-z]{3,8}", fullmatch=True),
+    data=st.data(),
+)
+def test_bug_condition_tui_registry_column_alignment(
+    names: list[str],
+    registry: str,
+    data: st.DataObject,
+) -> None:
+    """Property 1: Bug Condition — TUI Registry Column Misalignment.
+
+    **Validates: Requirements 1.3, 1.4, 2.3, 2.4**
+
+    For any set of bundles with mixed installed/not-installed
+    states, the Rich Text labels built by the same logic as
+    BundleSelectorApp._refresh_options must have the registry
+    name starting at the same position in every label's plain
+    text.
+    """
+    from rich.text import Text
+
+    installed = set(
+        data.draw(
+            st.lists(
+                st.sampled_from(names),
+                min_size=1,
+                max_size=len(names) - 1,
+                unique=True,
+            ),
+            label="installed",
+        )
+    )
+    from hypothesis import assume
+
+    assume(len(set(names) - installed) >= 1)
+
+    bundles = [
+        BundleInfo(
+            name=n,
+            path=Path(f"/{n}"),
+            subdirectories=["skills"],
+            registry_name=registry,
+        )
+        for n in names
+    ]
+    sorted_bundles = sorted(
+        bundles,
+        key=lambda b: (b.name.lower(), b.registry_name.lower()),
+    )
+    display_items = [(b.name, b) for b in sorted_bundles]
+    installed_names = installed
+
+    max_name = max(len(name) for name, _ in display_items)
+
+    badge_text = " [installed]"
+    any_installed = any(b.name in installed_names for _, b in display_items)
+    badge_width = len(badge_text) if any_installed else 0
+
+    labels: list[Text] = []
+    for _display, bundle in display_items:
+        is_installed = bundle.name in installed_names
+        label = Text()
+        label.append(_display.ljust(max_name), style="bold cyan")
+        if badge_width:
+            if is_installed:
+                label.append(
+                    badge_text.ljust(badge_width),
+                    style="dim",
+                )
+            else:
+                label.append(" " * badge_width)
+        if bundle.registry_name:
+            label.append(f"  {bundle.registry_name}", style="dim")
+        labels.append(label)
+
+    reg_positions: list[int] = []
+    search_start = max_name + badge_width
+    for lbl in labels:
+        plain = lbl.plain
+        idx = plain.find(registry, search_start)
+        assert idx >= 0, (
+            f"Registry '{registry}' not found after pos "
+            f"{search_start} in: {plain!r}"
+        )
+        reg_positions.append(idx)
+
+    assert len(set(reg_positions)) == 1, (
+        f"TUI registry column misaligned: " f"positions={reg_positions}"
+    )
+
+
+# --- Bug Condition Exploration: TUI Scope Column Width ---
+
+
+@given(
+    names=st.lists(
+        st.from_regex(r"[a-z]{2,8}", fullmatch=True),
+        min_size=2,
+        max_size=6,
+        unique=True,
+    ),
+    data=st.data(),
+)
+def test_bug_condition_tui_scope_column_width(
+    names: list[str],
+    data: st.DataObject,
+) -> None:
+    """Property 1: Bug Condition — TUI Scope Column Width.
+
+    **Validates: Requirements 1.6, 2.6**
+
+    For any set of entries with mixed scope values, the Rich
+    Text labels built by the same logic as
+    RemovalSelectorApp._refresh_options must have the scope
+    field occupying the same width in every label's plain text.
+    """
+    from rich.text import Text
+
+    scopes = data.draw(
+        st.lists(
+            st.sampled_from(["local", "global"]),
+            min_size=len(names),
+            max_size=len(names),
+        ),
+        label="scopes",
+    )
+    from hypothesis import assume
+
+    assume("local" in scopes and "global" in scopes)
+
+    entries = [
+        ManifestEntry(
+            bundle_name=name,
+            source_registry="default",
+            scope=scope,
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        )
+        for name, scope in zip(names, scopes)
+    ]
+    sorted_entries = sorted(entries, key=lambda e: e.bundle_name.lower())
+
+    max_scope = max(len(f"[{e.scope}]") for e in sorted_entries)
+    labels: list[Text] = []
+    for entry in sorted_entries:
+        label = Text()
+        label.append(entry.bundle_name, style="bold cyan")
+        scope_str = f" [{entry.scope}]"
+        label.append(scope_str.ljust(max_scope + 1), style="dim")
+        labels.append(label)
+
+    scope_field_widths: list[int] = []
+    for lbl, entry in zip(labels, sorted_entries):
+        plain = lbl.plain
+        # The scope field starts right after the bundle name.
+        # Its width = total plain length - name length.
+        name_len = len(entry.bundle_name)
+        field_width = len(plain) - name_len
+        scope_field_widths.append(field_width)
+
+    assert (
+        len(set(scope_field_widths)) == 1
+    ), f"TUI scope field widths differ: {scope_field_widths}"

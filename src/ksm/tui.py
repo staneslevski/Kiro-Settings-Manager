@@ -151,6 +151,11 @@ class BundleSelectorApp(App[None]):
             (len(name) for name, _ in self.filtered_items),
             default=0,
         )
+        badge_text = " [installed]"
+        any_installed = any(
+            b.name in self.installed_names for _, b in self.filtered_items
+        )
+        badge_width = len(badge_text) if any_installed else 0
         for i, (display, bundle) in enumerate(self.filtered_items):
             check = (
                 "[✓] "
@@ -158,12 +163,17 @@ class BundleSelectorApp(App[None]):
                 else "[ ] " if self.multi_selected else ""
             )
             installed = bundle.name in self.installed_names
-            badge = " [installed]" if installed else ""
             label = Text()
             label.append(check)
             label.append(display.ljust(max_name), style="bold cyan")
-            if badge:
-                label.append(badge, style="dim")
+            if badge_width:
+                if installed:
+                    label.append(
+                        badge_text.ljust(badge_width),
+                        style="dim",
+                    )
+                else:
+                    label.append(" " * badge_width)
             if bundle.registry_name:
                 label.append(f"  {bundle.registry_name}", style="dim")
             ol.add_option(Option(label, id=str(i)))
@@ -352,6 +362,10 @@ class RemovalSelectorApp(App[None]):
     def _refresh_options(self) -> None:
         ol = self.query_one(OptionList)
         ol.clear_options()
+        max_scope = max(
+            (len(f"[{e.scope}]") for e in self.filtered_entries),
+            default=0,
+        )
         for i, entry in enumerate(self.filtered_entries):
             check = (
                 "[✓] "
@@ -361,7 +375,8 @@ class RemovalSelectorApp(App[None]):
             label = Text()
             label.append(check)
             label.append(entry.bundle_name, style="bold cyan")
-            label.append(f" [{entry.scope}]", style="dim")
+            scope_str = f" [{entry.scope}]"
+            label.append(scope_str.ljust(max_scope + 1), style="dim")
             ol.add_option(Option(label, id=str(i)))
         if not self.filtered_entries:
             fv = self.query_one(Input).value

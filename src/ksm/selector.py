@@ -127,6 +127,9 @@ def render_add_selector(
         ]
 
     max_name = max((len(b.name) for b in sorted_bundles), default=0)
+    badge_text = " [installed]"
+    any_installed = any(b.name in installed_names for b in sorted_bundles)
+    badge_width = len(badge_text) if any_installed else 0
     lines: list[str] = [
         bold(_ADD_HEADER, stream=sys.stderr),
         dim(_ADD_INSTRUCTIONS, stream=sys.stderr),
@@ -142,11 +145,10 @@ def render_add_selector(
         padded = bundle.name.ljust(max_name)
         if i == selected:
             padded = bold(padded, stream=sys.stderr)
-        label = (
-            dim(" [installed]", stream=sys.stderr)
-            if bundle.name in installed_names
-            else ""
-        )
+        if bundle.name in installed_names:
+            label = dim(badge_text, stream=sys.stderr)
+        else:
+            label = " " * badge_width
         reg_col = ""
         if bundle.registry_name:
             reg_col = "  " + dim(bundle.registry_name, stream=sys.stderr)
@@ -176,6 +178,7 @@ def render_removal_selector(
         ft = filter_text.lower()
         sorted_entries = [e for e in sorted_entries if ft in e.bundle_name.lower()]
     max_name = max((len(e.bundle_name) for e in sorted_entries), default=0)
+    max_scope_inner = max((len(e.scope) for e in sorted_entries), default=0)
     lines: list[str] = [
         bold(_RM_HEADER, stream=sys.stderr),
         dim(_RM_INSTRUCTIONS, stream=sys.stderr),
@@ -189,7 +192,8 @@ def render_removal_selector(
         if multi_selected is not None:
             check = "[✓] " if i in multi_selected else "[ ] "
         padded = entry.bundle_name.ljust(max_name)
-        scope_label = dim(f"[{entry.scope}]", stream=sys.stderr)
+        raw_scope = f"[{entry.scope.ljust(max_scope_inner)}]"
+        scope_label = dim(raw_scope, stream=sys.stderr)
         lines.append(f"{prefix} {check}{padded} {scope_label}")
     return lines
 
