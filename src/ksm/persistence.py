@@ -7,6 +7,9 @@ from typing import Union
 KSM_DIR: Path = Path.home() / ".kiro" / "ksm"
 REGISTRIES_FILE: Path = KSM_DIR / "registries.json"
 MANIFEST_FILE: Path = KSM_DIR / "manifest.json"
+CONFIG_BUNDLES_DIR: Path = (
+    Path(__file__).resolve().parent.parent.parent / "config_bundles"
+)
 
 JsonData = Union[dict, list]
 

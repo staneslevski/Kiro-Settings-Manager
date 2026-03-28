@@ -1,14 +1,18 @@
-"""Preservation property tests: non-dispatch commands and module interfaces unchanged.
+"""Preservation property tests: non-dispatch commands and module
+interfaces unchanged.
 
-Property 2: Commands that do NOT flow through _dispatch_add/_dispatch_sync/
-_dispatch_rm must behave identically before and after the fix. Command modules
-must receive target_dir and use it as-is.
+Property 2: Commands that do NOT flow through
+_dispatch_add/_dispatch_sync/_dispatch_rm must behave identically
+before and after the fix. Command modules must receive target_dir
+and use it as-is.
 
-These tests are expected to PASS on unfixed code (confirming baseline behavior).
+These tests are expected to PASS on unfixed code (confirming
+baseline behavior).
 """
 
 import argparse
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 from hypothesis import given, settings
@@ -20,18 +24,25 @@ _seg = st.from_regex(r"[a-z][a-z0-9]{0,9}", fullmatch=True)
 # --- Non-dispatch command preservation ---
 
 
-def test_dispatch_ls_calls_run_ls_unchanged():
-    """_dispatch_ls passes manifest to run_ls without target paths."""
-    manifest_sentinel = {"bundles": []}
-    captured = {}
+def test_dispatch_ls_calls_run_ls_unchanged() -> None:
+    """_dispatch_ls passes manifest to run_ls without
+    target paths."""
+    manifest_sentinel: dict[str, list[Any]] = {"bundles": []}
+    captured: dict[str, Any] = {}
 
-    def fake_run_ls(args, **kwargs):
+    def fake_run_ls(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
     with (
-        patch("ksm.cli.load_manifest", return_value=manifest_sentinel),
-        patch("ksm.commands.ls.run_ls", side_effect=fake_run_ls),
+        patch(
+            "ksm.cli.load_manifest",
+            return_value=manifest_sentinel,
+        ),
+        patch(
+            "ksm.commands.ls.run_ls",
+            side_effect=fake_run_ls,
+        ),
     ):
         from ksm.cli import _dispatch_ls
 
@@ -44,18 +55,22 @@ def test_dispatch_ls_calls_run_ls_unchanged():
     assert "target_global" not in captured
 
 
-def test_dispatch_registry_ls_calls_run_registry_ls_unchanged():
-    """_dispatch_registry with 'ls' subcommand passes registry_index only."""
-    reg_sentinel = {"registries": []}
-    captured = {}
+def test_dispatch_registry_ls_calls_run_registry_ls_unchanged() -> None:
+    """_dispatch_registry with 'ls' subcommand passes
+    registry_index only."""
+    reg_sentinel: dict[str, list[Any]] = {"registries": []}
+    captured: dict[str, Any] = {}
 
-    def fake_run(args, **kwargs):
+    def fake_run(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
     with (
         patch("ksm.cli.ensure_ksm_dir"),
-        patch("ksm.cli.load_registry_index", return_value=reg_sentinel),
+        patch(
+            "ksm.cli.load_registry_index",
+            return_value=reg_sentinel,
+        ),
         patch(
             "ksm.commands.registry_ls.run_registry_ls",
             side_effect=fake_run,
@@ -72,20 +87,30 @@ def test_dispatch_registry_ls_calls_run_registry_ls_unchanged():
     assert "target_global" not in captured
 
 
-def test_dispatch_info_calls_run_info_unchanged():
-    """_dispatch_info passes registry_index and manifest without target paths."""
-    reg_sentinel = {}
-    manifest_sentinel = {}
-    captured = {}
+def test_dispatch_info_calls_run_info_unchanged() -> None:
+    """_dispatch_info passes registry_index and manifest
+    without target paths."""
+    reg_sentinel: dict[str, Any] = {}
+    manifest_sentinel: dict[str, Any] = {}
+    captured: dict[str, Any] = {}
 
-    def fake_run(args, **kwargs):
+    def fake_run(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
     with (
-        patch("ksm.cli.load_registry_index", return_value=reg_sentinel),
-        patch("ksm.cli.load_manifest", return_value=manifest_sentinel),
-        patch("ksm.commands.info.run_info", side_effect=fake_run),
+        patch(
+            "ksm.cli.load_registry_index",
+            return_value=reg_sentinel,
+        ),
+        patch(
+            "ksm.cli.load_manifest",
+            return_value=manifest_sentinel,
+        ),
+        patch(
+            "ksm.commands.info.run_info",
+            side_effect=fake_run,
+        ),
     ):
         from ksm.cli import _dispatch_info
 
@@ -99,18 +124,25 @@ def test_dispatch_info_calls_run_info_unchanged():
     assert "target_global" not in captured
 
 
-def test_dispatch_search_calls_run_search_unchanged():
-    """_dispatch_search passes registry_index without target paths."""
-    reg_sentinel = {}
-    captured = {}
+def test_dispatch_search_calls_run_search_unchanged() -> None:
+    """_dispatch_search passes registry_index without
+    target paths."""
+    reg_sentinel: dict[str, Any] = {}
+    captured: dict[str, Any] = {}
 
-    def fake_run(args, **kwargs):
+    def fake_run(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
     with (
-        patch("ksm.cli.load_registry_index", return_value=reg_sentinel),
-        patch("ksm.commands.search.run_search", side_effect=fake_run),
+        patch(
+            "ksm.cli.load_registry_index",
+            return_value=reg_sentinel,
+        ),
+        patch(
+            "ksm.commands.search.run_search",
+            side_effect=fake_run,
+        ),
     ):
         from ksm.cli import _dispatch_search
 
@@ -123,11 +155,12 @@ def test_dispatch_search_calls_run_search_unchanged():
     assert "target_global" not in captured
 
 
-def test_dispatch_completions_calls_run_completions_unchanged():
-    """_dispatch_completions passes args directly without target paths."""
-    captured_args = []
+def test_dispatch_completions_calls_run_completions_unchanged() -> None:
+    """_dispatch_completions passes args directly without
+    target paths."""
+    captured_args: list[argparse.Namespace] = []
 
-    def fake_run(args):
+    def fake_run(args: argparse.Namespace) -> int:
         captured_args.append(args)
         return 0
 
@@ -146,26 +179,33 @@ def test_dispatch_completions_calls_run_completions_unchanged():
 
 
 # --- Command module interface preservation ---
-# Verify that run_add, run_sync, run_rm receive target_dir kwargs
-# and the dispatch layer does not double-append .kiro
+# Verify that run_add, run_sync, run_rm receive target_dir
+# kwargs and the dispatch layer does not double-append .kiro
 
 
 @given(cwd_seg=_seg, home_seg=_seg)
 @settings(deadline=None)
-def test_run_add_receives_target_dir_as_passed(cwd_seg, home_seg):
-    """run_add receives exactly the target_local/target_global from dispatch."""
-    captured = {}
+def test_run_add_receives_target_dir_as_passed(cwd_seg: str, home_seg: str) -> None:
+    """run_add receives exactly the target_local/target_global
+    from dispatch."""
+    captured: dict[str, Any] = {}
 
-    def fake_run_add(args, **kwargs):
+    def fake_run_add(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
     with (
         patch("ksm.cli.Path") as MockPath,
         patch("ksm.cli.ensure_ksm_dir"),
-        patch("ksm.cli.load_registry_index", return_value={}),
+        patch(
+            "ksm.cli.load_registry_index",
+            return_value={},
+        ),
         patch("ksm.cli.load_manifest", return_value={}),
-        patch("ksm.commands.add.run_add", side_effect=fake_run_add),
+        patch(
+            "ksm.commands.add.run_add",
+            side_effect=fake_run_add,
+        ),
     ):
         MockPath.cwd.return_value = Path(f"/{cwd_seg}/project")
         MockPath.home.return_value = Path(f"/{home_seg}/user")
@@ -188,30 +228,35 @@ def test_run_add_receives_target_dir_as_passed(cwd_seg, home_seg):
         ns.yes = False
         _dispatch_add(ns)
 
-    # The command module receives target_local and target_global as kwargs
     assert "target_local" in captured
     assert "target_global" in captured
-    # They should be Path objects (not further modified by the command module)
     assert isinstance(captured["target_local"], Path)
     assert isinstance(captured["target_global"], Path)
 
 
 @given(cwd_seg=_seg, home_seg=_seg)
 @settings(deadline=None)
-def test_run_sync_receives_target_dir_as_passed(cwd_seg, home_seg):
-    """run_sync receives exactly the target_local/target_global from dispatch."""
-    captured = {}
+def test_run_sync_receives_target_dir_as_passed(cwd_seg: str, home_seg: str) -> None:
+    """run_sync receives exactly the target_local/target_global
+    from dispatch."""
+    captured: dict[str, Any] = {}
 
-    def fake_run_sync(args, **kwargs):
+    def fake_run_sync(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
     with (
         patch("ksm.cli.Path") as MockPath,
         patch("ksm.cli.ensure_ksm_dir"),
-        patch("ksm.cli.load_registry_index", return_value={}),
+        patch(
+            "ksm.cli.load_registry_index",
+            return_value={},
+        ),
         patch("ksm.cli.load_manifest", return_value={}),
-        patch("ksm.commands.sync.run_sync", side_effect=fake_run_sync),
+        patch(
+            "ksm.commands.sync.run_sync",
+            side_effect=fake_run_sync,
+        ),
     ):
         MockPath.cwd.return_value = Path(f"/{cwd_seg}/project")
         MockPath.home.return_value = Path(f"/{home_seg}/user")
@@ -234,11 +279,12 @@ def test_run_sync_receives_target_dir_as_passed(cwd_seg, home_seg):
 
 @given(cwd_seg=_seg, home_seg=_seg)
 @settings(deadline=None)
-def test_run_rm_receives_target_dir_as_passed(cwd_seg, home_seg):
-    """run_rm receives exactly the target_local/target_global from dispatch."""
-    captured = {}
+def test_run_rm_receives_target_dir_as_passed(cwd_seg: str, home_seg: str) -> None:
+    """run_rm receives exactly the target_local/target_global
+    from dispatch."""
+    captured: dict[str, Any] = {}
 
-    def fake_run_rm(args, **kwargs):
+    def fake_run_rm(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
@@ -246,7 +292,10 @@ def test_run_rm_receives_target_dir_as_passed(cwd_seg, home_seg):
         patch("ksm.cli.Path") as MockPath,
         patch("ksm.cli.ensure_ksm_dir"),
         patch("ksm.cli.load_manifest", return_value={}),
-        patch("ksm.commands.rm.run_rm", side_effect=fake_run_rm),
+        patch(
+            "ksm.commands.rm.run_rm",
+            side_effect=fake_run_rm,
+        ),
     ):
         MockPath.cwd.return_value = Path(f"/{cwd_seg}/project")
         MockPath.home.return_value = Path(f"/{home_seg}/user")

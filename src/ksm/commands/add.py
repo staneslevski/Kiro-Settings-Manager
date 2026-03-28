@@ -393,8 +393,7 @@ def run_add(
             name = accent(bundle_spec, stream=sys.stderr)
             scope_label = muted(f"({scope})", stream=sys.stderr)
             print(
-                f"{check} Installed {name} {SYM_ARROW}"
-                f" {scope_path} {scope_label}",
+                f"{check} Installed {name} {SYM_ARROW}" f" {scope_path} {scope_label}",
                 file=sys.stderr,
             )
             print(
@@ -509,8 +508,7 @@ def _handle_ephemeral(
             name = accent(bundle_name, stream=sys.stderr)
             scope_label = muted(f"({scope})", stream=sys.stderr)
             print(
-                f"{check} Installed {name} {SYM_ARROW}"
-                f" {scope_path} {scope_label}",
+                f"{check} Installed {name} {SYM_ARROW}" f" {scope_path} {scope_label}",
                 file=sys.stderr,
             )
             print(

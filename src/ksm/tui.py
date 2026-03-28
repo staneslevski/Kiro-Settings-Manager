@@ -6,7 +6,7 @@ These are lazily imported by selector.py only when Textual is available.
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import ClassVar, Union
 
 from textual import events
 from textual.app import App, ComposeResult
@@ -20,6 +20,8 @@ from rich.text import Text
 
 from ksm.manifest import ManifestEntry
 from ksm.scanner import BundleInfo
+
+BindingType = Union[Binding, tuple[str, str], tuple[str, str, str]]
 
 KSM_THEME = Theme(
     name="ksm",
@@ -93,7 +95,7 @@ class BundleSelectorApp(App[None]):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar[list[BindingType]] = [
         Binding("escape", "quit_app", "Quit", show=False),
     ]
 
@@ -313,7 +315,7 @@ class RemovalSelectorApp(App[None]):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar[list[BindingType]] = [
         Binding("escape", "quit_app", "Quit", show=False),
     ]
 
@@ -474,7 +476,7 @@ class ScopeSelectorApp(App[None]):
     }
     """
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar[list[BindingType]] = [
         Binding("escape", "quit_app", "Quit", show=False),
         Binding("q", "quit_app", "Quit", show=False),
     ]

@@ -13,7 +13,7 @@ from ksm.scanner import BundleInfo
 from ksm.tui import BundleSelectorApp, RemovalSelectorApp, ScopeSelectorApp
 
 from rich.text import Text
-from textual.widgets import OptionList
+from textual.widgets import Input, OptionList
 
 
 def _make_bundles(*names: str, registry: str = "default") -> list[BundleInfo]:
@@ -175,7 +175,7 @@ class TestBundleSelectorApp:
         bundles = _make_bundles("sql-queries", "alpha")
         app = BundleSelectorApp(bundles, installed_names=set())
         async with app.run_test() as pilot:
-            input_widget = app.query_one("Input")
+            input_widget = app.query_one(Input)
             input_widget.focus()
             await pilot.press("s")
             await pilot.press("q")
@@ -701,7 +701,7 @@ class TestRemovalSelectorCoverage:
         entries = _make_entries(("sql-queries", "local"), ("alpha", "local"))
         app = RemovalSelectorApp(entries)
         async with app.run_test() as pilot:
-            inp = app.query_one("Input")
+            inp = app.query_one(Input)
             inp.focus()
             await pilot.press("s")
             await pilot.press("q")

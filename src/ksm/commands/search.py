@@ -42,8 +42,10 @@ def run_search(
             file=sys.stderr,
         )
         print(
-            subtle("Try a different search term or run"
-                   " `ksm registry ls` to check registries."),
+            subtle(
+                "Try a different search term or run"
+                " `ksm registry ls` to check registries."
+            ),
             file=sys.stderr,
         )
         return 0
