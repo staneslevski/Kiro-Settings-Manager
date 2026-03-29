@@ -20,6 +20,7 @@ from rich.text import Text
 
 from ksm.manifest import ManifestEntry
 from ksm.scanner import BundleInfo
+from ksm.selector import group_bundles_by_registry
 
 BindingType = Union[Binding, tuple[str, str], tuple[str, str, str]]
 
@@ -111,17 +112,29 @@ class BundleSelectorApp(App[None]):
         self.installed_names = installed_names
         self.selected_names: list[str] | None = None
         self.multi_selected: set[int] = set()
-        self.display_items: list[tuple[str, BundleInfo]] = []
-        self.filtered_items: list[tuple[str, BundleInfo]] = []
+        self.display_items: list[tuple[str, BundleInfo | None]] = []
+        self.filtered_items: list[tuple[str, BundleInfo | None]] = []
+        self._bundle_indices: dict[int, int] = {}
         self._build_display_items()
 
-    def _build_display_items(self) -> None:
-        sorted_bundles = sorted(
-            self.bundles,
-            key=lambda b: (b.name.lower(), b.registry_name.lower()),
-        )
-        self.display_items = [(b.name, b) for b in sorted_bundles]
-        self.filtered_items = list(self.display_items)
+    def _build_display_items(
+        self,
+        bundles: list[BundleInfo] | None = None,
+    ) -> None:
+        src = bundles if bundles is not None else self.bundles
+        grouped = group_bundles_by_registry(src)
+        items: list[tuple[str, BundleInfo | None]] = []
+        idx_map: dict[int, int] = {}
+        bundle_idx = 0
+        for reg_name, group in grouped.items():
+            items.append((reg_name, None))
+            for b in group:
+                idx_map[len(items)] = bundle_idx
+                items.append((b.name, b))
+                bundle_idx += 1
+        self.display_items = items
+        self.filtered_items = list(items)
+        self._bundle_indices = idx_map
 
     def compose(self) -> ComposeResult:
         with Container(id="container"):
@@ -147,19 +160,28 @@ class BundleSelectorApp(App[None]):
     def _refresh_options(self) -> None:
         ol = self.query_one(OptionList)
         ol.clear_options()
+        bundle_items = [(name, b) for name, b in self.filtered_items if b is not None]
         max_name = max(
-            (len(name) for name, _ in self.filtered_items),
+            (len(name) for name, _ in bundle_items),
             default=0,
         )
         badge_text = " [installed]"
-        any_installed = any(
-            b.name in self.installed_names for _, b in self.filtered_items
-        )
+        any_installed = any(b.name in self.installed_names for _, b in bundle_items)
         badge_width = len(badge_text) if any_installed else 0
         for i, (display, bundle) in enumerate(self.filtered_items):
+            if bundle is None:
+                header = display if display else "(no registry)"
+                ol.add_option(
+                    Option(
+                        Text(header, style="dim"),
+                        disabled=True,
+                    )
+                )
+                continue
+            bi = self._bundle_indices.get(i, 0)
             check = (
                 "[✓] "
-                if i in self.multi_selected
+                if bi in self.multi_selected
                 else "[ ] " if self.multi_selected else ""
             )
             installed = bundle.name in self.installed_names
@@ -175,9 +197,12 @@ class BundleSelectorApp(App[None]):
                 else:
                     label.append(" " * badge_width)
             if bundle.registry_name:
-                label.append(f"  {bundle.registry_name}", style="dim")
+                label.append(
+                    f"  {bundle.registry_name}",
+                    style="dim",
+                )
             ol.add_option(Option(label, id=str(i)))
-        if not self.filtered_items:
+        if not bundle_items:
             fv = self.query_one(Input).value
             ol.add_option(
                 Option(
@@ -186,7 +211,7 @@ class BundleSelectorApp(App[None]):
                 )
             )
         elif ol.highlighted is None:
-            ol.highlighted = 0
+            self._skip_to_next_bundle(ol, 0)
         self._update_count()
 
     def _update_count(self) -> None:
@@ -194,27 +219,47 @@ class BundleSelectorApp(App[None]):
         n = len(self.multi_selected)
         count_widget.update(f"{n} selected" if n > 0 else "")
 
+    def _skip_to_next_bundle(self, ol: OptionList, start: int) -> None:
+        """Set highlight to the nearest bundle row >= start."""
+        for idx in range(start, len(self.filtered_items)):
+            if self.filtered_items[idx][1] is not None:
+                ol.highlighted = idx
+                return
+        for idx in range(start - 1, -1, -1):
+            if self.filtered_items[idx][1] is not None:
+                ol.highlighted = idx
+                return
+
+    def _is_separator(self, display_idx: int) -> bool:
+        """Check if a display row is a separator."""
+        if 0 <= display_idx < len(self.filtered_items):
+            return self.filtered_items[display_idx][1] is None
+        return False
+
     def on_input_changed(self, event: Input.Changed) -> None:
         ft = event.value.lower()
         if ft:
-            self.filtered_items = [
-                item
-                for item in self.display_items
-                if ft in item[0].lower() or ft in item[1].registry_name.lower()
+            filtered_bundles = [
+                b
+                for b in self.bundles
+                if ft in b.name.lower() or ft in b.registry_name.lower()
             ]
         else:
-            self.filtered_items = list(self.display_items)
+            filtered_bundles = list(self.bundles)
         self.multi_selected = set()
+        self._build_display_items(filtered_bundles)
+        self.filtered_items = list(self.display_items)
         self._refresh_options()
         ol = self.query_one(OptionList)
-        if self.filtered_items:
-            ol.highlighted = 0
+        bundle_items = [(n, b) for n, b in self.filtered_items if b is not None]
+        if bundle_items:
+            self._skip_to_next_bundle(ol, 0)
 
     def on_key(self, event: events.Key) -> None:
         if event.key == "q":
             filter_input = self.query_one(Input)
             if filter_input.has_focus and filter_input.value:
-                return  # let Input handle it
+                return
             self.selected_names = None
             event.prevent_default()
             self.exit()
@@ -223,15 +268,23 @@ class BundleSelectorApp(App[None]):
             self._confirm_selection()
         elif event.key == "space":
             ol = self.query_one(OptionList)
-            if ol.highlighted is not None and self.filtered_items:
-                idx = ol.highlighted
-                if idx in self.multi_selected:
-                    self.multi_selected.discard(idx)
-                else:
-                    self.multi_selected.add(idx)
-                self._refresh_options()
-                ol.highlighted = idx
+            hi = ol.highlighted
+            if hi is not None and not self._is_separator(hi):
+                bi = self._bundle_indices.get(hi)
+                if bi is not None:
+                    if bi in self.multi_selected:
+                        self.multi_selected.discard(bi)
+                    else:
+                        self.multi_selected.add(bi)
+                    self._refresh_options()
+                    ol.highlighted = hi
             event.prevent_default()
+        elif event.key in ("up", "down"):
+            ol = self.query_one(OptionList)
+            hi = ol.highlighted
+            if hi is not None and self._is_separator(hi):
+                delta = -1 if event.key == "up" else 1
+                self._skip_to_next_bundle(ol, hi + delta)
 
     @staticmethod
     def _qualified_name(bundle: BundleInfo) -> str:
@@ -241,21 +294,30 @@ class BundleSelectorApp(App[None]):
         return bundle.name
 
     def _confirm_selection(self) -> None:
-        if not self.filtered_items:
+        bundle_items = [
+            (i, name, b)
+            for i, (name, b) in enumerate(self.filtered_items)
+            if b is not None
+        ]
+        if not bundle_items:
             return
         ol = self.query_one(OptionList)
         if self.multi_selected:
-            self.selected_names = [
-                self._qualified_name(self.filtered_items[i][1])
-                for i in sorted(self.multi_selected)
-                if i < len(self.filtered_items)
-            ]
+            self.selected_names = []
+            for bi in sorted(self.multi_selected):
+                for di, _name, b in bundle_items:
+                    if self._bundle_indices.get(di) == bi:
+                        self.selected_names.append(self._qualified_name(b))
+                        break
         else:
             idx = ol.highlighted if ol.highlighted is not None else 0
-            if idx < len(self.filtered_items):
-                self.selected_names = [
-                    self._qualified_name(self.filtered_items[idx][1])
-                ]
+            if self._is_separator(idx):
+                self._skip_to_next_bundle(ol, idx)
+                idx = ol.highlighted if ol.highlighted is not None else 0
+            for di, _name, b in bundle_items:
+                if di == idx:
+                    self.selected_names = [self._qualified_name(b)]
+                    break
         self.exit()
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:

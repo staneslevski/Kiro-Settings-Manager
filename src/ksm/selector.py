@@ -17,6 +17,31 @@ from ksm.manifest import ManifestEntry
 from ksm.scanner import BundleInfo
 
 
+def group_bundles_by_registry(
+    bundles: list[BundleInfo],
+) -> dict[str, list[BundleInfo]]:
+    """Group bundles by registry name.
+
+    Returns an insertion-ordered dict where:
+    - Keys are ``registry_name`` values, sorted
+      case-insensitively with empty string last.
+    - Values are lists of ``BundleInfo`` sorted
+      case-insensitively by ``name``.
+    """
+    from collections import defaultdict
+
+    groups: dict[str, list[BundleInfo]] = defaultdict(list)
+    for bundle in bundles:
+        groups[bundle.registry_name].append(bundle)
+
+    sorted_keys = sorted(
+        groups.keys(),
+        key=lambda k: (k == "", k.lower()),
+    )
+
+    return {k: sorted(groups[k], key=lambda b: b.name.lower()) for k in sorted_keys}
+
+
 def _can_run_textual() -> bool:
     """Check if Textual TUI can be used.
 
@@ -47,6 +72,7 @@ _use_raw_mode = _can_run_textual
 def _numbered_list_select(
     items: list[tuple[str, str]],
     header: str,
+    group_headers: dict[int, str] | None = None,
 ) -> int | None:
     """Cross-platform fallback: numbered list rendered to stderr.
 
@@ -54,9 +80,16 @@ def _numbered_list_select(
     stdin. Returns the 0-based index of the selected item, or
     None if the user enters ``q`` or EOF. Re-prompts on invalid
     input.
+
+    When ``group_headers`` is provided, a text header line is
+    printed before the item at each keyed index. Keys are
+    0-based item indices; values are the header text.
     """
     sys.stderr.write(f"\n{header}\n\n")
     for i, (name, label) in enumerate(items, 1):
+        if group_headers and (i - 1) in group_headers:
+            gh = group_headers[i - 1]
+            sys.stderr.write(f"\n  {gh}\n")
         line = f"  {i}. {name}"
         if label:
             line += f"  {label}"
@@ -105,14 +138,19 @@ def render_add_selector(
     """Render the add-bundle selector lines.
 
     Returns a header line, an instruction line, a blank
-    separator, then the bundle list. Bundles are sorted
-    alphabetically (case-insensitive) and optionally filtered
-    by ``filter_text`` (case-insensitive substring match).
+    separator, then registry-grouped bundle lines. Bundles
+    are grouped by registry (sorted case-insensitively),
+    with bundles within each group sorted case-insensitively
+    by name. Each group is preceded by a dimmed registry
+    name header line.
 
-    The selected line gets a ``>`` prefix; installed bundles
-    get an ``[installed]`` label. When ``multi_selected`` is
-    provided, each line shows ``[✓]`` or ``[ ]`` indicators.
-    Names are padded to align columns.
+    When ``filter_text`` is provided, bundles are filtered
+    first (case-insensitive substring on name or registry),
+    then grouped. Groups with zero matches are omitted.
+
+    The ``selected`` index and ``multi_selected`` set
+    reference positions in the flattened bundle list
+    (excluding header lines).
     """
     sorted_bundles = sorted(
         bundles,
@@ -126,9 +164,15 @@ def render_add_selector(
             if ft in b.name.lower() or ft in b.registry_name.lower()
         ]
 
-    max_name = max((len(b.name) for b in sorted_bundles), default=0)
+    grouped = group_bundles_by_registry(sorted_bundles)
+
+    flat_bundles: list[BundleInfo] = []
+    for group in grouped.values():
+        flat_bundles.extend(group)
+
+    max_name = max((len(b.name) for b in flat_bundles), default=0)
     badge_text = " [installed]"
-    any_installed = any(b.name in installed_names for b in sorted_bundles)
+    any_installed = any(b.name in installed_names for b in flat_bundles)
     badge_width = len(badge_text) if any_installed else 0
     lines: list[str] = [
         bold(_ADD_HEADER, stream=sys.stderr),
@@ -137,22 +181,28 @@ def render_add_selector(
     ]
     if filter_text:
         lines[2] = dim(f"Filter: {filter_text}", stream=sys.stderr)
-    for i, bundle in enumerate(sorted_bundles):
-        prefix = ">" if i == selected else " "
-        check = ""
-        if multi_selected is not None:
-            check = "[✓] " if i in multi_selected else "[ ] "
-        padded = bundle.name.ljust(max_name)
-        if i == selected:
-            padded = bold(padded, stream=sys.stderr)
-        if bundle.name in installed_names:
-            label = dim(badge_text, stream=sys.stderr)
-        else:
-            label = " " * badge_width
-        reg_col = ""
-        if bundle.registry_name:
-            reg_col = "  " + dim(bundle.registry_name, stream=sys.stderr)
-        lines.append(f"{prefix} {check}{padded}{label}{reg_col}")
+    bundle_idx = 0
+    for reg_name, group in grouped.items():
+        header_label = reg_name if reg_name else "(no registry)"
+        lines.append(dim(header_label, stream=sys.stderr))
+        for bundle in group:
+            i = bundle_idx
+            prefix = ">" if i == selected else " "
+            check = ""
+            if multi_selected is not None:
+                check = "[✓] " if i in multi_selected else "[ ] "
+            padded = bundle.name.ljust(max_name)
+            if i == selected:
+                padded = bold(padded, stream=sys.stderr)
+            if bundle.name in installed_names:
+                label = dim(badge_text, stream=sys.stderr)
+            else:
+                label = " " * badge_width
+            reg_col = ""
+            if bundle.registry_name:
+                reg_col = "  " + dim(bundle.registry_name, stream=sys.stderr)
+            lines.append(f"{prefix} {check}{padded}{label}{reg_col}")
+            bundle_idx += 1
     return lines
 
 
@@ -273,22 +323,32 @@ def interactive_select(
     )
 
     if not _can_run_textual():
-        items = []
-        for b in sorted_bundles:
-            label_parts: list[str] = []
-            if b.registry_name:
-                label_parts.append(f"({b.registry_name})")
-            if b.name in installed_names:
-                label_parts.append("[installed]")
-            items.append((b.name, "  ".join(label_parts)))
+        grouped = group_bundles_by_registry(sorted_bundles)
+        flat_bundles: list[BundleInfo] = []
+        items: list[tuple[str, str]] = []
+        group_headers: dict[int, str] = {}
 
-        idx = _numbered_list_select(items, "Select a bundle to install:")
+        for reg_name, group in grouped.items():
+            header = reg_name if reg_name else "(no registry)"
+            group_headers[len(items)] = header
+            for b in group:
+                label_parts: list[str] = []
+                if b.name in installed_names:
+                    label_parts.append("[installed]")
+                items.append((b.name, "  ".join(label_parts)))
+                flat_bundles.append(b)
+
+        idx = _numbered_list_select(
+            items,
+            "Select a bundle to install:",
+            group_headers=group_headers,
+        )
         if idx is None:
             return None
-        selected = sorted_bundles[idx]
-        if selected.registry_name:
-            return [f"{selected.registry_name}/{selected.name}"]
-        return [selected.name]
+        selected_bundle = flat_bundles[idx]
+        if selected_bundle.registry_name:
+            return [f"{selected_bundle.registry_name}" f"/{selected_bundle.name}"]
+        return [selected_bundle.name]
 
     # Textual path
     try:

@@ -15,6 +15,22 @@ from ksm.scanner import BundleInfo
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 
 
+def _extract_bundle_lines(lines: list[str]) -> list[str]:
+    """Extract only bundle lines from render_add_selector output.
+
+    Skips the first 3 header lines and any group header lines.
+    Group headers are lines that don't start with '>' or ' '
+    followed by a bundle entry pattern (after stripping ANSI).
+    Bundle lines always start with '>' or ' ' (prefix char).
+    """
+    result = []
+    for line in lines[3:]:
+        plain = _ANSI_RE.sub("", line)
+        if plain and (plain[0] == ">" or plain[0] == " "):
+            result.append(line)
+    return result
+
+
 def test_render_add_selector_alphabetical_with_prefix() -> None:
     """Render output shows bundles alphabetically with > prefix."""
     from ksm.selector import render_add_selector
@@ -41,8 +57,8 @@ def test_render_add_selector_alphabetical_with_prefix() -> None:
     ]
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
-    # First 3 lines are header, instructions, blank separator
-    bundle_lines = lines[3:]
+    # Extract bundle lines (skip headers and group headers)
+    bundle_lines = _extract_bundle_lines(lines)
     # Should be sorted alphabetically
     assert "alpha" in bundle_lines[0]
     assert "mid" in bundle_lines[1]
@@ -98,7 +114,7 @@ def test_render_add_selector_shows_registry_name() -> None:
     ]
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     plain = [_ANSI_RE.sub("", ln) for ln in bundle_lines]
     # Two-column layout: bundle name + registry name
     assert "aws" in plain[0] and "default" in plain[0]
@@ -125,8 +141,9 @@ def test_render_add_selector_multi_registry_sorted() -> None:
     ]
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
-    assert "alpha" in lines[3]
-    assert "zulu" in lines[4]
+    bundle_lines = _extract_bundle_lines(lines)
+    assert "alpha" in bundle_lines[0]
+    assert "zulu" in bundle_lines[1]
 
 
 def test_navigation_clamps_at_boundaries() -> None:
@@ -203,8 +220,8 @@ def test_property_selector_sorted_alphabetically(
     ]
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
-    # Skip 3 header lines (header, instructions, blank)
-    bundle_lines = lines[3:]
+    # Extract bundle lines (skip header + group header lines)
+    bundle_lines = _extract_bundle_lines(lines)
     # Extract names from bundle lines (strip > prefix and whitespace)
     rendered_names = []
     for line in bundle_lines:
@@ -250,8 +267,8 @@ def test_property_installed_label_accuracy(
     ]
     lines = render_add_selector(bundles, installed_names=installed, selected=0)
 
-    # Skip 3 header lines (header, instructions, blank)
-    bundle_lines = lines[3:]
+    # Extract bundle lines (skip header + group header lines)
+    bundle_lines = _extract_bundle_lines(lines)
     sorted_names = sorted(names, key=str.lower)
     for i, line in enumerate(bundle_lines):
         name = sorted_names[i]
@@ -363,8 +380,8 @@ def test_render_add_selector_columns_aligned() -> None:
     ]
     lines = render_add_selector(bundles, installed_names={"aws"}, selected=0)
 
-    # Skip 3 header lines; only check bundle lines for alignment
-    bundle_lines = lines[3:]
+    # Skip header lines and group headers; only check bundle lines
+    bundle_lines = _extract_bundle_lines(lines)
     # Find where the [installed] tag starts — it should be
     # at a consistent column even though names differ in length.
     # The line without [installed] should still have the name
@@ -424,8 +441,8 @@ def test_render_add_selector_installed_column_aligned() -> None:
         bundles, installed_names={"a", "long_bundle_name"}, selected=0
     )
 
-    # Skip 3 header lines; only check bundle lines
-    bundle_lines = lines[3:]
+    # Skip header lines and group headers; only check bundle lines
+    bundle_lines = _extract_bundle_lines(lines)
     tag_positions = []
     for line in bundle_lines:
         pos = line.index("[installed]")
@@ -849,7 +866,7 @@ def test_render_add_selector_filter_narrows_list() -> None:
     lines = render_add_selector(
         bundles, installed_names=set(), selected=0, filter_text="al"
     )
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     # Only "alpha" matches "al"
     assert len(bundle_lines) == 1
     assert "alpha" in bundle_lines[0]
@@ -866,7 +883,7 @@ def test_render_add_selector_filter_case_insensitive() -> None:
     lines = render_add_selector(
         bundles, installed_names=set(), selected=0, filter_text="ALPHA"
     )
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     assert len(bundle_lines) == 1
     assert "Alpha" in bundle_lines[0]
 
@@ -882,7 +899,7 @@ def test_render_add_selector_empty_filter_shows_all() -> None:
     lines = render_add_selector(
         bundles, installed_names=set(), selected=0, filter_text=""
     )
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     assert len(bundle_lines) == 2
 
 
@@ -962,7 +979,7 @@ def test_property_filter_produces_correct_list(
         selected=0,
         filter_text=filter_text,
     )
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
 
     # Expected: names containing filter_text (case-insensitive), sorted
     expected = sorted(
@@ -997,7 +1014,7 @@ def test_render_add_selector_multi_select_indicators() -> None:
         selected=1,
         multi_selected={0, 2},
     )
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     # alpha (index 0) is selected
     assert "[✓]" in bundle_lines[0] or "✓" in bundle_lines[0]
     # beta (index 1) is not selected
@@ -1044,7 +1061,7 @@ def test_render_add_selector_no_multi_select_no_indicators() -> None:
     lines = render_add_selector(
         bundles, installed_names=set(), selected=0, multi_selected=None
     )
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     assert "[✓]" not in bundle_lines[0]
     assert "[ ]" not in bundle_lines[0]
 
@@ -1202,7 +1219,7 @@ def test_property_multi_select_correct_indicators(
         selected=0,
         multi_selected=selected_indices,
     )
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     sorted_names = sorted(names, key=str.lower)
 
     for i, _name in enumerate(sorted_names):
@@ -1244,7 +1261,7 @@ def test_render_add_selector_ambiguous_shows_qualified() -> None:
     ]
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     # "aws" appears in two registries → both shown with registry col
     aws_lines = [ln for ln in bundle_lines if "aws" in ln]
     assert len(aws_lines) == 2
@@ -1277,7 +1294,7 @@ def test_render_add_selector_unique_shows_plain_name() -> None:
     ]
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
 
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     # Two-column layout: name is primary, registry is secondary
     alpha_line = _ANSI_RE.sub("", [ln for ln in bundle_lines if "alpha" in ln][0])
     beta_line = _ANSI_RE.sub("", [ln for ln in bundle_lines if "beta" in ln][0])
@@ -1344,7 +1361,7 @@ def test_property_selector_qualifies_ambiguous_names(
         )
 
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     full_output = _ANSI_RE.sub("", "\n".join(bundle_lines))
 
     # All registries should appear in the output as columns
@@ -1468,14 +1485,16 @@ class TestSelectorColor:
             installed_names=set(),
             selected=0,
         )
-        # The selected line (index 3) has > prefix
-        selected_line = lines[3]
+        # Extract bundle lines (skip group headers)
+        bundle_lines = _extract_bundle_lines(lines)
+        # The selected line has > prefix
+        selected_line = bundle_lines[0]
         assert selected_line.startswith(">")
         assert self.BOLD in selected_line, (
             f"Highlighted name should be bold, " f"got: {selected_line!r}"
         )
         # Non-selected line should NOT have bold
-        other_line = lines[4]
+        other_line = bundle_lines[1]
         assert self.BOLD not in other_line, (
             f"Non-highlighted name should not be " f"bold, got: {other_line!r}"
         )
@@ -2016,7 +2035,7 @@ def test_preservation_add_selector_sorting_filtering_prefix(
         multi_selected=multi_selected,
     )
 
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     assert len(bundle_lines) == len(expected_sorted)
 
     for i, bundle in enumerate(expected_sorted):
@@ -2209,7 +2228,7 @@ def test_bug_condition_registry_column_alignment(
         for n in names
     ]
     lines = render_add_selector(bundles, installed_names=installed, selected=0)
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
 
     reg_positions: list[int] = []
     for line in bundle_lines:
@@ -2464,3 +2483,994 @@ def test_bug_condition_tui_scope_column_width(
     assert (
         len(set(scope_field_widths)) == 1
     ), f"TUI scope field widths differ: {scope_field_widths}"
+
+
+# --- Tests for group_bundles_by_registry (Task 1.1) ---
+
+
+# Feature: bundle-registry-grouping, Property 1: Grouping function
+# produces sorted groups with sorted bundles
+@given(
+    bundles_data=st.lists(
+        st.tuples(
+            st.from_regex(r"[a-z]{1,10}", fullmatch=True),
+            st.from_regex(r"[a-z]{1,10}", fullmatch=True),
+        ),
+        min_size=1,
+        max_size=15,
+        unique_by=lambda x: (x[0], x[1]),
+    ),
+)
+def test_property_grouping_sorted_groups_and_bundles(
+    bundles_data: list[tuple[str, str]],
+) -> None:
+    """Feature: bundle-registry-grouping, Property 1: Grouping
+    function produces sorted groups with sorted bundles.
+
+    **Validates: Requirements 1.2, 1.3, 6.1, 6.2, 6.3**
+    """
+    from ksm.selector import group_bundles_by_registry
+
+    bundles = [
+        BundleInfo(
+            name=name,
+            path=Path(f"/{name}"),
+            subdirectories=["skills"],
+            registry_name=reg,
+        )
+        for name, reg in bundles_data
+    ]
+    result = group_bundles_by_registry(bundles)
+
+    # Keys must be sorted case-insensitively
+    keys = list(result.keys())
+    assert keys == sorted(keys, key=str.lower), f"Keys not sorted: {keys}"
+
+    # Bundles within each group must be sorted by name
+    for key, group in result.items():
+        names = [b.name for b in group]
+        assert names == sorted(
+            names, key=str.lower
+        ), f"Bundles in group '{key}' not sorted: {names}"
+
+    # Every input bundle must appear in exactly one group
+    all_output = [b for group in result.values() for b in group]
+    assert len(all_output) == len(bundles)
+
+
+# Feature: bundle-registry-grouping, Property 2: Empty registry
+# name sorts last
+@given(
+    named_data=st.lists(
+        st.tuples(
+            st.from_regex(r"[a-z]{1,10}", fullmatch=True),
+            st.from_regex(r"[a-z]{1,10}", fullmatch=True),
+        ),
+        min_size=1,
+        max_size=10,
+        unique_by=lambda x: (x[0], x[1]),
+    ),
+    empty_names=st.lists(
+        st.from_regex(r"[a-z]{1,10}", fullmatch=True),
+        min_size=1,
+        max_size=5,
+        unique=True,
+    ),
+)
+def test_property_empty_registry_sorts_last(
+    named_data: list[tuple[str, str]],
+    empty_names: list[str],
+) -> None:
+    """Feature: bundle-registry-grouping, Property 2: Empty
+    registry name sorts last.
+
+    **Validates: Requirements 6.4**
+    """
+    from ksm.selector import group_bundles_by_registry
+
+    bundles = [
+        BundleInfo(
+            name=name,
+            path=Path(f"/{name}"),
+            subdirectories=["skills"],
+            registry_name=reg,
+        )
+        for name, reg in named_data
+    ]
+    bundles += [
+        BundleInfo(
+            name=name,
+            path=Path(f"/{name}"),
+            subdirectories=["skills"],
+            registry_name="",
+        )
+        for name in empty_names
+    ]
+    result = group_bundles_by_registry(bundles)
+
+    keys = list(result.keys())
+    # Empty string key must be last
+    assert "" in keys, "Empty registry key missing"
+    assert keys[-1] == "", f"Empty key not last: {keys}"
+    # All other keys must be non-empty
+    for k in keys[:-1]:
+        assert k != "", f"Empty key not last: {keys}"
+
+
+# --- Unit tests for group_bundles_by_registry edge cases (1.1.4) ---
+
+
+def test_group_bundles_empty_list_returns_empty_dict() -> None:
+    """Empty bundle list returns empty dict."""
+    from ksm.selector import group_bundles_by_registry
+
+    result = group_bundles_by_registry([])
+    assert result == {}
+
+
+def test_group_bundles_single_registry_returns_single_entry() -> None:
+    """Single registry returns single-entry dict with header.
+
+    Validates: Requirement 1.4
+    """
+    from ksm.selector import group_bundles_by_registry
+
+    bundles = [
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+    ]
+    result = group_bundles_by_registry(bundles)
+
+    assert len(result) == 1
+    assert "default" in result
+    names = [b.name for b in result["default"]]
+    assert names == ["alpha", "beta"]
+
+
+def test_group_bundles_same_registry_grouped_together() -> None:
+    """All bundles from same registry grouped together."""
+    from ksm.selector import group_bundles_by_registry
+
+    bundles = [
+        BundleInfo(
+            name="zulu",
+            path=Path("/z"),
+            subdirectories=["skills"],
+            registry_name="team",
+        ),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["steering"],
+            registry_name="team",
+        ),
+    ]
+    result = group_bundles_by_registry(bundles)
+
+    assert list(result.keys()) == ["default", "team"]
+    assert [b.name for b in result["default"]] == ["alpha"]
+    assert [b.name for b in result["team"]] == ["beta", "zulu"]
+
+
+def test_group_bundles_case_insensitive_key_sort() -> None:
+    """Registry keys are sorted case-insensitively."""
+    from ksm.selector import group_bundles_by_registry
+
+    bundles = [
+        BundleInfo(
+            name="a",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="Zebra",
+        ),
+        BundleInfo(
+            name="b",
+            path=Path("/b"),
+            subdirectories=["skills"],
+            registry_name="alpha",
+        ),
+    ]
+    result = group_bundles_by_registry(bundles)
+
+    assert list(result.keys()) == ["alpha", "Zebra"]
+
+
+def test_group_bundles_case_insensitive_name_sort() -> None:
+    """Bundles within a group are sorted case-insensitively."""
+    from ksm.selector import group_bundles_by_registry
+
+    bundles = [
+        BundleInfo(
+            name="Zebra",
+            path=Path("/z"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+    ]
+    result = group_bundles_by_registry(bundles)
+
+    names = [b.name for b in result["default"]]
+    assert names == ["alpha", "Zebra"]
+
+
+def test_group_bundles_empty_registry_name_last() -> None:
+    """Empty registry name group appears last."""
+    from ksm.selector import group_bundles_by_registry
+
+    bundles = [
+        BundleInfo(
+            name="orphan",
+            path=Path("/o"),
+            subdirectories=["skills"],
+            registry_name="",
+        ),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+    ]
+    result = group_bundles_by_registry(bundles)
+
+    keys = list(result.keys())
+    assert keys == ["default", ""]
+    assert [b.name for b in result[""]] == ["orphan"]
+
+
+# --- Task 2.1.2: Property 3 — Group headers in rendered output ---
+
+
+@given(
+    bundles_data=st.lists(
+        st.tuples(
+            st.from_regex(r"[a-z]{1,10}", fullmatch=True),
+            st.from_regex(r"[a-z]{1,10}", fullmatch=True),
+        ),
+        min_size=1,
+        max_size=15,
+        unique_by=lambda x: (x[0], x[1]),
+    ),
+)
+def test_property_group_headers_in_rendered_output(
+    bundles_data: list[tuple[str, str]],
+) -> None:
+    """Property 3: Rendered output contains a group header
+    for each registry.
+
+    **Validates: Requirements 1.1, 4.1**
+
+    For any list of BundleInfo objects spanning one or more
+    registries, render_add_selector() shall produce output
+    lines that contain a header line for each distinct
+    registry_name before that group's bundle lines.
+    """
+    from ksm.selector import render_add_selector
+
+    bundles = [
+        BundleInfo(
+            name=name,
+            path=Path(f"/{name}"),
+            subdirectories=["skills"],
+            registry_name=reg,
+        )
+        for name, reg in bundles_data
+    ]
+    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+
+    # Collect distinct registries from input
+    registries = {reg for _, reg in bundles_data}
+
+    # Lines after the 3-line header
+    content_lines = lines[3:]
+    plain_lines = [_ANSI_RE.sub("", ln) for ln in content_lines]
+
+    # Each registry must appear as a group header line
+    for reg in registries:
+        header_label = reg if reg else "(no registry)"
+        header_found = any(ln.strip() == header_label for ln in plain_lines)
+        assert header_found, (
+            f"Group header '{header_label}' not found " f"in output: {plain_lines}"
+        )
+
+    # Each group header must be followed by at least one
+    # bundle line (starts with '>' or ' ')
+    for idx, ln in enumerate(plain_lines):
+        is_header = not ln or (ln[0] not in (">", " "))
+        if is_header and ln.strip():
+            # Next line must be a bundle line
+            assert idx + 1 < len(
+                plain_lines
+            ), f"Group header '{ln}' at end with no bundles"
+            next_ln = plain_lines[idx + 1]
+            assert next_ln and next_ln[0] in (">", " "), (
+                f"Expected bundle line after header " f"'{ln}', got '{next_ln}'"
+            )
+
+
+# --- Task 2.1.3: Property 4 — Filtering hides empty groups ---
+
+
+@given(
+    data=st.data(),
+    bundles_data=st.lists(
+        st.tuples(
+            st.from_regex(r"[a-z]{1,10}", fullmatch=True),
+            st.from_regex(r"[a-z]{1,10}", fullmatch=True),
+        ),
+        min_size=1,
+        max_size=15,
+        unique_by=lambda x: (x[0], x[1]),
+    ),
+)
+def test_property_filtering_hides_empty_groups(
+    data: st.DataObject,
+    bundles_data: list[tuple[str, str]],
+) -> None:
+    """Property 4: Filtering hides empty groups.
+
+    **Validates: Requirements 2.4, 4.4**
+
+    For any list of BundleInfo objects and any filter_text,
+    render_add_selector() shall not produce a group header
+    for any registry_name whose bundles all fail to match
+    the filter. Every group header that does appear shall
+    have at least one matching bundle line following it.
+    """
+    from ksm.selector import render_add_selector
+
+    # Draw filter from a substring of an existing name/reg
+    # to guarantee at least one match (avoids assume)
+    all_strings = [n for n, _ in bundles_data] + [r for _, r in bundles_data]
+    source = data.draw(st.sampled_from(all_strings), label="source")
+    max_len = min(5, len(source))
+    end = data.draw(
+        st.integers(min_value=1, max_value=max_len),
+        label="end",
+    )
+    start = data.draw(
+        st.integers(min_value=0, max_value=end - 1),
+        label="start",
+    )
+    filter_text = source[start:end]
+
+    bundles = [
+        BundleInfo(
+            name=name,
+            path=Path(f"/{name}"),
+            subdirectories=["skills"],
+            registry_name=reg,
+        )
+        for name, reg in bundles_data
+    ]
+
+    # Determine which registries have matching bundles
+    ft = filter_text.lower()
+    matching_regs = set()
+    for name, reg in bundles_data:
+        if ft in name.lower() or ft in reg.lower():
+            matching_regs.add(reg)
+
+    lines = render_add_selector(
+        bundles,
+        installed_names=set(),
+        selected=0,
+        filter_text=filter_text,
+    )
+
+    content_lines = lines[3:]
+    plain_lines = [_ANSI_RE.sub("", ln) for ln in content_lines]
+
+    # Identify group header lines (not starting with > or space)
+    header_lines = []
+    for idx, ln in enumerate(plain_lines):
+        if ln and ln[0] not in (">", " "):
+            header_lines.append((idx, ln.strip()))
+
+    # Every header must correspond to a matching registry
+    for _idx, header in header_lines:
+        label = header if header != "(no registry)" else ""
+        assert label in matching_regs, (
+            f"Header '{header}' shown but registry " f"has no matching bundles"
+        )
+
+    # Every matching registry must have a header
+    for reg in matching_regs:
+        label = reg if reg else "(no registry)"
+        found = any(h == label for _, h in header_lines)
+        assert found, (
+            f"Registry '{label}' has matches but no " f"group header in output"
+        )
+
+    # Every header must be followed by at least one bundle
+    for idx, _header in header_lines:
+        assert idx + 1 < len(plain_lines), f"Header at end with no bundles"
+        next_ln = plain_lines[idx + 1]
+        assert next_ln and next_ln[0] in (">", " "), f"No bundle line after header"
+
+
+# --- Task 2.1.4: Unit tests for grouped output ---
+
+
+def test_grouped_single_registry_shows_header() -> None:
+    """Single registry shows group header.
+
+    Validates: Requirement 1.4
+    """
+    from ksm.selector import render_add_selector
+
+    bundles = [
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+    ]
+    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    content = lines[3:]
+    plain = [_ANSI_RE.sub("", ln) for ln in content]
+
+    # First content line is the group header
+    assert plain[0].strip() == "default"
+    # Followed by bundle lines
+    assert "alpha" in plain[1]
+    assert "beta" in plain[2]
+
+
+def test_grouped_multiple_registries_sorted_headers() -> None:
+    """Multiple registries show sorted group headers."""
+    from ksm.selector import render_add_selector
+
+    bundles = [
+        BundleInfo(
+            name="zulu",
+            path=Path("/z"),
+            subdirectories=["skills"],
+            registry_name="team",
+        ),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="gamma",
+            path=Path("/g"),
+            subdirectories=["steering"],
+            registry_name="team",
+        ),
+    ]
+    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    content = lines[3:]
+    plain = [_ANSI_RE.sub("", ln) for ln in content]
+
+    # "default" group first, then "team"
+    assert plain[0].strip() == "default"
+    assert "alpha" in plain[1]
+    assert plain[2].strip() == "team"
+    assert "gamma" in plain[3]
+    assert "zulu" in plain[4]
+
+
+def test_grouped_filter_no_match_no_headers() -> None:
+    """Filter matches nothing shows no group headers.
+
+    Validates: Requirement 5.4
+    """
+    from ksm.selector import render_add_selector
+
+    bundles = [
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+    ]
+    lines = render_add_selector(
+        bundles,
+        installed_names=set(),
+        selected=0,
+        filter_text="zzz",
+    )
+    content = lines[3:]
+    assert len(content) == 0
+
+
+def test_grouped_installed_label_within_groups() -> None:
+    """Installed label still appears correctly within groups."""
+    from ksm.selector import render_add_selector
+
+    bundles = [
+        BundleInfo(
+            name="aws",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="git",
+            path=Path("/g"),
+            subdirectories=["hooks"],
+            registry_name="team",
+        ),
+    ]
+    lines = render_add_selector(bundles, installed_names={"aws"}, selected=0)
+    bundle_lines = _extract_bundle_lines(lines)
+
+    aws_line = [ln for ln in bundle_lines if "aws" in ln][0]
+    git_line = [ln for ln in bundle_lines if "git" in ln][0]
+    assert "[installed]" in aws_line
+    assert "[installed]" not in git_line
+
+
+# --- Task 3.1.2: Property 5 — Continuous numbering in fallback ---
+
+
+@given(
+    bundles_data=st.lists(
+        st.tuples(
+            st.from_regex(r"[a-z]{1,10}", fullmatch=True),
+            st.from_regex(r"[a-z]{1,10}", fullmatch=True),
+        ),
+        min_size=2,
+        max_size=15,
+        unique_by=lambda x: (x[0], x[1]),
+    ),
+)
+def test_property_continuous_numbering_in_fallback(
+    bundles_data: list[tuple[str, str]],
+) -> None:
+    """Property 5: Continuous numbering across groups in
+    fallback.
+
+    **Validates: Requirements 3.4**
+
+    For any list of BundleInfo objects spanning multiple
+    registries, the numbered-list fallback assigns continuous
+    1-based numbers to bundles across all groups with no gaps
+    or duplicates, and the total count of numbered items
+    equals the number of bundles.
+    """
+    from hypothesis import assume
+
+    from ksm.selector import (
+        _numbered_list_select,
+        group_bundles_by_registry,
+    )
+
+    bundles = [
+        BundleInfo(
+            name=name,
+            path=Path(f"/{name}"),
+            subdirectories=["skills"],
+            registry_name=reg,
+        )
+        for name, reg in bundles_data
+    ]
+
+    # Ensure multiple registries
+    registries = {reg for _, reg in bundles_data}
+    assume(len(registries) >= 2)
+
+    # Build grouped items the same way interactive_select does
+    sorted_bundles = sorted(
+        bundles,
+        key=lambda b: (
+            b.name.lower(),
+            b.registry_name.lower(),
+        ),
+    )
+    grouped = group_bundles_by_registry(sorted_bundles)
+    items: list[tuple[str, str]] = []
+    group_headers: dict[int, str] = {}
+    for reg_name, group in grouped.items():
+        header = reg_name if reg_name else "(no registry)"
+        group_headers[len(items)] = header
+        for b in group:
+            items.append((b.name, ""))
+
+    # Capture stderr output
+    stderr_buf = io.StringIO()
+    with (
+        patch("builtins.input", return_value="q"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stderr = stderr_buf
+        _numbered_list_select(
+            items,
+            "Select a bundle to install:",
+            group_headers=group_headers,
+        )
+
+    output = stderr_buf.getvalue()
+
+    # Extract all numbers from "  N. " pattern
+    number_pattern = re.compile(r"^\s+(\d+)\.\s", re.MULTILINE)
+    numbers = [int(m.group(1)) for m in number_pattern.finditer(output)]
+
+    # Continuous 1-based numbering with no gaps
+    assert numbers == list(range(1, len(bundles) + 1)), (
+        f"Expected continuous 1-{len(bundles)}, " f"got {numbers}"
+    )
+
+
+# --- Task 3.1.3: Unit tests for numbered-list fallback grouping ---
+
+
+def test_fallback_multiple_registries_show_group_headers() -> None:
+    """Multiple registries show group headers in stderr output.
+
+    Validates: Requirements 3.1, 3.2
+    """
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(
+            name="zulu",
+            path=Path("/z"),
+            subdirectories=["skills"],
+            registry_name="team",
+        ),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="gamma",
+            path=Path("/g"),
+            subdirectories=["steering"],
+            registry_name="team",
+        ),
+    ]
+    stderr_buf = io.StringIO()
+
+    with (
+        patch(
+            "ksm.selector._can_run_textual",
+            return_value=False,
+        ),
+        patch("builtins.input", return_value="1"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stderr = stderr_buf
+        interactive_select(bundles, installed_names=set())
+
+    output = stderr_buf.getvalue()
+    # Both registry group headers must appear
+    assert "default" in output
+    assert "team" in output
+    # "default" should appear before "team" (sorted)
+    assert output.index("default") < output.index("team")
+
+
+def test_fallback_continuous_numbering_across_groups() -> None:
+    """Continuous numbering across groups.
+
+    Validates: Requirements 3.3, 3.4
+    """
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="gamma",
+            path=Path("/g"),
+            subdirectories=["steering"],
+            registry_name="team",
+        ),
+    ]
+    stderr_buf = io.StringIO()
+
+    with (
+        patch(
+            "ksm.selector._can_run_textual",
+            return_value=False,
+        ),
+        patch("builtins.input", return_value="3"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stderr = stderr_buf
+        result = interactive_select(bundles, installed_names=set())
+
+    output = stderr_buf.getvalue()
+    # Numbers 1, 2, 3 should all appear
+    assert "1." in output
+    assert "2." in output
+    assert "3." in output
+    # Selecting "3" should return gamma from team
+    assert result == ["team/gamma"]
+
+
+def test_fallback_single_registry_shows_header() -> None:
+    """Single registry shows header in fallback.
+
+    Validates: Requirements 3.1
+    """
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+    ]
+    stderr_buf = io.StringIO()
+
+    with (
+        patch(
+            "ksm.selector._can_run_textual",
+            return_value=False,
+        ),
+        patch("builtins.input", return_value="1"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stderr = stderr_buf
+        interactive_select(bundles, installed_names=set())
+
+    output = stderr_buf.getvalue()
+    # The single registry header must appear
+    assert "default" in output
+
+
+# --- Task 4.1.3: Property 6 — Selection from grouped list
+# returns correct qualified name ---
+
+
+@given(
+    bundle_name=st.from_regex(r"[a-z]{2,8}", fullmatch=True),
+    registry_name=st.from_regex(r"[a-z]{2,8}", fullmatch=True),
+)
+def test_property_selection_returns_correct_qualified_name(
+    bundle_name: str,
+    registry_name: str,
+) -> None:
+    """Property 6: Selection from grouped list returns
+    correct qualified name.
+
+    **Validates: Requirements 5.1**
+
+    For any BundleInfo with a non-empty registry_name,
+    _qualified_name returns "registry_name/name".
+    For any BundleInfo with an empty registry_name,
+    _qualified_name returns the bare name.
+    """
+    from ksm.tui import BundleSelectorApp
+
+    # Test with non-empty registry
+    bundle_with_reg = BundleInfo(
+        name=bundle_name,
+        path=Path(f"/{bundle_name}"),
+        subdirectories=["skills"],
+        registry_name=registry_name,
+    )
+    result = BundleSelectorApp._qualified_name(bundle_with_reg)
+    assert result == f"{registry_name}/{bundle_name}"
+
+    # Test with empty registry
+    bundle_no_reg = BundleInfo(
+        name=bundle_name,
+        path=Path(f"/{bundle_name}"),
+        subdirectories=["skills"],
+        registry_name="",
+    )
+    result_no_reg = BundleSelectorApp._qualified_name(bundle_no_reg)
+    assert result_no_reg == bundle_name
+    assert "/" not in result_no_reg
+
+
+# --- Task 5.1.2: Integration tests for end-to-end grouped selection ---
+
+
+def test_integration_select_first_registry_group() -> None:
+    """Selecting a bundle from the first registry group
+    returns the correct qualified name.
+
+    Validates: Requirements 5.1, 5.3
+    """
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(
+            name="zulu",
+            path=Path("/z"),
+            subdirectories=["skills"],
+            registry_name="team",
+        ),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["steering"],
+            registry_name="default",
+        ),
+    ]
+    stderr_buf = io.StringIO()
+
+    # Grouped order: default(alpha, beta), team(zulu)
+    # Input "1" selects first bundle = alpha from default
+    with (
+        patch(
+            "ksm.selector._can_run_textual",
+            return_value=False,
+        ),
+        patch("builtins.input", return_value="1"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stderr = stderr_buf
+        result = interactive_select(bundles, installed_names=set())
+
+    assert result == ["default/alpha"]
+
+
+def test_integration_select_second_registry_group() -> None:
+    """Selecting a bundle from the second registry group
+    returns the correct qualified name.
+
+    Validates: Requirements 5.1, 5.3
+    """
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(
+            name="zulu",
+            path=Path("/z"),
+            subdirectories=["skills"],
+            registry_name="team",
+        ),
+        BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["hooks"],
+            registry_name="default",
+        ),
+        BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["steering"],
+            registry_name="default",
+        ),
+    ]
+    stderr_buf = io.StringIO()
+
+    # Grouped order: default(alpha, beta), team(zulu)
+    # Input "3" selects third bundle = zulu from team
+    with (
+        patch(
+            "ksm.selector._can_run_textual",
+            return_value=False,
+        ),
+        patch("builtins.input", return_value="3"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stderr = stderr_buf
+        result = interactive_select(bundles, installed_names=set())
+
+    assert result == ["team/zulu"]
+
+
+def test_integration_selection_index_maps_through_groups() -> None:
+    """Selection index correctly maps through the grouped
+    layout across multiple registries.
+
+    Validates: Requirements 5.1, 5.2, 5.3
+    """
+    from ksm.selector import interactive_select
+
+    bundles = [
+        BundleInfo(
+            name="gamma",
+            path=Path("/g"),
+            subdirectories=["skills"],
+            registry_name="beta-reg",
+        ),
+        BundleInfo(
+            name="delta",
+            path=Path("/d"),
+            subdirectories=["hooks"],
+            registry_name="alpha-reg",
+        ),
+        BundleInfo(
+            name="epsilon",
+            path=Path("/e"),
+            subdirectories=["steering"],
+            registry_name="alpha-reg",
+        ),
+        BundleInfo(
+            name="zeta",
+            path=Path("/z"),
+            subdirectories=["skills"],
+            registry_name="beta-reg",
+        ),
+    ]
+    # Grouped order:
+    #   alpha-reg: delta(1), epsilon(2)
+    #   beta-reg:  gamma(3), zeta(4)
+
+    stderr_buf = io.StringIO()
+
+    # Select index 2 = epsilon from alpha-reg
+    with (
+        patch(
+            "ksm.selector._can_run_textual",
+            return_value=False,
+        ),
+        patch("builtins.input", return_value="2"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stderr = stderr_buf
+        result = interactive_select(bundles, installed_names=set())
+
+    assert result == ["alpha-reg/epsilon"]
+
+    stderr_buf2 = io.StringIO()
+
+    # Select index 4 = zeta from beta-reg
+    with (
+        patch(
+            "ksm.selector._can_run_textual",
+            return_value=False,
+        ),
+        patch("builtins.input", return_value="4"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stderr = stderr_buf2
+        result = interactive_select(bundles, installed_names=set())
+
+    assert result == ["beta-reg/zeta"]
