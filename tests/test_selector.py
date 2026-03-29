@@ -485,6 +485,361 @@ def test_render_removal_selector_columns_aligned() -> None:
     ), f"Scope columns misaligned: {bracket_positions}"
 
 
+# --- Tests for column alignment with registry column
+# (Req 1.2, 1.3, 1.6, 3.2) ---
+
+
+def test_removal_alignment_varying_names_and_registries() -> None:
+    """Scope bracket `[` aligns across entries with varying
+    name lengths, scope values, and registry lengths.
+
+    Validates: Requirements 1.2, 1.3, 1.6, 3.2
+    """
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="a",
+            source_registry="short",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="very_long_bundle_name_here",
+            source_registry="my-company-registry",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="mid",
+            source_registry="x",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    lines = render_removal_selector(entries, selected=0)
+    bundle_lines = lines[3:]
+
+    assert len(bundle_lines) == 3
+
+    # Strip ANSI to find the true character position of `[`
+    bracket_positions = []
+    for line in bundle_lines:
+        plain = _ANSI_RE.sub("", line)
+        pos = plain.index("[")
+        bracket_positions.append(pos)
+
+    assert len(set(bracket_positions)) == 1, (
+        f"Scope bracket `[` misaligned across varying "
+        f"names/registries: {bracket_positions}"
+    )
+
+
+def test_removal_alignment_mixed_empty_and_nonempty_registry() -> None:
+    """Scope bracket `[` aligns when some entries have empty
+    source_registry and others do not.
+
+    Validates: Requirements 1.2, 1.3, 1.6, 3.2
+    """
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="bundleA",
+            source_registry="default",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="bundleB",
+            source_registry="",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="bundleC_longer",
+            source_registry="community",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    lines = render_removal_selector(entries, selected=0)
+    bundle_lines = lines[3:]
+
+    assert len(bundle_lines) == 3
+
+    bracket_positions = []
+    for line in bundle_lines:
+        plain = _ANSI_RE.sub("", line)
+        pos = plain.index("[")
+        bracket_positions.append(pos)
+
+    assert len(set(bracket_positions)) == 1, (
+        f"Scope bracket `[` misaligned with mixed "
+        f"empty/non-empty registries: {bracket_positions}"
+    )
+
+
+def test_removal_alignment_with_multi_select() -> None:
+    """Scope bracket `[` aligns when multi-select checkboxes
+    are displayed.
+
+    Validates: Requirements 1.2, 1.6, 3.2
+    """
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="short",
+            source_registry="reg1",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="a_much_longer_name",
+            source_registry="registry_two",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    lines = render_removal_selector(entries, selected=0, multi_selected={0})
+    bundle_lines = lines[3:]
+
+    assert len(bundle_lines) == 2
+
+    bracket_positions = []
+    for line in bundle_lines:
+        plain = _ANSI_RE.sub("", line)
+        # Find the scope bracket `[` — skip any `[✓]`/`[ ]`
+        # by searching for `[local` or `[global`
+        scope_idx = plain.find("[local")
+        if scope_idx == -1:
+            scope_idx = plain.find("[global")
+        assert scope_idx != -1, f"No scope bracket found in: {plain!r}"
+        bracket_positions.append(scope_idx)
+
+    assert len(set(bracket_positions)) == 1, (
+        f"Scope bracket `[` misaligned with " f"multi-select: {bracket_positions}"
+    )
+
+
+def test_removal_alignment_with_filter() -> None:
+    """Scope bracket `[` aligns after filtering narrows
+    the entry list.
+
+    Validates: Requirements 1.2, 1.6, 3.2
+    """
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="aws_tools",
+            source_registry="default",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="aws_extra",
+            source_registry="community",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="git",
+            source_registry="default",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    # Filter to only "aws" entries — different name lengths
+    lines = render_removal_selector(entries, selected=0, filter_text="aws")
+    bundle_lines = lines[3:]
+
+    assert len(bundle_lines) == 2
+
+    bracket_positions = []
+    for line in bundle_lines:
+        plain = _ANSI_RE.sub("", line)
+        pos = plain.index("[")
+        bracket_positions.append(pos)
+
+    assert len(set(bracket_positions)) == 1, (
+        f"Scope bracket `[` misaligned after " f"filtering: {bracket_positions}"
+    )
+
+
+def test_removal_alignment_single_entry() -> None:
+    """Single entry still has scope bracket at a valid position
+    (trivially aligned).
+
+    Validates: Requirements 1.2, 1.3, 3.2
+    """
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="solo_bundle",
+            source_registry="myregistry",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    lines = render_removal_selector(entries, selected=0)
+    bundle_lines = lines[3:]
+
+    assert len(bundle_lines) == 1
+    plain = _ANSI_RE.sub("", bundle_lines[0])
+    assert "[local]" in plain
+
+
+# --- Tests for 3-column output (Req 1.1, 1.4, 1.5, 3.1, 3.3, 4.1) ---
+
+
+def test_render_removal_selector_three_column_output() -> None:
+    """Each bundle line contains bundle_name, bracketed scope,
+    and source_registry.
+
+    Validates: Requirements 1.1, 1.4, 1.5, 3.1, 3.3, 4.1
+    """
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="aws",
+            source_registry="default",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="git_tools",
+            source_registry="community",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    lines = render_removal_selector(entries, selected=0)
+    bundle_lines = _extract_bundle_lines(lines)
+
+    assert len(bundle_lines) == 2
+
+    for entry in entries:
+        matching = [
+            _ANSI_RE.sub("", ln)
+            for ln in bundle_lines
+            if entry.bundle_name in _ANSI_RE.sub("", ln)
+        ]
+        assert len(matching) == 1, f"Expected exactly one line for {entry.bundle_name}"
+        plain = matching[0]
+        assert entry.bundle_name in plain
+        assert f"[{entry.scope}" in plain
+        assert entry.source_registry in plain
+
+
+def test_render_removal_selector_empty_registry_no_trailing() -> None:
+    """When source_registry is empty, no trailing text appears
+    after the scope column. When non-empty, registry text appears.
+
+    Validates: Requirements 1.5, 3.3
+    """
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="has_reg",
+            source_registry="default",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="no_reg",
+            source_registry="",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    lines = render_removal_selector(entries, selected=0)
+    bundle_lines = _extract_bundle_lines(lines)
+
+    assert len(bundle_lines) == 2
+
+    for bl in bundle_lines:
+        plain = _ANSI_RE.sub("", bl)
+        if "has_reg" in plain:
+            assert "default" in plain, "Entry with registry should show registry text"
+        elif "no_reg" in plain:
+            bracket_close = plain.rindex("]")
+            after_scope = plain[bracket_close + 1 :]
+            assert after_scope.strip() == "", (
+                f"Empty registry should have no trailing "
+                f"text, got: '{after_scope.strip()}'"
+            )
+
+
+def test_render_removal_selector_column_order_name_scope_registry() -> None:
+    """Column order is name -> scope -> registry (left to right).
+
+    Validates: Requirements 4.1
+    """
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="alpha",
+            source_registry="myregistry",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    lines = render_removal_selector(entries, selected=0)
+    bundle_lines = _extract_bundle_lines(lines)
+
+    assert len(bundle_lines) == 1
+    plain = _ANSI_RE.sub("", bundle_lines[0])
+
+    name_pos = plain.index("alpha")
+    scope_pos = plain.index("[global]")
+    registry_pos = plain.index("myregistry")
+
+    assert name_pos < scope_pos < registry_pos, (
+        f"Column order wrong: name@{name_pos}, "
+        f"scope@{scope_pos}, registry@{registry_pos}"
+    )
+
+
 # --- Tests for cross-platform fallback and TERM=dumb (Req 26, 29) ---
 
 
@@ -944,6 +1299,106 @@ def test_render_removal_selector_filter_narrows_list() -> None:
     bundle_lines = lines[3:]
     assert len(bundle_lines) == 1
     assert "git" in bundle_lines[0]
+
+
+# --- Tests for filter matching registry (Req 5.1, 5.2) ---
+
+
+def test_removal_filter_by_registry_substring_includes_entry() -> None:
+    """Filtering by a substring of source_registry includes the entry.
+
+    Validates: Requirements 5.1, 5.2
+    """
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="aws",
+            source_registry="community",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="git",
+            source_registry="default",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    # "commun" is a substring of "community" but not of
+    # any bundle_name — should match "aws" via registry
+    lines = render_removal_selector(entries, selected=0, filter_text="commun")
+    bundle_lines = lines[3:]
+    assert len(bundle_lines) == 1
+    assert "aws" in bundle_lines[0]
+
+
+def test_removal_filter_registry_case_insensitive() -> None:
+    """Filtering by registry name is case-insensitive.
+
+    Validates: Requirements 5.1, 5.2
+    """
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="tools",
+            source_registry="MyTeamRepo",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="other",
+            source_registry="default",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    # "myteam" is a case-insensitive substring of "MyTeamRepo"
+    lines = render_removal_selector(entries, selected=0, filter_text="myteam")
+    bundle_lines = lines[3:]
+    assert len(bundle_lines) == 1
+    assert "tools" in bundle_lines[0]
+
+
+def test_removal_filter_no_match_excludes_entry() -> None:
+    """A filter matching neither bundle_name nor source_registry
+    excludes the entry.
+
+    Validates: Requirements 5.1, 5.2
+    """
+    from ksm.selector import render_removal_selector
+
+    entries = [
+        ManifestEntry(
+            bundle_name="aws",
+            source_registry="default",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="git",
+            source_registry="community",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    # "zzz" matches neither any bundle_name nor source_registry
+    lines = render_removal_selector(entries, selected=0, filter_text="zzz")
+    bundle_lines = lines[3:]
+    assert len(bundle_lines) == 0
 
 
 # --- Property 17: Type-to-filter produces correct filtered list ---
@@ -2906,9 +3361,9 @@ def test_property_filtering_hides_empty_groups(
 
     # Every header must be followed by at least one bundle
     for idx, _header in header_lines:
-        assert idx + 1 < len(plain_lines), f"Header at end with no bundles"
+        assert idx + 1 < len(plain_lines), "Header at end with no bundles"
         next_ln = plain_lines[idx + 1]
-        assert next_ln and next_ln[0] in (">", " "), f"No bundle line after header"
+        assert next_ln and next_ln[0] in (">", " "), "No bundle line after header"
 
 
 # --- Task 2.1.4: Unit tests for grouped output ---
@@ -3474,3 +3929,468 @@ def test_integration_selection_index_maps_through_groups() -> None:
         result = interactive_select(bundles, installed_names=set())
 
     assert result == ["beta-reg/zeta"]
+
+
+# --- Feature: remove-interactive-ui-uplift ---
+# --- Property 1: Three-column content presence ---
+
+
+# Strategy for generating ManifestEntry objects.
+# Registry names are prefixed with "reg_" to avoid
+# collisions with bundle_name values in substring checks.
+_manifest_entry_strategy = st.builds(
+    ManifestEntry,
+    bundle_name=st.from_regex(r"[a-zA-Z][a-zA-Z0-9_\-]{0,29}", fullmatch=True),
+    scope=st.sampled_from(["local", "global"]),
+    source_registry=st.one_of(
+        st.just(""),
+        st.from_regex(r"[a-zA-Z0-9]{1,20}", fullmatch=True).map(lambda s: f"reg_{s}"),
+    ),
+    installed_files=st.just([]),
+    installed_at=st.just("2025-01-01T00:00:00Z"),
+    updated_at=st.just("2025-01-01T00:00:00Z"),
+)
+
+
+@given(
+    entries=st.lists(
+        _manifest_entry_strategy,
+        min_size=1,
+        max_size=10,
+        unique_by=lambda e: e.bundle_name,
+    ),
+)
+def test_property_three_column_content_presence(
+    entries: list[ManifestEntry],
+) -> None:
+    """Feature: remove-interactive-ui-uplift, Property 1: Three-column content presence
+
+    For any list of ManifestEntry objects, each bundle line
+    in render_removal_selector() output contains the entry's
+    bundle_name, a bracketed scope label, and — when
+    source_registry is non-empty — the source_registry string.
+    When source_registry is empty, no extra text appears after
+    the scope column.
+
+    **Validates: Requirements 1.1, 1.4, 1.5, 3.1, 3.3**
+    """
+    from ksm.selector import render_removal_selector
+
+    lines = render_removal_selector(entries, selected=0)
+    bundle_lines = lines[3:]
+
+    assert len(bundle_lines) == len(entries)
+
+    sorted_entries = sorted(entries, key=lambda e: e.bundle_name.lower())
+
+    for i, entry in enumerate(sorted_entries):
+        plain = _ANSI_RE.sub("", bundle_lines[i])
+
+        # Bundle name must be present
+        assert entry.bundle_name in plain, (
+            f"bundle_name {entry.bundle_name!r} not found " f"in line: {plain!r}"
+        )
+
+        # Bracketed scope must be present
+        assert f"[{entry.scope}" in plain, (
+            f"Bracketed scope [{entry.scope}] not found " f"in line: {plain!r}"
+        )
+
+        # Find the scope closing bracket to inspect
+        # what follows it
+        bracket_close = plain.rindex("]")
+        after_scope = plain[bracket_close + 1 :]
+
+        if entry.source_registry:
+            # Non-empty registry must appear *after* the
+            # scope bracket, not just anywhere in the line
+            assert entry.source_registry in after_scope, (
+                f"source_registry "
+                f"{entry.source_registry!r} not found "
+                f"after scope bracket in line: "
+                f"{plain!r}"
+            )
+        else:
+            # Empty registry: no text after scope closing
+            # bracket
+            assert after_scope.strip() == "", (
+                f"Empty registry should have no "
+                f"trailing text, got: "
+                f"{after_scope.strip()!r}"
+            )
+
+
+# --- Feature: remove-interactive-ui-uplift ---
+# --- Property 2: Column alignment ---
+
+
+@given(
+    entries=st.lists(
+        _manifest_entry_strategy,
+        min_size=1,
+        max_size=10,
+        unique_by=lambda e: e.bundle_name,
+    ),
+    filter_text=st.one_of(
+        st.just(""),
+        st.from_regex(r"[a-zA-Z0-9]{1,5}", fullmatch=True),
+    ),
+    data=st.data(),
+)
+def test_property_column_alignment(
+    entries: list[ManifestEntry],
+    filter_text: str,
+    data: st.DataObject,
+) -> None:
+    """Feature: remove-interactive-ui-uplift, Property 2: Column alignment
+
+    For any list of entries with any valid filter_text and
+    multi_selected set, all bundle lines have scope bracket
+    `[` at the same character position. Column order is
+    name -> scope -> registry.
+
+    **Validates: Requirements 1.2, 1.3, 1.6, 2.4, 2.5, 3.2, 4.1**
+    """
+    from hypothesis import assume
+
+    from ksm.selector import render_removal_selector
+
+    # Optionally generate a multi_selected set
+    use_multi = data.draw(st.booleans(), label="use_multi")
+    if use_multi:
+        indices = range(len(entries))
+        multi_selected: set[int] | None = set(
+            data.draw(
+                st.lists(
+                    st.sampled_from(list(indices)),
+                    unique=True,
+                    max_size=len(entries),
+                ),
+                label="multi_selected",
+            )
+        )
+    else:
+        multi_selected = None
+
+    lines = render_removal_selector(
+        entries,
+        selected=0,
+        filter_text=filter_text,
+        multi_selected=multi_selected,
+    )
+    bundle_lines = lines[3:]
+
+    # Need at least 2 lines to check alignment
+    assume(len(bundle_lines) >= 2)
+
+    # Find scope bracket positions, skipping [✓]/[ ]
+    scope_positions: list[int] = []
+    for line in bundle_lines:
+        plain = _ANSI_RE.sub("", line)
+        idx = plain.find("[local")
+        if idx == -1:
+            idx = plain.find("[global")
+        assert idx != -1, f"No scope bracket found in: {plain!r}"
+        scope_positions.append(idx)
+
+    # All scope brackets must be at the same position
+    assert len(set(scope_positions)) == 1, (
+        f"Scope bracket `[` misaligned: " f"{scope_positions}"
+    )
+
+    # Verify column order: name -> scope -> registry
+    sorted_entries = sorted(entries, key=lambda e: e.bundle_name.lower())
+    if filter_text:
+        ft = filter_text.lower()
+        sorted_entries = [
+            e
+            for e in sorted_entries
+            if ft in e.bundle_name.lower() or ft in e.source_registry.lower()
+        ]
+
+    for i, entry in enumerate(sorted_entries):
+        plain = _ANSI_RE.sub("", bundle_lines[i])
+        name_pos = plain.index(entry.bundle_name)
+        scope_pos = plain.find(f"[{entry.scope}")
+        assert scope_pos != -1
+
+        assert name_pos < scope_pos, (
+            f"Name must come before scope: " f"name@{name_pos}, scope@{scope_pos}"
+        )
+
+        if entry.source_registry:
+            reg_pos = plain.find(entry.source_registry, scope_pos)
+            assert reg_pos != -1, (
+                f"Registry {entry.source_registry!r} " f"not found after scope"
+            )
+            assert scope_pos < reg_pos, (
+                f"Scope must come before registry: "
+                f"scope@{scope_pos}, "
+                f"registry@{reg_pos}"
+            )
+
+
+# --- Feature: remove-interactive-ui-uplift ---
+# --- Property 3: Filter matches both name and registry ---
+
+
+@given(
+    entry=_manifest_entry_strategy,
+    data=st.data(),
+)
+def test_property_filter_matches_name_and_registry(
+    entry: ManifestEntry,
+    data: st.DataObject,
+) -> None:
+    """Feature: remove-interactive-ui-uplift, \
+Property 3: Filter matches both name and registry
+
+    For any ManifestEntry and any case-insensitive substring
+    of either bundle_name or source_registry, filtering by
+    that substring includes the entry. A filter string that
+    is a substring of neither field excludes the entry.
+
+    **Validates: Requirements 5.1, 5.2**
+    """
+    from hypothesis import assume
+
+    from ksm.selector import render_removal_selector
+
+    entries = [entry]
+
+    # --- Inclusion: substring of bundle_name ---
+    name = entry.bundle_name
+    if len(name) > 0:
+        name_start = data.draw(
+            st.integers(min_value=0, max_value=len(name) - 1),
+            label="name_start",
+        )
+        name_end = data.draw(
+            st.integers(
+                min_value=name_start + 1,
+                max_value=len(name),
+            ),
+            label="name_end",
+        )
+        name_sub = name[name_start:name_end]
+        # Case-insensitive: draw a random case variant
+        case_sub = data.draw(
+            st.sampled_from([name_sub.lower(), name_sub.upper()]),
+            label="name_case",
+        )
+        lines = render_removal_selector(entries, selected=0, filter_text=case_sub)
+        bundle_lines = lines[3:]
+        assert len(bundle_lines) == 1, (
+            f"Filter {case_sub!r} (substring of "
+            f"bundle_name {name!r}) should include "
+            f"the entry but got {len(bundle_lines)} "
+            f"lines"
+        )
+
+    # --- Inclusion: substring of source_registry ---
+    reg = entry.source_registry
+    if reg:
+        reg_start = data.draw(
+            st.integers(min_value=0, max_value=len(reg) - 1),
+            label="reg_start",
+        )
+        reg_end = data.draw(
+            st.integers(
+                min_value=reg_start + 1,
+                max_value=len(reg),
+            ),
+            label="reg_end",
+        )
+        reg_sub = reg[reg_start:reg_end]
+        case_reg = data.draw(
+            st.sampled_from([reg_sub.lower(), reg_sub.upper()]),
+            label="reg_case",
+        )
+        lines = render_removal_selector(entries, selected=0, filter_text=case_reg)
+        bundle_lines = lines[3:]
+        assert len(bundle_lines) == 1, (
+            f"Filter {case_reg!r} (substring of "
+            f"source_registry {reg!r}) should "
+            f"include the entry but got "
+            f"{len(bundle_lines)} lines"
+        )
+
+    # --- Exclusion: substring of neither field ---
+    # Use a string that cannot be a substring of either
+    # bundle_name or source_registry.
+    # The strategy generates bundle_name from [a-zA-Z0-9_-]
+    # and source_registry from "reg_" + [a-zA-Z0-9] or "".
+    # A string with "!" cannot appear in either field.
+    excl_filter = "!!nomatch!!"
+    assume(excl_filter.lower() not in entry.bundle_name.lower())
+    assume(excl_filter.lower() not in entry.source_registry.lower())
+    lines = render_removal_selector(entries, selected=0, filter_text=excl_filter)
+    bundle_lines = lines[3:]
+    assert len(bundle_lines) == 0, (
+        f"Filter {excl_filter!r} should exclude "
+        f"the entry but got {len(bundle_lines)} "
+        f"lines"
+    )
+
+
+# --- Tests for fallback numbered-list registry column
+# (Req 3.1, 3.2, 3.3, 4.1, 4.2) ---
+
+
+def test_fallback_registry_in_output() -> None:
+    """Fallback numbered-list includes registry text for
+    entries with non-empty source_registry.
+
+    Validates: Requirements 3.1, 4.1, 4.2
+    """
+    from ksm.selector import interactive_removal_select
+
+    entries = [
+        ManifestEntry(
+            bundle_name="aws",
+            source_registry="default",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="git_tools",
+            source_registry="community",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    stderr_buf = io.StringIO()
+
+    with (
+        patch(
+            "ksm.selector._can_run_textual",
+            return_value=False,
+        ),
+        patch("builtins.input", return_value="1"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stderr = stderr_buf
+        interactive_removal_select(entries)
+
+    output = stderr_buf.getvalue()
+    assert "default" in output, (
+        "Fallback output should contain registry " f"'default', got:\n{output}"
+    )
+    assert "community" in output, (
+        "Fallback output should contain registry " f"'community', got:\n{output}"
+    )
+
+
+def test_fallback_registry_empty_no_registry_text() -> None:
+    """Fallback numbered-list produces no registry text when
+    source_registry is empty.
+
+    Validates: Requirements 3.3
+    """
+    from ksm.selector import interactive_removal_select
+
+    entries = [
+        ManifestEntry(
+            bundle_name="solo",
+            source_registry="",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    stderr_buf = io.StringIO()
+
+    with (
+        patch(
+            "ksm.selector._can_run_textual",
+            return_value=False,
+        ),
+        patch("builtins.input", return_value="1"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stderr = stderr_buf
+        interactive_removal_select(entries)
+
+    output = stderr_buf.getvalue()
+    # Find the numbered line for "solo"
+    solo_lines = [ln for ln in output.splitlines() if "solo" in ln]
+    assert len(solo_lines) == 1
+    line = solo_lines[0]
+    # After the scope bracket, there should be no extra text
+    bracket_close = line.rindex("]")
+    after_scope = line[bracket_close + 1 :]
+    assert after_scope.strip() == "", (
+        f"Empty registry should produce no trailing "
+        f"text after scope, got: '{after_scope.strip()}'"
+    )
+
+
+def test_fallback_registry_column_alignment() -> None:
+    """Fallback numbered-list aligns scope brackets at the
+    same column position across entries with varying name
+    lengths and registries.
+
+    Validates: Requirements 3.2, 4.1
+    """
+    from ksm.selector import interactive_removal_select
+
+    entries = [
+        ManifestEntry(
+            bundle_name="a",
+            source_registry="short",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="very_long_bundle_name",
+            source_registry="my-company-registry",
+            scope="global",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+        ManifestEntry(
+            bundle_name="mid",
+            source_registry="",
+            scope="local",
+            installed_files=[],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        ),
+    ]
+    stderr_buf = io.StringIO()
+
+    with (
+        patch(
+            "ksm.selector._can_run_textual",
+            return_value=False,
+        ),
+        patch("builtins.input", return_value="1"),
+        patch("ksm.selector.sys") as mock_sys,
+    ):
+        mock_sys.stderr = stderr_buf
+        interactive_removal_select(entries)
+
+    output = stderr_buf.getvalue()
+    # Extract numbered item lines (start with whitespace + digit)
+    item_lines = [
+        ln for ln in output.splitlines() if ln.strip() and ln.strip()[0].isdigit()
+    ]
+    assert len(item_lines) == 3, f"Expected 3 numbered items, got {len(item_lines)}"
+
+    # All scope brackets `[` should be at the same column
+    bracket_positions = []
+    for line in item_lines:
+        pos = line.index("[")
+        bracket_positions.append(pos)
+
+    assert len(set(bracket_positions)) == 1, (
+        f"Scope bracket `[` misaligned in fallback " f"output: {bracket_positions}"
+    )
