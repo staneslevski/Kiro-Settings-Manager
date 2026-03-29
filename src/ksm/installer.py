@@ -50,6 +50,7 @@ def install_bundle(
         results.extend(tree_results)
 
     rel_paths = [str(r.path.relative_to(target_dir)) for r in results]
+    workspace_path = str(target_dir.parent.resolve()) if scope == "local" else None
     _update_manifest(
         manifest,
         bundle.name,
@@ -57,6 +58,7 @@ def install_bundle(
         scope,
         rel_paths,
         version=version,
+        workspace_path=workspace_path,
     )
     return results
 
@@ -84,6 +86,7 @@ def _install_dot_selection(
         results.append(result)
 
     rel_paths = [str(r.path.relative_to(target_dir)) for r in results]
+    workspace_path = str(target_dir.parent.resolve()) if scope == "local" else None
     _update_manifest(
         manifest,
         bundle.name,
@@ -91,6 +94,7 @@ def _install_dot_selection(
         scope,
         rel_paths,
         version=version,
+        workspace_path=workspace_path,
     )
     return results
 
@@ -137,6 +141,7 @@ def _update_manifest(
     scope: str,
     installed_files: list[str],
     version: str | None = None,
+    workspace_path: str | None = None,
 ) -> None:
     """Add or update a manifest entry for the installed bundle."""
     now = datetime.now(timezone.utc).isoformat()
@@ -151,6 +156,7 @@ def _update_manifest(
         entry.updated_at = now
         entry.source_registry = source_registry
         entry.version = version
+        entry.workspace_path = workspace_path
     else:
         manifest.entries.append(
             ManifestEntry(
@@ -161,5 +167,6 @@ def _update_manifest(
                 installed_at=now,
                 updated_at=now,
                 version=version,
+                workspace_path=workspace_path,
             )
         )

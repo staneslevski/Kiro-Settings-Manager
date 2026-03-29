@@ -21,6 +21,7 @@ class ManifestEntry:
     installed_at: str  # ISO 8601 timestamp
     updated_at: str  # ISO 8601 timestamp
     version: str | None = None
+    workspace_path: str | None = None
 
 
 @dataclass
@@ -42,6 +43,8 @@ def _entry_to_dict(entry: ManifestEntry) -> dict:
     }
     if entry.version is not None:
         d["version"] = entry.version
+    if entry.workspace_path is not None:
+        d["workspace_path"] = entry.workspace_path
     return d
 
 
@@ -55,6 +58,7 @@ def _dict_to_entry(data: dict) -> ManifestEntry:
         installed_at=data["installed_at"],
         updated_at=data["updated_at"],
         version=data.get("version"),
+        workspace_path=data.get("workspace_path"),
     )
 
 
@@ -76,3 +80,29 @@ def save_manifest(manifest: Manifest, path: Path) -> None:
     """Write the install manifest to JSON."""
     data = {"entries": [_entry_to_dict(e) for e in manifest.entries]}
     write_json(path, data)
+
+
+def backfill_workspace_paths(
+    manifest: Manifest,
+    workspace_dir: Path,
+) -> bool:
+    """Backfill workspace_path for legacy local entries.
+
+    Scans entries with scope="local" and workspace_path=None.
+    For each, checks if any installed_files exist under
+    workspace_dir / ".kiro/". If a match is found, sets
+    workspace_path to the resolved workspace directory.
+
+    Returns True if any entries were updated (caller should persist).
+    """
+    resolved_ws = str(workspace_dir.resolve())
+    kiro_dir = workspace_dir / ".kiro"
+    updated = False
+    for entry in manifest.entries:
+        if entry.scope == "local" and entry.workspace_path is None:
+            for f in entry.installed_files:
+                if (kiro_dir / f).exists():
+                    entry.workspace_path = resolved_ws
+                    updated = True
+                    break
+    return updated

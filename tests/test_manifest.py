@@ -8,8 +8,11 @@ from hypothesis import strategies as st
 from ksm.manifest import (
     ManifestEntry,
     Manifest,
+    _entry_to_dict,
+    _dict_to_entry,
     load_manifest,
     save_manifest,
+    backfill_workspace_paths,
 )
 from ksm.persistence import write_json
 
@@ -173,3 +176,259 @@ def test_property_manifest_round_trip(tmp_path: Path, entries: list[dict]) -> No
         assert orig.installed_files == loaded_entry.installed_files
         assert orig.installed_at == loaded_entry.installed_at
         assert orig.updated_at == loaded_entry.updated_at
+
+
+# --- workspace_path serialization tests ---
+
+
+def test_entry_with_workspace_path_round_trip() -> None:
+    """Entry with workspace_path serializes and deserializes correctly."""
+    entry = ManifestEntry(
+        bundle_name="python_dev",
+        source_registry="default",
+        scope="local",
+        installed_files=["skills/python/SKILL.md"],
+        installed_at="2025-01-20T12:00:00Z",
+        updated_at="2025-01-20T12:00:00Z",
+        workspace_path="/home/user/project-a",
+    )
+
+    d = _entry_to_dict(entry)
+    assert d["workspace_path"] == "/home/user/project-a"
+
+    restored = _dict_to_entry(d)
+    assert restored.workspace_path == "/home/user/project-a"
+    assert restored.bundle_name == entry.bundle_name
+    assert restored.scope == entry.scope
+
+
+def test_dict_without_workspace_path_deserializes_as_none() -> None:
+    """Legacy dict without workspace_path deserializes with None."""
+    data = {
+        "bundle_name": "aws",
+        "source_registry": "default",
+        "scope": "local",
+        "installed_files": ["steering/AWS-IAM.md"],
+        "installed_at": "2025-01-15T10:30:00Z",
+        "updated_at": "2025-01-15T10:30:00Z",
+    }
+
+    entry = _dict_to_entry(data)
+    assert entry.workspace_path is None
+
+
+def test_entry_with_none_workspace_path_omits_key() -> None:
+    """Entry with workspace_path=None does not include it in dict."""
+    entry = ManifestEntry(
+        bundle_name="git_and_github",
+        source_registry="default",
+        scope="global",
+        installed_files=["skills/github-pr/SKILL.md"],
+        installed_at="2025-01-16T08:00:00Z",
+        updated_at="2025-01-16T08:00:00Z",
+        workspace_path=None,
+    )
+
+    d = _entry_to_dict(entry)
+    assert "workspace_path" not in d
+
+
+def test_workspace_path_full_save_load_round_trip(
+    tmp_path: Path,
+) -> None:
+    """save/load round-trip preserves workspace_path on entries."""
+    filepath = tmp_path / "manifest.json"
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="local_bundle",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/test.md"],
+                installed_at="2025-02-01T00:00:00Z",
+                updated_at="2025-02-01T00:00:00Z",
+                workspace_path="/tmp/workspace-x",
+            ),
+            ManifestEntry(
+                bundle_name="global_bundle",
+                source_registry="default",
+                scope="global",
+                installed_files=["steering/global.md"],
+                installed_at="2025-02-01T00:00:00Z",
+                updated_at="2025-02-01T00:00:00Z",
+                workspace_path=None,
+            ),
+        ]
+    )
+
+    save_manifest(manifest, filepath)
+    loaded = load_manifest(filepath)
+
+    assert loaded.entries[0].workspace_path == "/tmp/workspace-x"
+    assert loaded.entries[1].workspace_path is None
+
+
+# --- backfill_workspace_paths tests ---
+
+
+def test_backfill_sets_workspace_path_for_legacy_entry_with_matching_files(
+    tmp_path: Path,
+) -> None:
+    """Legacy local entry whose installed_files exist under
+    workspace/.kiro/ gets workspace_path set to resolved workspace."""
+    ws = tmp_path / "project-a"
+    kiro_dir = ws / ".kiro"
+    kiro_dir.mkdir(parents=True)
+    (kiro_dir / "steering").mkdir()
+    (kiro_dir / "steering" / "AWS-IAM.md").touch()
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/AWS-IAM.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path=None,
+            ),
+        ]
+    )
+
+    result = backfill_workspace_paths(manifest, ws)
+
+    assert result is True
+    assert manifest.entries[0].workspace_path == str(ws.resolve())
+
+
+def test_backfill_leaves_legacy_entry_unchanged_when_no_files_match(
+    tmp_path: Path,
+) -> None:
+    """Legacy local entry whose installed_files do NOT exist under
+    workspace/.kiro/ is left with workspace_path=None."""
+    ws = tmp_path / "project-b"
+    kiro_dir = ws / ".kiro"
+    kiro_dir.mkdir(parents=True)
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="missing_bundle",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/nonexistent.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path=None,
+            ),
+        ]
+    )
+
+    result = backfill_workspace_paths(manifest, ws)
+
+    assert result is False
+    assert manifest.entries[0].workspace_path is None
+
+
+def test_backfill_skips_entry_already_having_workspace_path(
+    tmp_path: Path,
+) -> None:
+    """Entry that already has workspace_path set is not modified,
+    even if its files exist under the workspace."""
+    ws = tmp_path / "project-c"
+    kiro_dir = ws / ".kiro"
+    kiro_dir.mkdir(parents=True)
+    (kiro_dir / "skills").mkdir()
+    (kiro_dir / "skills" / "SKILL.md").touch()
+
+    original_path = "/some/other/workspace"
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="already_set",
+                source_registry="default",
+                scope="local",
+                installed_files=["skills/SKILL.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path=original_path,
+            ),
+        ]
+    )
+
+    result = backfill_workspace_paths(manifest, ws)
+
+    assert result is False
+    assert manifest.entries[0].workspace_path == original_path
+
+
+def test_backfill_does_not_touch_global_entries(
+    tmp_path: Path,
+) -> None:
+    """Global entries are never modified by backfill, even if
+    their files happen to exist under the workspace."""
+    ws = tmp_path / "project-d"
+    kiro_dir = ws / ".kiro"
+    kiro_dir.mkdir(parents=True)
+    (kiro_dir / "steering").mkdir()
+    (kiro_dir / "steering" / "global.md").touch()
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="global_bundle",
+                source_registry="default",
+                scope="global",
+                installed_files=["steering/global.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path=None,
+            ),
+        ]
+    )
+
+    result = backfill_workspace_paths(manifest, ws)
+
+    assert result is False
+    assert manifest.entries[0].workspace_path is None
+
+
+def test_backfill_returns_true_when_updated_false_otherwise(
+    tmp_path: Path,
+) -> None:
+    """Returns True when at least one entry was updated,
+    False when no entries were changed."""
+    ws = tmp_path / "project-e"
+    kiro_dir = ws / ".kiro"
+    kiro_dir.mkdir(parents=True)
+    (kiro_dir / "hooks").mkdir()
+    (kiro_dir / "hooks" / "my-hook.json").touch()
+
+    manifest_with_match = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="matched",
+                source_registry="default",
+                scope="local",
+                installed_files=["hooks/my-hook.json"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path=None,
+            ),
+            ManifestEntry(
+                bundle_name="global_one",
+                source_registry="default",
+                scope="global",
+                installed_files=["steering/g.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path=None,
+            ),
+        ]
+    )
+
+    assert backfill_workspace_paths(manifest_with_match, ws) is True
+
+    # Second call: entry already backfilled, nothing to update
+    assert backfill_workspace_paths(manifest_with_match, ws) is False

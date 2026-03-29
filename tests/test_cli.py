@@ -1609,3 +1609,71 @@ class TestForceNameOnlyFlags:
                 main()
         args = mock_dispatch.call_args[0][0]
         assert args.skills_only is True
+
+
+class TestListAllFlag:
+    """Test --all flag on list/ls subcommands.
+
+    Req 1.4, 2.4: --all flag shows bundles from all workspaces.
+    """
+
+    @patch("ksm.cli._dispatch_ls")
+    def test_ls_all_flag_sets_show_all(self, mock_dispatch: MagicMock) -> None:
+        """'ksm ls --all' sets show_all=True."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit):
+            with patch("sys.argv", ["ksm", "ls", "--all"]):
+                main()
+        args = mock_dispatch.call_args[0][0]
+        assert args.show_all is True
+
+    @patch("ksm.cli._dispatch_ls")
+    def test_list_all_flag_sets_show_all(self, mock_dispatch: MagicMock) -> None:
+        """'ksm list --all' sets show_all=True."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit):
+            with patch("sys.argv", ["ksm", "list", "--all"]):
+                main()
+        args = mock_dispatch.call_args[0][0]
+        assert args.show_all is True
+
+    @patch("ksm.cli._dispatch_ls")
+    def test_ls_default_show_all_false(self, mock_dispatch: MagicMock) -> None:
+        """'ksm ls' defaults show_all=False."""
+        mock_dispatch.return_value = 0
+        with pytest.raises(SystemExit):
+            with patch("sys.argv", ["ksm", "ls"]):
+                main()
+        args = mock_dispatch.call_args[0][0]
+        assert args.show_all is False
+
+
+class TestDispatchLsWorkspacePath:
+    """Test _dispatch_ls passes workspace_path to run_ls.
+
+    Req 2.1, 2.2: workspace context forwarded to run_ls.
+    """
+
+    @patch("ksm.cli.load_manifest")
+    @patch("ksm.commands.ls.run_ls", return_value=0)
+    def test_dispatch_ls_passes_workspace_path(
+        self,
+        mock_run_ls: MagicMock,
+        mock_load_man: MagicMock,
+    ) -> None:
+        """_dispatch_ls passes workspace_path=cwd to run_ls."""
+        from pathlib import Path
+
+        from ksm.manifest import Manifest
+
+        mock_load_man.return_value = Manifest(entries=[])
+        expected_ws = str(Path.cwd().resolve())
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "ls"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_run_ls.assert_called_once()
+        call_kwargs = mock_run_ls.call_args[1]
+        assert "workspace_path" in call_kwargs
+        assert call_kwargs["workspace_path"] == expected_ws
