@@ -1677,3 +1677,217 @@ class TestDispatchLsWorkspacePath:
         call_kwargs = mock_run_ls.call_args[1]
         assert "workspace_path" in call_kwargs
         assert call_kwargs["workspace_path"] == expected_ws
+
+
+class TestBackfillInNonListDispatchers:
+    """Test backfill_workspace_paths runs in add, rm, sync.
+
+    Req 2.5: backfill runs on any ksm command within a workspace.
+    """
+
+    @patch("ksm.cli.save_manifest")
+    @patch(
+        "ksm.manifest.backfill_workspace_paths",
+        return_value=True,
+    )
+    @patch("ksm.cli.load_manifest")
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch("ksm.commands.add.run_add", return_value=0)
+    def test_dispatch_add_calls_backfill_and_saves(
+        self,
+        mock_run_add: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+        mock_load_man: MagicMock,
+        mock_backfill: MagicMock,
+        mock_save: MagicMock,
+    ) -> None:
+        """_dispatch_add calls backfill and persists when updated."""
+        from ksm.manifest import Manifest
+        from ksm.registry import RegistryIndex
+
+        manifest = Manifest(entries=[])
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+        mock_load_man.return_value = manifest
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "add", "mybundle"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_backfill.assert_called_once()
+        mock_save.assert_called_once()
+
+    @patch("ksm.cli.save_manifest")
+    @patch(
+        "ksm.manifest.backfill_workspace_paths",
+        return_value=False,
+    )
+    @patch("ksm.cli.load_manifest")
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch("ksm.commands.add.run_add", return_value=0)
+    def test_dispatch_add_skips_save_when_no_update(
+        self,
+        mock_run_add: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+        mock_load_man: MagicMock,
+        mock_backfill: MagicMock,
+        mock_save: MagicMock,
+    ) -> None:
+        """_dispatch_add does not save when backfill returns False."""
+        from ksm.manifest import Manifest
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+        mock_load_man.return_value = Manifest(entries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "add", "mybundle"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_backfill.assert_called_once()
+        mock_save.assert_not_called()
+
+    @patch("ksm.cli.save_manifest")
+    @patch(
+        "ksm.manifest.backfill_workspace_paths",
+        return_value=True,
+    )
+    @patch("ksm.cli.load_manifest")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch("ksm.commands.rm.run_rm", return_value=0)
+    def test_dispatch_rm_calls_backfill_and_saves(
+        self,
+        mock_run_rm: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_man: MagicMock,
+        mock_backfill: MagicMock,
+        mock_save: MagicMock,
+    ) -> None:
+        """_dispatch_rm calls backfill and persists when updated."""
+        from ksm.manifest import Manifest
+
+        mock_load_man.return_value = Manifest(entries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "rm", "mybundle"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_backfill.assert_called_once()
+        mock_save.assert_called_once()
+
+    @patch("ksm.cli.save_manifest")
+    @patch(
+        "ksm.manifest.backfill_workspace_paths",
+        return_value=False,
+    )
+    @patch("ksm.cli.load_manifest")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch("ksm.commands.rm.run_rm", return_value=0)
+    def test_dispatch_rm_skips_save_when_no_update(
+        self,
+        mock_run_rm: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_man: MagicMock,
+        mock_backfill: MagicMock,
+        mock_save: MagicMock,
+    ) -> None:
+        """_dispatch_rm does not save when backfill returns False."""
+        from ksm.manifest import Manifest
+
+        mock_load_man.return_value = Manifest(entries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch("sys.argv", ["ksm", "rm", "mybundle"]):
+                main()
+        assert exc_info.value.code == 0
+        mock_backfill.assert_called_once()
+        mock_save.assert_not_called()
+
+    @patch("ksm.cli.save_manifest")
+    @patch(
+        "ksm.manifest.backfill_workspace_paths",
+        return_value=True,
+    )
+    @patch("ksm.cli.load_manifest")
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch("ksm.commands.sync.run_sync", return_value=0)
+    def test_dispatch_sync_calls_backfill_and_saves(
+        self,
+        mock_run_sync: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+        mock_load_man: MagicMock,
+        mock_backfill: MagicMock,
+        mock_save: MagicMock,
+    ) -> None:
+        """_dispatch_sync calls backfill and persists when updated."""
+        from ksm.manifest import Manifest
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+        mock_load_man.return_value = Manifest(entries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch(
+                "sys.argv",
+                ["ksm", "sync", "--all", "--yes"],
+            ):
+                main()
+        assert exc_info.value.code == 0
+        mock_backfill.assert_called_once()
+        mock_save.assert_called_once()
+
+    @patch("ksm.cli.save_manifest")
+    @patch(
+        "ksm.manifest.backfill_workspace_paths",
+        return_value=False,
+    )
+    @patch("ksm.cli.load_manifest")
+    @patch("ksm.cli.load_registry_index")
+    @patch("ksm.cli.ensure_ksm_dir")
+    @patch("ksm.commands.sync.run_sync", return_value=0)
+    def test_dispatch_sync_skips_save_when_no_update(
+        self,
+        mock_run_sync: MagicMock,
+        mock_ensure: MagicMock,
+        mock_load_reg: MagicMock,
+        mock_load_man: MagicMock,
+        mock_backfill: MagicMock,
+        mock_save: MagicMock,
+    ) -> None:
+        """_dispatch_sync does not save when backfill returns False."""
+        from ksm.manifest import Manifest
+        from ksm.registry import RegistryIndex
+
+        mock_load_reg.return_value = RegistryIndex(registries=[])
+        mock_load_man.return_value = Manifest(entries=[])
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch(
+                "sys.argv",
+                ["ksm", "sync", "--all", "--yes"],
+            ):
+                main()
+        assert exc_info.value.code == 0
+        mock_backfill.assert_called_once()
+        mock_save.assert_not_called()
+
+    @patch(
+        "ksm.commands.completions.run_completions",
+        return_value=0,
+    )
+    def test_completions_does_not_call_backfill(
+        self,
+        mock_run_comp: MagicMock,
+    ) -> None:
+        """completions command does not load manifest or backfill."""
+        with patch("ksm.manifest.backfill_workspace_paths") as mock_bf:
+            with pytest.raises(SystemExit) as exc_info:
+                with patch("sys.argv", ["ksm", "completions", "bash"]):
+                    main()
+            assert exc_info.value.code == 0
+            mock_bf.assert_not_called()

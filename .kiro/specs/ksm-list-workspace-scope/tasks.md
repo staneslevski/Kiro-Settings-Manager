@@ -1,8 +1,8 @@
 # Implementation Plan
 
-- [ ] 1. Explore the bug condition
+- [x] 1. Explore the bug condition
 
-    - [ ] 1.1 Write bug condition exploration test
+    - [x] 1.1 Write bug condition exploration test
 
         - [x] 1.1.1 Write bug condition exploration test
           - **Property 1: Bug Condition** - Local Bundles Shown From Other Workspaces
@@ -22,9 +22,9 @@
           - _Requirements: 1.1, 1.2, 2.1, 2.2_
 
 
-- [ ] 2. Preserve existing behavior
+- [x] 2. Preserve existing behavior
 
-    - [ ] 2.1 Write preservation property tests (BEFORE implementing fix)
+    - [x] 2.1 Write preservation property tests (BEFORE implementing fix)
 
         - [x] 2.1.1 Write preservation property tests
           - **Property 2: Preservation** - Global Listing and Formatting Unchanged
@@ -47,9 +47,9 @@
           - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
 
-- [ ] 3. Fix `ksm list` to scope local bundles by workspace
+- [x] 3. Fix `ksm list` to scope local bundles by workspace
 
-    - [ ] 3.1 Add `workspace_path` field to `ManifestEntry` and update serialization
+    - [x] 3.1 Add `workspace_path` field to `ManifestEntry` and update serialization
 
         - [x] 3.1.1 Add `workspace_path: str | None = None` field to `ManifestEntry` dataclass in `src/ksm/manifest.py`
           - Add the field after `version` with default `None`
@@ -71,7 +71,7 @@
           - Test omission: entry with workspace_path=None does not include workspace_path in serialized dict
           - _Requirements: 2.3, 3.3_
 
-    - [ ] 3.2 Update `install_bundle()` to record workspace path
+    - [x] 3.2 Update `install_bundle()` to record workspace path
 
         - [x] 3.2.1 Add `workspace_path: str | None = None` parameter to `_update_manifest()` in `src/ksm/installer.py`
           - Set `workspace_path` on both new entries and existing entry updates
@@ -91,7 +91,7 @@
           - Test: global scope install leaves workspace_path as None
           - _Requirements: 2.3, 3.5_
 
-    - [ ] 3.3 Filter local entries by workspace in `run_ls()`
+    - [x] 3.3 Filter local entries by workspace in `run_ls()`
 
         - [x] 3.3.1 Add `workspace_path: str | None = None` parameter to `run_ls()` in `src/ksm/commands/ls.py`
           - Default to `None`; when None, resolve from `Path.cwd()` at call time
@@ -120,7 +120,7 @@
           - Test: JSON output includes workspace_path for local entries
           - _Requirements: 2.1, 2.2, 2.4, 2.6, 3.1, 3.3_
 
-    - [ ] 3.4 Add `--all` flag to CLI and pass workspace context
+    - [x] 3.4 Add `--all` flag to CLI and pass workspace context
 
         - [x] 3.4.1 Add `--all` argument to `_add_list_args()` in `src/ksm/cli.py`
           - Add `parser.add_argument("--all", dest="show_all", action="store_true", help="Show bundles from all workspaces")`
@@ -136,7 +136,7 @@
           - Test: `_dispatch_ls()` passes workspace_path to `run_ls()`
           - _Requirements: 1.4, 2.4_
 
-    - [ ] 3.5 Add backfill function for legacy entries
+    - [x] 3.5 Add backfill function for legacy entries
 
         - [x] 3.5.1 Implement `backfill_workspace_paths()` in `src/ksm/manifest.py`
           - Scan entries with `scope="local"` and `workspace_path is None`
@@ -157,7 +157,7 @@
           - Test: returns True when entries updated, False otherwise
           - _Requirements: 2.5, 2.6_
 
-    - [ ] 3.6 Verify bug condition exploration test now passes
+    - [x] 3.6 Verify bug condition exploration test now passes
 
         - [x] 3.6.1 Re-run bug condition exploration test from task 1.1.1
           - **Property 1: Expected Behavior** - Local Bundles Filtered By Workspace
@@ -167,7 +167,7 @@
           - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
           - _Requirements: 2.1, 2.2_
 
-    - [ ] 3.7 Verify preservation tests still pass
+    - [x] 3.7 Verify preservation tests still pass
 
         - [x] 3.7.1 Re-run preservation property tests from task 2.1.1
           - **Property 2: Preservation** - Global Listing and Formatting Unchanged
@@ -176,14 +176,174 @@
           - Confirm all preservation tests still pass after fix
           - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [ ] 4. Checkpoint
 
-    - [ ] 4.1 Final validation
+- [x] 4. Checkpoint (initial fix — Properties 1 & 2)
 
-        - [x] 4.1.1 Ensure all tests pass
+    - [x] 4.1 Initial validation
+
+        - [x] 4.1.1 Ensure Property 1 and Property 2 tests pass
           - Run full test suite: `source .venv/bin/activate && pytest tests/ -x`
           - Verify bug condition test (Property 1) passes
           - Verify preservation tests (Property 2) pass
+          - Verify all new unit tests pass
+          - Verify all existing tests pass (no regressions)
+          - Check coverage meets ≥95% for changed files
+
+
+- [x] 5. Workspace path visibility in `--all` text output (Property 3)
+
+    - [x] 5.1 Write exploration test for `--all` workspace path annotations
+
+        - [x] 5.1.1 Write Property 3 exploration test
+          - **Property 3: Bug Condition** - `--all` Text Output Missing Workspace Paths
+          - **CRITICAL**: This test MUST FAIL on unfixed code — failure confirms the gap exists
+          - **DO NOT attempt to fix the test or the code when it fails**
+          - **GOAL**: Surface counterexamples showing `--all` text output lacks workspace path annotations on local entries
+          - **Scoped PBT Approach**: Generate manifests with local entries having various `workspace_path` values (including None). Call `run_ls()` with `show_all=True` and `output_format="text"`. Assert each local entry row contains its workspace path annotation, and entries with `workspace_path=None` show `(unknown workspace)`.
+          - Bug Condition: `_format_grouped()` does not accept a `show_all` flag and has no logic to display workspace paths for local entries
+          - Run test on UNFIXED code
+          - **EXPECTED OUTCOME**: Test FAILS (confirms workspace paths are not shown in `--all` text output)
+          - Document counterexamples found
+          - _Requirements: 2.4_
+
+    - [x] 5.2 Write preservation test for `--all` text formatting
+
+        - [x] 5.2.1 Write Property 3 preservation test
+          - **Property 3: Preservation** - `--all` Text Output Retains Existing Formatting
+          - **IMPORTANT**: Follow observation-first methodology
+          - Observe: `_format_grouped()` with `show_all=False` does NOT include workspace path annotations
+          - Observe: existing column alignment, scope headers, and relative timestamps are unchanged when `show_all=False`
+          - Write property-based test: for all manifests with `show_all=False`, output does NOT contain workspace path annotations on local entry rows
+          - Verify test passes on current code
+          - **EXPECTED OUTCOME**: Tests PASS (confirms non-`--all` output is unchanged)
+          - _Requirements: 3.6_
+
+    - [x] 5.3 Implement workspace path annotations in `_format_grouped()`
+
+        - [x] 5.3.1 Add `show_all: bool = False` parameter to `_format_grouped()` in `src/ksm/commands/ls.py`
+          - Update function signature to accept `show_all` flag
+          - _Bug_Condition: _format_grouped() has no mechanism to display workspace paths_
+          - _Expected_Behavior: _format_grouped() annotates local entries with workspace path when show_all=True_
+          - _Preservation: When show_all=False, output is identical to current behavior_
+          - _Requirements: 2.4_
+
+        - [x] 5.3.2 Display workspace path as muted annotation on local entries when `show_all=True`
+          - When `show_all=True` and entry is local scope, append workspace path as a muted column after existing columns (name, registry, timestamp)
+          - For entries with `workspace_path=None`, display `(unknown workspace)` as the annotation
+          - Use `muted()` for the workspace path annotation to keep it visually secondary
+          - Example output: `python_dev   built-in   2 days ago   ~/project-a`
+          - _Requirements: 2.4, 2.6_
+
+        - [x] 5.3.3 Update `run_ls()` to pass `show_all` flag to `_format_grouped()`
+          - Pass `all_flag` value through to `_format_grouped(entries, verbose, show_all=all_flag)`
+          - _Requirements: 2.4_
+
+        - [x] 5.3.4 Write tests for workspace path annotations in `_format_grouped()`
+          - Test: `show_all=True` with local entries shows workspace path annotation per local entry
+          - Test: `show_all=True` with `workspace_path=None` shows `(unknown workspace)`
+          - Test: `show_all=True` with global entries does NOT show workspace path annotation
+          - Test: `show_all=False` does NOT show workspace path annotations (preservation)
+          - Test: column alignment is maintained with the additional workspace path column
+          - Test: workspace path annotation uses muted styling
+          - _Requirements: 2.4, 2.6, 3.6_
+
+    - [x] 5.4 Verify Property 3 exploration test now passes
+
+        - [x] 5.4.1 Re-run Property 3 exploration test from task 5.1.1
+          - **Property 3: Expected Behavior** - `--all` Text Output Shows Workspace Paths
+          - **IMPORTANT**: Re-run the SAME test from task 5.1.1 — do NOT write a new test
+          - **EXPECTED OUTCOME**: Test PASSES (confirms workspace paths are now shown)
+          - _Requirements: 2.4_
+
+    - [x] 5.5 Verify Property 3 preservation test still passes
+
+        - [x] 5.5.1 Re-run Property 3 preservation test from task 5.2.1
+          - **Property 3: Preservation** - `--all` Text Output Retains Existing Formatting
+          - **IMPORTANT**: Re-run the SAME test from task 5.2.1 — do NOT write new tests
+          - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions to non-`--all` output)
+          - _Requirements: 3.6_
+
+
+- [x] 6. Legacy entry handling (Property 4)
+
+    - [x] 6.1 Write exploration test for legacy entry exclusion and `--all` inclusion
+
+        - [x] 6.1.1 Write Property 4 exploration test
+          - **Property 4: Bug Condition** - Legacy Entries Not Properly Excluded/Included
+          - **CRITICAL**: This test MUST FAIL on unfixed code — failure confirms the gap exists
+          - **GOAL**: Verify that legacy local entries (`workspace_path=None`, not backfillable) are excluded from default `ksm list` but included in `--all` output
+          - **Scoped PBT Approach**: Generate manifests with a mix of: local entries with valid `workspace_path`, local entries with `workspace_path=None` (legacy). Call `run_ls()` without `--all` — assert legacy entries are excluded. Call `run_ls()` with `--all` — assert legacy entries are included.
+          - Run test on current code to verify behavior
+          - **EXPECTED OUTCOME**: Test should PASS if filtering logic in 3.3.2 already handles this; FAIL if legacy entries leak into default output
+          - Document findings
+          - _Requirements: 2.5, 2.6_
+
+    - [x] 6.2 Write preservation test for backfill behavior
+
+        - [x] 6.2.1 Write Property 4 preservation test
+          - **Property 4: Preservation** - Backfill Does Not Alter Non-Legacy Entries
+          - **IMPORTANT**: Follow observation-first methodology
+          - Observe: `backfill_workspace_paths()` does not modify entries that already have `workspace_path` set
+          - Observe: `backfill_workspace_paths()` does not modify global entries
+          - Write property-based test: for all manifests, entries with existing `workspace_path` or `scope="global"` are unchanged after backfill
+          - Verify test passes on current code
+          - **EXPECTED OUTCOME**: Tests PASS (confirms backfill is safe)
+          - _Requirements: 2.5, 3.5_
+
+    - [x] 6.3 Extend backfill to all workspace-aware commands
+
+        - [x] 6.3.1 Add backfill call to `_dispatch_add()` in `src/ksm/cli.py`
+          - Call `backfill_workspace_paths(manifest, Path.cwd())` before dispatching to `run_add()`
+          - If backfill returns True, save manifest with `save_manifest()`
+          - _Bug_Condition: backfill only runs on `ksm list`, not on other commands_
+          - _Expected_Behavior: backfill runs on any ksm command within a workspace_
+          - _Preservation: Command behavior unchanged aside from backfill side-effect_
+          - _Requirements: 2.5_
+
+        - [x] 6.3.2 Add backfill call to `_dispatch_rm()` in `src/ksm/cli.py`
+          - Call `backfill_workspace_paths(manifest, Path.cwd())` before dispatching to `run_rm()`
+          - If backfill returns True, save manifest with `save_manifest()`
+          - _Requirements: 2.5_
+
+        - [x] 6.3.3 Add backfill call to `_dispatch_sync()` in `src/ksm/cli.py`
+          - Call `backfill_workspace_paths(manifest, Path.cwd())` before dispatching to `run_sync()`
+          - If backfill returns True, save manifest with `save_manifest()`
+          - _Requirements: 2.5_
+
+        - [x] 6.3.4 Write tests for backfill in non-list dispatch functions
+          - Test: `_dispatch_add()` calls backfill and persists if updated
+          - Test: `_dispatch_rm()` calls backfill and persists if updated
+          - Test: `_dispatch_sync()` calls backfill and persists if updated
+          - Test: backfill does not run for commands that don't load manifest (e.g., `completions`)
+          - _Requirements: 2.5_
+
+    - [x] 6.4 Verify Property 4 exploration test passes
+
+        - [x] 6.4.1 Re-run Property 4 exploration test from task 6.1.1
+          - **Property 4: Expected Behavior** - Legacy Entries Properly Handled
+          - **IMPORTANT**: Re-run the SAME test from task 6.1.1 — do NOT write a new test
+          - **EXPECTED OUTCOME**: Test PASSES (confirms legacy entries are excluded from default output and included in `--all`)
+          - _Requirements: 2.5, 2.6_
+
+    - [x] 6.5 Verify Property 4 preservation test still passes
+
+        - [x] 6.5.1 Re-run Property 4 preservation test from task 6.2.1
+          - **Property 4: Preservation** - Backfill Does Not Alter Non-Legacy Entries
+          - **IMPORTANT**: Re-run the SAME test from task 6.2.1 — do NOT write new tests
+          - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+          - _Requirements: 2.5, 3.5_
+
+
+- [x] 7. Final checkpoint
+
+    - [x] 7.1 Final validation
+
+        - [x] 7.1.1 Ensure all tests pass
+          - Run full test suite: `source .venv/bin/activate && pytest tests/ -x`
+          - Verify Property 1 (Bug Condition) test passes
+          - Verify Property 2 (Preservation) tests pass
+          - Verify Property 3 (Workspace Path Visibility) tests pass
+          - Verify Property 4 (Legacy Entry Handling) tests pass
           - Verify all new unit tests pass
           - Verify all existing tests pass (no regressions)
           - Check coverage meets ≥95% for changed files

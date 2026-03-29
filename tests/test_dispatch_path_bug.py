@@ -94,6 +94,10 @@ def test_dispatch_add_target_local_ends_with_kiro(cwd_seg: str, home_seg: str) -
             "ksm.commands.add.run_add",
             side_effect=fake_run_add,
         ),
+        patch(
+            "ksm.manifest.backfill_workspace_paths",
+            return_value=False,
+        ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
         MockPath.home.return_value = Path(str(home))
@@ -130,6 +134,10 @@ def test_dispatch_add_target_global_ends_with_kiro(cwd_seg: str, home_seg: str) 
             "ksm.commands.add.run_add",
             side_effect=fake_run_add,
         ),
+        patch(
+            "ksm.manifest.backfill_workspace_paths",
+            return_value=False,
+        ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
         MockPath.home.return_value = Path(str(home))
@@ -165,6 +173,10 @@ def test_dispatch_sync_target_local_ends_with_kiro(cwd_seg: str, home_seg: str) 
         patch(
             "ksm.commands.sync.run_sync",
             side_effect=fake_run_sync,
+        ),
+        patch(
+            "ksm.manifest.backfill_workspace_paths",
+            return_value=False,
         ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
@@ -204,6 +216,10 @@ def test_dispatch_sync_target_global_ends_with_kiro(
             "ksm.commands.sync.run_sync",
             side_effect=fake_run_sync,
         ),
+        patch(
+            "ksm.manifest.backfill_workspace_paths",
+            return_value=False,
+        ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
         MockPath.home.return_value = Path(str(home))
@@ -236,6 +252,10 @@ def test_dispatch_rm_target_local_ends_with_kiro(cwd_seg: str, home_seg: str) ->
             "ksm.commands.rm.run_rm",
             side_effect=fake_run_rm,
         ),
+        patch(
+            "ksm.manifest.backfill_workspace_paths",
+            return_value=False,
+        ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
         MockPath.home.return_value = Path(str(home))
@@ -267,6 +287,10 @@ def test_dispatch_rm_target_global_ends_with_kiro(cwd_seg: str, home_seg: str) -
         patch(
             "ksm.commands.rm.run_rm",
             side_effect=fake_run_rm,
+        ),
+        patch(
+            "ksm.manifest.backfill_workspace_paths",
+            return_value=False,
         ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
