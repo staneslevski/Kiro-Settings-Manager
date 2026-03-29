@@ -1,15 +1,17 @@
-"""Bug condition exploration: dispatch functions pass paths without .kiro suffix.
+"""Bug condition exploration: dispatch functions pass paths
+without .kiro suffix.
 
-Property 1: For _dispatch_add, _dispatch_sync, and _dispatch_rm, the
-target_local and target_global kwargs passed to the command runner MUST
-end with '.kiro'.
+Property 1: For _dispatch_add, _dispatch_sync, and _dispatch_rm,
+the target_local and target_global kwargs passed to the command
+runner MUST end with '.kiro'.
 
-This test is expected to FAIL on unfixed code (proving the bug exists)
-and PASS after the fix is applied.
+This test is expected to FAIL on unfixed code (proving the bug
+exists) and PASS after the fix is applied.
 """
 
 import argparse
 from pathlib import Path, PurePosixPath
+from typing import Any
 from unittest.mock import patch
 
 from hypothesis import given, settings
@@ -19,11 +21,13 @@ from hypothesis import strategies as st
 _seg = st.from_regex(r"[a-z][a-z0-9]{0,9}", fullmatch=True)
 
 
-def _make_add_args(bundle="mybundle", global_flag=False):
+def _make_add_args(
+    bundle: str = "mybundle",
+    global_flag: bool = False,
+) -> argparse.Namespace:
     ns = argparse.Namespace()
     ns.bundle_spec = bundle
     ns.command = "add"
-    # scope flags
     setattr(ns, "global", global_flag)
     ns.local = not global_flag
     ns.interactive = False
@@ -38,7 +42,10 @@ def _make_add_args(bundle="mybundle", global_flag=False):
     return ns
 
 
-def _make_sync_args(bundles=None, sync_all=True):
+def _make_sync_args(
+    bundles: list[str] | None = None,
+    sync_all: bool = True,
+) -> argparse.Namespace:
     ns = argparse.Namespace()
     ns.bundle_names = bundles or []
     ns.command = "sync"
@@ -48,7 +55,10 @@ def _make_sync_args(bundles=None, sync_all=True):
     return ns
 
 
-def _make_rm_args(bundle="mybundle", global_flag=False):
+def _make_rm_args(
+    bundle: str = "mybundle",
+    global_flag: bool = False,
+) -> argparse.Namespace:
     ns = argparse.Namespace()
     ns.bundle_spec = bundle
     ns.command = "rm"
@@ -63,21 +73,27 @@ def _make_rm_args(bundle="mybundle", global_flag=False):
 
 @given(cwd_seg=_seg, home_seg=_seg)
 @settings(deadline=None)
-def test_dispatch_add_target_local_ends_with_kiro(cwd_seg, home_seg):
+def test_dispatch_add_target_local_ends_with_kiro(cwd_seg: str, home_seg: str) -> None:
     cwd = PurePosixPath(f"/{cwd_seg}/project")
     home = PurePosixPath(f"/{home_seg}/user")
-    captured = {}
+    captured: dict[str, Any] = {}
 
-    def fake_run_add(args, **kwargs):
+    def fake_run_add(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
     with (
         patch("ksm.cli.Path") as MockPath,
         patch("ksm.cli.ensure_ksm_dir"),
-        patch("ksm.cli.load_registry_index", return_value={}),
+        patch(
+            "ksm.cli.load_registry_index",
+            return_value={},
+        ),
         patch("ksm.cli.load_manifest", return_value={}),
-        patch("ksm.commands.add.run_add", side_effect=fake_run_add),
+        patch(
+            "ksm.commands.add.run_add",
+            side_effect=fake_run_add,
+        ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
         MockPath.home.return_value = Path(str(home))
@@ -86,28 +102,34 @@ def test_dispatch_add_target_local_ends_with_kiro(cwd_seg, home_seg):
 
         _dispatch_add(_make_add_args())
 
-    assert str(captured["target_local"]).endswith(
-        ".kiro"
-    ), f"target_local={captured['target_local']} does not end with .kiro"
+    assert str(captured["target_local"]).endswith(".kiro"), (
+        f"target_local={captured['target_local']}" " does not end with .kiro"
+    )
 
 
 @given(cwd_seg=_seg, home_seg=_seg)
 @settings(deadline=None)
-def test_dispatch_add_target_global_ends_with_kiro(cwd_seg, home_seg):
+def test_dispatch_add_target_global_ends_with_kiro(cwd_seg: str, home_seg: str) -> None:
     cwd = PurePosixPath(f"/{cwd_seg}/project")
     home = PurePosixPath(f"/{home_seg}/user")
-    captured = {}
+    captured: dict[str, Any] = {}
 
-    def fake_run_add(args, **kwargs):
+    def fake_run_add(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
     with (
         patch("ksm.cli.Path") as MockPath,
         patch("ksm.cli.ensure_ksm_dir"),
-        patch("ksm.cli.load_registry_index", return_value={}),
+        patch(
+            "ksm.cli.load_registry_index",
+            return_value={},
+        ),
         patch("ksm.cli.load_manifest", return_value={}),
-        patch("ksm.commands.add.run_add", side_effect=fake_run_add),
+        patch(
+            "ksm.commands.add.run_add",
+            side_effect=fake_run_add,
+        ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
         MockPath.home.return_value = Path(str(home))
@@ -116,28 +138,34 @@ def test_dispatch_add_target_global_ends_with_kiro(cwd_seg, home_seg):
 
         _dispatch_add(_make_add_args(global_flag=True))
 
-    assert str(captured["target_global"]).endswith(
-        ".kiro"
-    ), f"target_global={captured['target_global']} does not end with .kiro"
+    assert str(captured["target_global"]).endswith(".kiro"), (
+        f"target_global={captured['target_global']}" " does not end with .kiro"
+    )
 
 
 @given(cwd_seg=_seg, home_seg=_seg)
 @settings(deadline=None)
-def test_dispatch_sync_target_local_ends_with_kiro(cwd_seg, home_seg):
+def test_dispatch_sync_target_local_ends_with_kiro(cwd_seg: str, home_seg: str) -> None:
     cwd = PurePosixPath(f"/{cwd_seg}/project")
     home = PurePosixPath(f"/{home_seg}/user")
-    captured = {}
+    captured: dict[str, Any] = {}
 
-    def fake_run_sync(args, **kwargs):
+    def fake_run_sync(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
     with (
         patch("ksm.cli.Path") as MockPath,
         patch("ksm.cli.ensure_ksm_dir"),
-        patch("ksm.cli.load_registry_index", return_value={}),
+        patch(
+            "ksm.cli.load_registry_index",
+            return_value={},
+        ),
         patch("ksm.cli.load_manifest", return_value={}),
-        patch("ksm.commands.sync.run_sync", side_effect=fake_run_sync),
+        patch(
+            "ksm.commands.sync.run_sync",
+            side_effect=fake_run_sync,
+        ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
         MockPath.home.return_value = Path(str(home))
@@ -146,28 +174,36 @@ def test_dispatch_sync_target_local_ends_with_kiro(cwd_seg, home_seg):
 
         _dispatch_sync(_make_sync_args())
 
-    assert str(captured["target_local"]).endswith(
-        ".kiro"
-    ), f"target_local={captured['target_local']} does not end with .kiro"
+    assert str(captured["target_local"]).endswith(".kiro"), (
+        f"target_local={captured['target_local']}" " does not end with .kiro"
+    )
 
 
 @given(cwd_seg=_seg, home_seg=_seg)
 @settings(deadline=None)
-def test_dispatch_sync_target_global_ends_with_kiro(cwd_seg, home_seg):
+def test_dispatch_sync_target_global_ends_with_kiro(
+    cwd_seg: str, home_seg: str
+) -> None:
     cwd = PurePosixPath(f"/{cwd_seg}/project")
     home = PurePosixPath(f"/{home_seg}/user")
-    captured = {}
+    captured: dict[str, Any] = {}
 
-    def fake_run_sync(args, **kwargs):
+    def fake_run_sync(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
     with (
         patch("ksm.cli.Path") as MockPath,
         patch("ksm.cli.ensure_ksm_dir"),
-        patch("ksm.cli.load_registry_index", return_value={}),
+        patch(
+            "ksm.cli.load_registry_index",
+            return_value={},
+        ),
         patch("ksm.cli.load_manifest", return_value={}),
-        patch("ksm.commands.sync.run_sync", side_effect=fake_run_sync),
+        patch(
+            "ksm.commands.sync.run_sync",
+            side_effect=fake_run_sync,
+        ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
         MockPath.home.return_value = Path(str(home))
@@ -176,19 +212,19 @@ def test_dispatch_sync_target_global_ends_with_kiro(cwd_seg, home_seg):
 
         _dispatch_sync(_make_sync_args())
 
-    assert str(captured["target_global"]).endswith(
-        ".kiro"
-    ), f"target_global={captured['target_global']} does not end with .kiro"
+    assert str(captured["target_global"]).endswith(".kiro"), (
+        f"target_global={captured['target_global']}" " does not end with .kiro"
+    )
 
 
 @given(cwd_seg=_seg, home_seg=_seg)
 @settings(deadline=None)
-def test_dispatch_rm_target_local_ends_with_kiro(cwd_seg, home_seg):
+def test_dispatch_rm_target_local_ends_with_kiro(cwd_seg: str, home_seg: str) -> None:
     cwd = PurePosixPath(f"/{cwd_seg}/project")
     home = PurePosixPath(f"/{home_seg}/user")
-    captured = {}
+    captured: dict[str, Any] = {}
 
-    def fake_run_rm(args, **kwargs):
+    def fake_run_rm(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
@@ -196,7 +232,10 @@ def test_dispatch_rm_target_local_ends_with_kiro(cwd_seg, home_seg):
         patch("ksm.cli.Path") as MockPath,
         patch("ksm.cli.ensure_ksm_dir"),
         patch("ksm.cli.load_manifest", return_value={}),
-        patch("ksm.commands.rm.run_rm", side_effect=fake_run_rm),
+        patch(
+            "ksm.commands.rm.run_rm",
+            side_effect=fake_run_rm,
+        ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
         MockPath.home.return_value = Path(str(home))
@@ -205,19 +244,19 @@ def test_dispatch_rm_target_local_ends_with_kiro(cwd_seg, home_seg):
 
         _dispatch_rm(_make_rm_args())
 
-    assert str(captured["target_local"]).endswith(
-        ".kiro"
-    ), f"target_local={captured['target_local']} does not end with .kiro"
+    assert str(captured["target_local"]).endswith(".kiro"), (
+        f"target_local={captured['target_local']}" " does not end with .kiro"
+    )
 
 
 @given(cwd_seg=_seg, home_seg=_seg)
 @settings(deadline=None)
-def test_dispatch_rm_target_global_ends_with_kiro(cwd_seg, home_seg):
+def test_dispatch_rm_target_global_ends_with_kiro(cwd_seg: str, home_seg: str) -> None:
     cwd = PurePosixPath(f"/{cwd_seg}/project")
     home = PurePosixPath(f"/{home_seg}/user")
-    captured = {}
+    captured: dict[str, Any] = {}
 
-    def fake_run_rm(args, **kwargs):
+    def fake_run_rm(args: argparse.Namespace, **kwargs: Any) -> int:
         captured.update(kwargs)
         return 0
 
@@ -225,7 +264,10 @@ def test_dispatch_rm_target_global_ends_with_kiro(cwd_seg, home_seg):
         patch("ksm.cli.Path") as MockPath,
         patch("ksm.cli.ensure_ksm_dir"),
         patch("ksm.cli.load_manifest", return_value={}),
-        patch("ksm.commands.rm.run_rm", side_effect=fake_run_rm),
+        patch(
+            "ksm.commands.rm.run_rm",
+            side_effect=fake_run_rm,
+        ),
     ):
         MockPath.cwd.return_value = Path(str(cwd))
         MockPath.home.return_value = Path(str(home))
@@ -234,6 +276,6 @@ def test_dispatch_rm_target_global_ends_with_kiro(cwd_seg, home_seg):
 
         _dispatch_rm(_make_rm_args(global_flag=True))
 
-    assert str(captured["target_global"]).endswith(
-        ".kiro"
-    ), f"target_global={captured['target_global']} does not end with .kiro"
+    assert str(captured["target_global"]).endswith(".kiro"), (
+        f"target_global={captured['target_global']}" " does not end with .kiro"
+    )
