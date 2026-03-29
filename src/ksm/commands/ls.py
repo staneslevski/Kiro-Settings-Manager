@@ -76,6 +76,8 @@ def _format_json(entries: list[ManifestEntry]) -> str:
 def _format_grouped(
     entries: list[ManifestEntry],
     verbose: bool,
+    *,
+    show_all: bool = False,
 ) -> str:
     """Format entries grouped by scope with headers."""
     by_scope: dict[str, list[ManifestEntry]] = {}
@@ -98,7 +100,13 @@ def _format_grouped(
             name_col = accent(entry.bundle_name)
             reg_col = muted(entry.source_registry)
             time_col = muted(rel_time)
-            rows.append((name_col, reg_col, time_col))
+            row: tuple[str, ...]
+            if show_all and scope == "local":
+                ws = entry.workspace_path or "(unknown workspace)"
+                row = (name_col, reg_col, time_col, muted(ws))
+            else:
+                row = (name_col, reg_col, time_col)
+            rows.append(row)
             row_entries.append(entry)
 
         aligned = _align_columns(rows)
@@ -162,5 +170,5 @@ def run_ls(
         )
         return 0
 
-    print(_format_grouped(entries, verbose))
+    print(_format_grouped(entries, verbose, show_all=all_flag))
     return 0

@@ -331,6 +331,12 @@ def _dispatch_add(args: argparse.Namespace) -> int:
     )
     manifest = load_manifest(MANIFEST_FILE)
 
+    from ksm.manifest import backfill_workspace_paths
+
+    cwd = Path.cwd()
+    if backfill_workspace_paths(manifest, cwd):
+        save_manifest(manifest, MANIFEST_FILE)
+
     from ksm.commands.add import run_add
 
     return run_add(
@@ -338,7 +344,7 @@ def _dispatch_add(args: argparse.Namespace) -> int:
         registry_index=registry_index,
         manifest=manifest,
         manifest_path=MANIFEST_FILE,
-        target_local=Path.cwd() / ".kiro",
+        target_local=cwd / ".kiro",
         target_global=Path.home() / ".kiro",
     )
 
@@ -369,6 +375,12 @@ def _dispatch_sync(args: argparse.Namespace) -> int:
     )
     manifest = load_manifest(MANIFEST_FILE)
 
+    from ksm.manifest import backfill_workspace_paths
+
+    cwd = Path.cwd()
+    if backfill_workspace_paths(manifest, cwd):
+        save_manifest(manifest, MANIFEST_FILE)
+
     from ksm.commands.sync import run_sync
 
     return run_sync(
@@ -376,7 +388,7 @@ def _dispatch_sync(args: argparse.Namespace) -> int:
         registry_index=registry_index,
         manifest=manifest,
         manifest_path=MANIFEST_FILE,
-        target_local=Path.cwd() / ".kiro",
+        target_local=cwd / ".kiro",
         target_global=Path.home() / ".kiro",
     )
 
@@ -403,13 +415,19 @@ def _dispatch_rm(args: argparse.Namespace) -> int:
     ensure_ksm_dir()
     manifest = load_manifest(MANIFEST_FILE)
 
+    from ksm.manifest import backfill_workspace_paths
+
+    cwd = Path.cwd()
+    if backfill_workspace_paths(manifest, cwd):
+        save_manifest(manifest, MANIFEST_FILE)
+
     from ksm.commands.rm import run_rm
 
     return run_rm(
         args,
         manifest=manifest,
         manifest_path=MANIFEST_FILE,
-        target_local=Path.cwd() / ".kiro",
+        target_local=cwd / ".kiro",
         target_global=Path.home() / ".kiro",
     )
 

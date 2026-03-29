@@ -209,6 +209,10 @@ def test_run_add_receives_target_dir_as_passed(cwd_seg: str, home_seg: str) -> N
             "ksm.commands.add.run_add",
             side_effect=fake_run_add,
         ),
+        patch(
+            "ksm.manifest.backfill_workspace_paths",
+            return_value=False,
+        ),
     ):
         MockPath.cwd.return_value = Path(f"/{cwd_seg}/project")
         MockPath.home.return_value = Path(f"/{home_seg}/user")
@@ -260,6 +264,10 @@ def test_run_sync_receives_target_dir_as_passed(cwd_seg: str, home_seg: str) -> 
             "ksm.commands.sync.run_sync",
             side_effect=fake_run_sync,
         ),
+        patch(
+            "ksm.manifest.backfill_workspace_paths",
+            return_value=False,
+        ),
     ):
         MockPath.cwd.return_value = Path(f"/{cwd_seg}/project")
         MockPath.home.return_value = Path(f"/{home_seg}/user")
@@ -298,6 +306,10 @@ def test_run_rm_receives_target_dir_as_passed(cwd_seg: str, home_seg: str) -> No
         patch(
             "ksm.commands.rm.run_rm",
             side_effect=fake_run_rm,
+        ),
+        patch(
+            "ksm.manifest.backfill_workspace_paths",
+            return_value=False,
         ),
     ):
         MockPath.cwd.return_value = Path(f"/{cwd_seg}/project")
