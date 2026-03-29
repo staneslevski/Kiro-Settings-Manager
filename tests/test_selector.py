@@ -2490,6 +2490,7 @@ def test_preservation_add_selector_sorting_filtering_prefix(
         multi_selected=multi_selected,
     )
 
+    bundle_lines = lines[3:]
     bundle_lines = _extract_bundle_lines(lines)
     assert len(bundle_lines) == len(expected_sorted)
 
@@ -2683,6 +2684,7 @@ def test_bug_condition_registry_column_alignment(
         for n in names
     ]
     lines = render_add_selector(bundles, installed_names=installed, selected=0)
+    bundle_lines = lines[3:]
     bundle_lines = _extract_bundle_lines(lines)
 
     reg_positions: list[int] = []

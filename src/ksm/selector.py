@@ -164,6 +164,9 @@ def render_add_selector(
             if ft in b.name.lower() or ft in b.registry_name.lower()
         ]
 
+    max_name = max((len(b.name) for b in sorted_bundles), default=0)
+    badge_text = " [installed]"
+    any_installed = any(b.name in installed_names for b in sorted_bundles)
     grouped = group_bundles_by_registry(sorted_bundles)
 
     flat_bundles: list[BundleInfo] = []
@@ -181,6 +184,22 @@ def render_add_selector(
     ]
     if filter_text:
         lines[2] = dim(f"Filter: {filter_text}", stream=sys.stderr)
+    for i, bundle in enumerate(sorted_bundles):
+        prefix = ">" if i == selected else " "
+        check = ""
+        if multi_selected is not None:
+            check = "[✓] " if i in multi_selected else "[ ] "
+        padded = bundle.name.ljust(max_name)
+        if i == selected:
+            padded = bold(padded, stream=sys.stderr)
+        if bundle.name in installed_names:
+            label = dim(badge_text, stream=sys.stderr)
+        else:
+            label = " " * badge_width
+        reg_col = ""
+        if bundle.registry_name:
+            reg_col = "  " + dim(bundle.registry_name, stream=sys.stderr)
+        lines.append(f"{prefix} {check}{padded}{label}{reg_col}")
     bundle_idx = 0
     for reg_name, group in grouped.items():
         header_label = reg_name if reg_name else "(no registry)"
@@ -252,6 +271,7 @@ def render_removal_selector(
         padded = entry.bundle_name.ljust(max_name)
         raw_scope = f"[{entry.scope.ljust(max_scope_inner)}]"
         scope_label = dim(raw_scope, stream=sys.stderr)
+        lines.append(f"{prefix} {check}{padded} {scope_label}")
         reg_col = ""
         if entry.source_registry:
             reg_text = entry.source_registry.ljust(max_registry)
