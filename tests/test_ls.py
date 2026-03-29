@@ -38,6 +38,7 @@ def _make_ls_args(**kwargs: object) -> argparse.Namespace:
         "output_format": "text",
         "verbose": False,
         "quiet": False,
+        "show_all": True,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)

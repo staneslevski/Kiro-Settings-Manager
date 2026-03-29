@@ -27,7 +27,9 @@ _seg = st.from_regex(r"[a-z][a-z0-9]{0,9}", fullmatch=True)
 def test_dispatch_ls_calls_run_ls_unchanged() -> None:
     """_dispatch_ls passes manifest to run_ls without
     target paths."""
-    manifest_sentinel: dict[str, list[Any]] = {"bundles": []}
+    from ksm.manifest import Manifest
+
+    manifest_sentinel = Manifest(entries=[])
     captured: dict[str, Any] = {}
 
     def fake_run_ls(args: argparse.Namespace, **kwargs: Any) -> int:
@@ -51,6 +53,7 @@ def test_dispatch_ls_calls_run_ls_unchanged() -> None:
         _dispatch_ls(ns)
 
     assert captured["manifest"] is manifest_sentinel
+    assert "workspace_path" in captured
     assert "target_local" not in captured
     assert "target_global" not in captured
 

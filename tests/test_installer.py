@@ -296,6 +296,102 @@ def test_reinstallation_overwrites_and_updates_manifest(
     assert manifest.entries[0].installed_at == first_ts
 
 
+def test_local_scope_records_workspace_path_on_new_entry(
+    tmp_path: Path,
+) -> None:
+    """Local scope install records resolved workspace_path on new entry."""
+    from ksm.installer import install_bundle
+
+    reg = tmp_path / "reg"
+    target = tmp_path / "project-a" / ".kiro"
+    bundle = _make_resolved_bundle(reg, "aws", {"steering": {"AWS-IAM.md": b"data"}})
+    manifest = Manifest(entries=[])
+
+    install_bundle(
+        bundle=bundle,
+        target_dir=target,
+        scope="local",
+        subdirectory_filter=None,
+        dot_selection=None,
+        manifest=manifest,
+        source_label="default",
+    )
+
+    assert len(manifest.entries) == 1
+    entry = manifest.entries[0]
+    expected_ws = str((tmp_path / "project-a").resolve())
+    assert entry.workspace_path == expected_ws
+
+
+def test_local_scope_updates_workspace_path_on_existing_entry(
+    tmp_path: Path,
+) -> None:
+    """Local scope install updates workspace_path on existing entry."""
+    from ksm.installer import install_bundle
+
+    reg = tmp_path / "reg"
+    target = tmp_path / "project-a" / ".kiro"
+    bundle = _make_resolved_bundle(reg, "aws", {"steering": {"f.md": b"v1"}})
+    manifest = Manifest(entries=[])
+
+    # First install
+    install_bundle(
+        bundle=bundle,
+        target_dir=target,
+        scope="local",
+        subdirectory_filter=None,
+        dot_selection=None,
+        manifest=manifest,
+        source_label="default",
+    )
+    assert len(manifest.entries) == 1
+
+    # Reinstall into a different workspace target
+    target2 = tmp_path / "project-b" / ".kiro"
+    bundle2 = _make_resolved_bundle(reg, "aws", {"steering": {"f.md": b"v2"}})
+
+    install_bundle(
+        bundle=bundle2,
+        target_dir=target2,
+        scope="local",
+        subdirectory_filter=None,
+        dot_selection=None,
+        manifest=manifest,
+        source_label="default",
+    )
+
+    assert len(manifest.entries) == 1
+    entry = manifest.entries[0]
+    expected_ws = str((tmp_path / "project-b").resolve())
+    assert entry.workspace_path == expected_ws
+
+
+def test_global_scope_leaves_workspace_path_none(
+    tmp_path: Path,
+) -> None:
+    """Global scope install leaves workspace_path as None."""
+    from ksm.installer import install_bundle
+
+    reg = tmp_path / "reg"
+    target = tmp_path / "target" / ".kiro"
+    bundle = _make_resolved_bundle(reg, "aws", {"steering": {"f.md": b"data"}})
+    manifest = Manifest(entries=[])
+
+    install_bundle(
+        bundle=bundle,
+        target_dir=target,
+        scope="global",
+        subdirectory_filter=None,
+        dot_selection=None,
+        manifest=manifest,
+        source_label="default",
+    )
+
+    assert len(manifest.entries) == 1
+    entry = manifest.entries[0]
+    assert entry.workspace_path is None
+
+
 def test_dot_notation_single_file(tmp_path: Path) -> None:
     """install_bundle with dot_selection copies a single file item."""
     from ksm.installer import install_bundle

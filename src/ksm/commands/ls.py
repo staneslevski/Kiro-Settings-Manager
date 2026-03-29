@@ -11,6 +11,7 @@ import argparse
 import json
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 from ksm.color import accent, bold, muted, _align_columns
 from ksm.manifest import Manifest, ManifestEntry
@@ -53,7 +54,7 @@ def _format_relative_time(iso_ts: str) -> str:
 
 def _entry_to_dict(entry: ManifestEntry) -> dict[str, object]:
     """Serialize a ManifestEntry for JSON output."""
-    return {
+    d: dict[str, object] = {
         "bundle_name": entry.bundle_name,
         "source_registry": entry.source_registry,
         "scope": entry.scope,
@@ -61,6 +62,9 @@ def _entry_to_dict(entry: ManifestEntry) -> dict[str, object]:
         "installed_at": entry.installed_at,
         "updated_at": entry.updated_at,
     }
+    if entry.workspace_path is not None:
+        d["workspace_path"] = entry.workspace_path
+    return d
 
 
 def _format_json(entries: list[ManifestEntry]) -> str:
@@ -116,6 +120,7 @@ def run_ls(
     args: argparse.Namespace,
     *,
     manifest: Manifest,
+    workspace_path: str | None = None,
 ) -> int:
     """Read manifest and print installed bundles.
 
@@ -129,6 +134,20 @@ def run_ls(
     entries = list(manifest.entries)
     if scope_filter is not None:
         entries = [e for e in entries if e.scope == scope_filter]
+
+    # Resolve workspace path
+    all_flag: bool = getattr(args, "show_all", False)
+    if workspace_path is None:
+        workspace_path = str(Path.cwd().resolve())
+
+    # Apply workspace filter for local entries
+    if not all_flag:
+        entries = [
+            e
+            for e in entries
+            if e.scope == "global"
+            or (e.scope == "local" and e.workspace_path == workspace_path)
+        ]
 
     # JSON format
     if output_format == "json":

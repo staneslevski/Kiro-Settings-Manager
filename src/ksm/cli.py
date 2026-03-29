@@ -14,7 +14,7 @@ import textwrap
 from pathlib import Path
 
 from ksm import __version__
-from ksm.manifest import load_manifest
+from ksm.manifest import load_manifest, save_manifest
 from ksm.persistence import (
     ensure_ksm_dir,
     KSM_DIR,
@@ -45,6 +45,12 @@ def _add_list_args(parser: argparse.ArgumentParser) -> None:
         choices=["text", "json"],
         default="text",
         help="Output format: text (default, grouped by scope) or json",
+    )
+    parser.add_argument(
+        "--all",
+        dest="show_all",
+        action="store_true",
+        help="Show bundles from all workspaces",
     )
 
 
@@ -342,8 +348,17 @@ def _dispatch_ls(args: argparse.Namespace) -> int:
     manifest = load_manifest(MANIFEST_FILE)
 
     from ksm.commands.ls import run_ls
+    from ksm.manifest import backfill_workspace_paths
 
-    return run_ls(args, manifest=manifest)
+    cwd = Path.cwd()
+    if backfill_workspace_paths(manifest, cwd):
+        save_manifest(manifest, MANIFEST_FILE)
+
+    return run_ls(
+        args,
+        manifest=manifest,
+        workspace_path=str(cwd.resolve()),
+    )
 
 
 def _dispatch_sync(args: argparse.Namespace) -> int:
