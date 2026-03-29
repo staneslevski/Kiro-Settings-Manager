@@ -226,9 +226,17 @@ def render_removal_selector(
     sorted_entries = sorted(entries, key=lambda e: e.bundle_name.lower())
     if filter_text:
         ft = filter_text.lower()
-        sorted_entries = [e for e in sorted_entries if ft in e.bundle_name.lower()]
+        sorted_entries = [
+            e
+            for e in sorted_entries
+            if ft in e.bundle_name.lower() or ft in e.source_registry.lower()
+        ]
     max_name = max((len(e.bundle_name) for e in sorted_entries), default=0)
     max_scope_inner = max((len(e.scope) for e in sorted_entries), default=0)
+    max_registry = max(
+        (len(e.source_registry) for e in sorted_entries),
+        default=0,
+    )
     lines: list[str] = [
         bold(_RM_HEADER, stream=sys.stderr),
         dim(_RM_INSTRUCTIONS, stream=sys.stderr),
@@ -244,7 +252,11 @@ def render_removal_selector(
         padded = entry.bundle_name.ljust(max_name)
         raw_scope = f"[{entry.scope.ljust(max_scope_inner)}]"
         scope_label = dim(raw_scope, stream=sys.stderr)
-        lines.append(f"{prefix} {check}{padded} {scope_label}")
+        reg_col = ""
+        if entry.source_registry:
+            reg_text = entry.source_registry.ljust(max_registry)
+            reg_col = " " + dim(reg_text, stream=sys.stderr)
+        lines.append(f"{prefix} {check}{padded} {scope_label}{reg_col}")
     return lines
 
 
@@ -380,7 +392,23 @@ def interactive_removal_select(
     sorted_entries = sorted(entries, key=lambda e: e.bundle_name.lower())
 
     if not _can_run_textual():
-        items = [(e.bundle_name, f"[{e.scope}]") for e in sorted_entries]
+        max_name = max(
+            (len(e.bundle_name) for e in sorted_entries),
+            default=0,
+        )
+        max_scope_inner = max(
+            (len(e.scope) for e in sorted_entries),
+            default=0,
+        )
+        items: list[tuple[str, str]] = []
+        for e in sorted_entries:
+            name_padded = e.bundle_name.ljust(max_name)
+            scope_str = f"[{e.scope.ljust(max_scope_inner)}]"
+            if e.source_registry:
+                label = f"{scope_str}  {e.source_registry}"
+            else:
+                label = scope_str
+            items.append((name_padded, label))
         idx = _numbered_list_select(items, "Select a bundle to remove:")
         if idx is None:
             return None

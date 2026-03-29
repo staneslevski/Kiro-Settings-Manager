@@ -23,6 +23,20 @@ def _strip_ansi(text: str) -> str:
     return _ANSI_RE.sub("", text)
 
 
+def _extract_bundle_lines(lines: list[str]) -> list[str]:
+    """Extract only bundle lines from render_add_selector output.
+
+    Skips the first 3 header lines and any group header lines.
+    Bundle lines always start with '>' or ' ' (prefix char).
+    """
+    result = []
+    for line in lines[3:]:
+        plain = _ANSI_RE.sub("", line)
+        if plain and (plain[0] == ">" or plain[0] == " "):
+            result.append(line)
+    return result
+
+
 # Hypothesis strategy: BundleInfo with non-empty registry_name
 _bundle_info_st = st.builds(
     BundleInfo,
@@ -103,14 +117,21 @@ def test_property_installed_detection_uses_bare_name(
     )
 
     lines = render_add_selector(bundles, installed_names=installed, selected=0)
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
 
-    # Sort bundles the same way the selector does
-    sorted_bundles = sorted(
+    # The selector groups by registry (sorted), then sorts
+    # bundles by name within each group. Reproduce that order.
+    from ksm.selector import group_bundles_by_registry
+
+    sorted_bundles_input = sorted(
         bundles, key=lambda b: (b.name.lower(), b.registry_name.lower())
     )
+    grouped = group_bundles_by_registry(sorted_bundles_input)
+    flat_bundles: list[BundleInfo] = []
+    for group in grouped.values():
+        flat_bundles.extend(group)
 
-    for i, bundle in enumerate(sorted_bundles):
+    for i, bundle in enumerate(flat_bundles):
         line = bundle_lines[i]
         if bundle.name in installed:
             assert "[installed]" in line, (
@@ -158,7 +179,7 @@ def test_property_duplicate_names_produce_separate_items(
         for reg in registries
     ]
     lines = render_add_selector(bundles, installed_names=set(), selected=0)
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
 
     assert len(bundle_lines) == len(registries), (
         f"Expected {len(registries)} lines for {len(registries)} "
@@ -267,12 +288,15 @@ def test_property_filter_matches_both_fields(
         filter_text=filter_str,
     )
 
-    # First 3 lines are header, instructions, filter indicator
-    bundle_lines = lines[3:]
+    # Extract bundle lines, skipping headers and group headers
+    bundle_lines = _extract_bundle_lines(lines)
 
-    # Compute expected matches
+    # Compute expected matches using the same grouping logic
+    # as the implementation: filter first, then group by registry.
+    from ksm.selector import group_bundles_by_registry
+
     ft = filter_str.lower()
-    expected = [
+    filtered = [
         b
         for b in sorted(
             bundles,
@@ -280,6 +304,10 @@ def test_property_filter_matches_both_fields(
         )
         if ft in b.name.lower() or ft in b.registry_name.lower()
     ]
+    grouped = group_bundles_by_registry(filtered)
+    expected: list[BundleInfo] = []
+    for group in grouped.values():
+        expected.extend(group)
 
     assert len(bundle_lines) == len(expected), (
         f"Expected {len(expected)} bundle lines for "
@@ -464,7 +492,7 @@ def test_empty_registry_display_shows_bare_name() -> None:
         registry_name="",
     )
     lines = render_add_selector([bundle], installed_names=set(), selected=0)
-    bundle_lines = lines[3:]
+    bundle_lines = _extract_bundle_lines(lines)
     assert len(bundle_lines) == 1
     stripped = _strip_ansi(bundle_lines[0])
     assert "my-bundle" in stripped
@@ -493,7 +521,7 @@ def test_empty_registry_return_is_bare_name(
     # Simulate user picking item 0
     monkeypatch.setattr(
         "ksm.selector._numbered_list_select",
-        lambda items, header: 0,
+        lambda items, header, group_headers=None: 0,
     )
 
     result = interactive_select([bundle], installed_names=set())

@@ -424,6 +424,10 @@ class RemovalSelectorApp(App[None]):
     def _refresh_options(self) -> None:
         ol = self.query_one(OptionList)
         ol.clear_options()
+        max_name = max(
+            (len(e.bundle_name) for e in self.filtered_entries),
+            default=0,
+        )
         max_scope = max(
             (len(f"[{e.scope}]") for e in self.filtered_entries),
             default=0,
@@ -436,9 +440,14 @@ class RemovalSelectorApp(App[None]):
             )
             label = Text()
             label.append(check)
-            label.append(entry.bundle_name, style="bold cyan")
+            label.append(
+                entry.bundle_name.ljust(max_name),
+                style="bold cyan",
+            )
             scope_str = f" [{entry.scope}]"
             label.append(scope_str.ljust(max_scope + 1), style="dim")
+            if entry.source_registry:
+                label.append(f" {entry.source_registry}", style="dim")
             ol.add_option(Option(label, id=str(i)))
         if not self.filtered_entries:
             fv = self.query_one(Input).value
@@ -461,7 +470,9 @@ class RemovalSelectorApp(App[None]):
         ft = event.value.lower()
         if ft:
             self.filtered_entries = [
-                e for e in self.entries if ft in e.bundle_name.lower()
+                e
+                for e in self.entries
+                if ft in e.bundle_name.lower() or ft in e.source_registry.lower()
             ]
         else:
             self.filtered_entries = list(self.entries)
