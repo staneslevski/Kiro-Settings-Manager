@@ -539,7 +539,8 @@ class TestRichTextOptions:
         app = BundleSelectorApp(bundles, installed_names=set())
         async with app.run_test() as pilot:
             ol = app.query_one(OptionList)
-            option = ol.get_option_at_index(0)
+            # Index 0 is the separator; index 1 is the bundle
+            option = ol.get_option_at_index(1)
             prompt = option.prompt
             assert isinstance(prompt, Text)
             assert "bold cyan" in str(prompt._spans)
@@ -552,7 +553,8 @@ class TestRichTextOptions:
         app = BundleSelectorApp(bundles, installed_names={"alpha"})
         async with app.run_test() as pilot:
             ol = app.query_one(OptionList)
-            option = ol.get_option_at_index(0)
+            # Index 0 is the separator; index 1 is the bundle
+            option = ol.get_option_at_index(1)
             prompt = option.prompt
             assert isinstance(prompt, Text)
             plain = prompt.plain
@@ -588,6 +590,143 @@ class TestRichTextOptions:
             prompt = option.prompt
             assert isinstance(prompt, Text)
             assert "dim" in str(prompt._spans)
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_removal_registry_uses_dim(self) -> None:
+        """Registry column uses dim styling.
+
+        Validates: Requirements 2.3
+        """
+        entries = [
+            ManifestEntry(
+                bundle_name="alpha",
+                source_registry="my-registry",
+                scope="local",
+                installed_files=[],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            ),
+        ]
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            option = ol.get_option_at_index(0)
+            prompt = option.prompt
+            assert isinstance(prompt, Text)
+            plain = prompt.plain
+            assert "my-registry" in plain
+            # Registry text must be styled dim
+            reg_start = plain.index("my-registry")
+            reg_end = reg_start + len("my-registry")
+            spans_str = str(prompt._spans)
+            assert "dim" in spans_str
+            # Verify the dim span covers the registry
+            found_dim_for_reg = False
+            for span in prompt._spans:
+                if (
+                    "dim" in str(span.style)
+                    and span.start <= reg_start
+                    and span.end >= reg_end
+                ):
+                    found_dim_for_reg = True
+                    break
+            assert found_dim_for_reg, "Registry text not covered by dim span"
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_removal_three_column_label(self) -> None:
+        """Option labels have all 3 segments styled.
+
+        Validates: Requirements 2.1, 2.2, 2.3
+        """
+        entries = [
+            ManifestEntry(
+                bundle_name="mybundle",
+                source_registry="corp-reg",
+                scope="global",
+                installed_files=[],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            ),
+        ]
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            option = ol.get_option_at_index(0)
+            prompt = option.prompt
+            assert isinstance(prompt, Text)
+            plain = prompt.plain
+            # All three segments present
+            assert "mybundle" in plain
+            assert "[global]" in plain
+            assert "corp-reg" in plain
+            # Column order: name before scope before reg
+            name_pos = plain.index("mybundle")
+            scope_pos = plain.index("[global]")
+            reg_pos = plain.index("corp-reg")
+            assert name_pos < scope_pos < reg_pos
+            # Check bold cyan on bundle name
+            name_end = name_pos + len("mybundle")
+            found_bold_cyan = False
+            for span in prompt._spans:
+                style_str = str(span.style)
+                if (
+                    "bold" in style_str
+                    and "cyan" in style_str
+                    and span.start <= name_pos
+                    and span.end >= name_end
+                ):
+                    found_bold_cyan = True
+                    break
+            assert found_bold_cyan, "Bundle name not styled bold cyan"
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_removal_empty_registry_omitted(
+        self,
+    ) -> None:
+        """Empty source_registry omits registry segment.
+
+        Validates: Requirements 2.1, 2.3
+        """
+        entries = [
+            ManifestEntry(
+                bundle_name="alpha",
+                source_registry="",
+                scope="local",
+                installed_files=[],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            ),
+            ManifestEntry(
+                bundle_name="beta",
+                source_registry="some-reg",
+                scope="global",
+                installed_files=[],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            ),
+        ]
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            # alpha has empty registry
+            opt_alpha = ol.get_option_at_index(0)
+            prompt_alpha = opt_alpha.prompt
+            assert isinstance(prompt_alpha, Text)
+            plain_alpha = prompt_alpha.plain
+            assert "alpha" in plain_alpha
+            assert "[local]" in plain_alpha
+            # No registry text after scope
+            scope_end = plain_alpha.index("[local]") + len("[local]")
+            trailing = plain_alpha[scope_end:].strip()
+            assert trailing == "", f"Expected no registry text, got: {trailing!r}"
+            # beta has registry
+            opt_beta = ol.get_option_at_index(1)
+            prompt_beta = opt_beta.prompt
+            assert isinstance(prompt_beta, Text)
+            assert "some-reg" in prompt_beta.plain
             await pilot.press("escape")
 
 
@@ -626,7 +765,8 @@ class TestBundleSelectorCoverage:
             await pilot.press("a")
             await pilot.press("backspace")
             ol = app.query_one(OptionList)
-            assert ol.option_count == 2
+            # 1 separator + 2 bundles = 3 options
+            assert ol.option_count == 3
             await pilot.press("escape")
 
     @pytest.mark.asyncio
@@ -737,6 +877,80 @@ class TestRemovalSelectorCoverage:
             assert 0 not in app.multi_selected
             await pilot.press("escape")
 
+    @pytest.mark.asyncio
+    async def test_registry_filter_matches_entry(
+        self,
+    ) -> None:
+        """Filter by registry name keeps matching entry.
+
+        Validates: Requirements 5.1, 5.2
+        """
+        entries = [
+            ManifestEntry(
+                bundle_name="alpha",
+                source_registry="corp-reg",
+                scope="local",
+                installed_files=[],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            ),
+            ManifestEntry(
+                bundle_name="beta",
+                source_registry="other-reg",
+                scope="global",
+                installed_files=[],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            ),
+        ]
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            inp = app.query_one(Input)
+            inp.focus()
+            await pilot.press("c", "o", "r", "p")
+            await pilot.press("enter")
+        assert app.selected_entries is not None
+        assert len(app.selected_entries) == 1
+        assert app.selected_entries[0].bundle_name == "alpha"
+
+    @pytest.mark.asyncio
+    async def test_registry_filter_case_insensitive(
+        self,
+    ) -> None:
+        """Filter by registry is case-insensitive.
+
+        Validates: Requirements 5.1, 5.2
+        """
+        entries = [
+            ManifestEntry(
+                bundle_name="alpha",
+                source_registry="CorpReg",
+                scope="local",
+                installed_files=[],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            ),
+            ManifestEntry(
+                bundle_name="beta",
+                source_registry="other",
+                scope="global",
+                installed_files=[],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            ),
+        ]
+        app = RemovalSelectorApp(entries)
+        async with app.run_test() as pilot:
+            inp = app.query_one(Input)
+            inp.focus()
+            # Type lowercase "corpreg" to match "CorpReg"
+            for ch in "corpreg":
+                await pilot.press(ch)
+            await pilot.press("enter")
+        assert app.selected_entries is not None
+        assert len(app.selected_entries) == 1
+        assert app.selected_entries[0].bundle_name == "alpha"
+
 
 # ---------------------------------------------------------------
 # NO_COLOR support (Req 10.5, 10.9)
@@ -789,3 +1003,134 @@ class TestColorCoexistence:
 
         source = inspect.getsource(tui_mod)
         assert "from ksm.color" not in source
+
+
+# ---------------------------------------------------------------
+# Task 4.1.4: TUI grouped display tests
+# ---------------------------------------------------------------
+
+
+class TestTUIGroupedDisplay:
+    """Tests for TUI grouped display with separator rows."""
+
+    @pytest.mark.asyncio
+    async def test_separator_rows_are_non_selectable(
+        self,
+    ) -> None:
+        """Separator rows are disabled (non-selectable).
+
+        Validates: Requirement 2.2
+        """
+        bundles = _make_bundles("alpha", "beta")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            # First option is the separator for "default"
+            sep = ol.get_option_at_index(0)
+            assert sep.disabled is True
+            # Second option is a bundle (not disabled)
+            bundle_opt = ol.get_option_at_index(1)
+            assert bundle_opt.disabled is not True
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_multi_select_across_groups(
+        self,
+    ) -> None:
+        """Multi-select across groups tracks correct indices.
+
+        Validates: Requirement 5.2
+        """
+        b1 = BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="reg1",
+        )
+        b2 = BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["skills"],
+            registry_name="reg2",
+        )
+        app = BundleSelectorApp([b1, b2], installed_names=set())
+        async with app.run_test() as pilot:
+            # Highlight starts on alpha (index 1)
+            await pilot.press("space")  # toggle alpha
+            # Down skips reg2 separator, lands on beta
+            await pilot.press("down")
+            await pilot.press("space")  # toggle beta
+            await pilot.press("enter")
+        assert app.selected_names is not None
+        assert set(app.selected_names) == {
+            "reg1/alpha",
+            "reg2/beta",
+        }
+
+    @pytest.mark.asyncio
+    async def test_filter_preserves_grouping_hides_empty(
+        self,
+    ) -> None:
+        """Filter preserves grouping and hides empty groups.
+
+        Validates: Requirement 2.4
+        """
+        b1 = BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="reg1",
+        )
+        b2 = BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["skills"],
+            registry_name="reg2",
+        )
+        app = BundleSelectorApp([b1, b2], installed_names=set())
+        async with app.run_test() as pilot:
+            inp = app.query_one(Input)
+            inp.focus()
+            await pilot.press("a", "l", "p")
+            ol = app.query_one(OptionList)
+            # Should show: reg1 separator + alpha = 2
+            assert ol.option_count == 2
+            # First is separator
+            sep = ol.get_option_at_index(0)
+            assert sep.disabled is True
+            await pilot.press("enter")
+        assert app.selected_names == ["reg1/alpha"]
+
+    @pytest.mark.asyncio
+    async def test_single_registry_shows_separator(
+        self,
+    ) -> None:
+        """Single registry shows separator header.
+
+        Validates: Requirement 1.4
+        """
+        bundles = _make_bundles("alpha", "beta")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            # 1 separator + 2 bundles = 3 options
+            assert ol.option_count == 3
+            sep = ol.get_option_at_index(0)
+            assert sep.disabled is True
+            prompt_text = str(sep.prompt)
+            assert "default" in prompt_text
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_highlight_skips_separator_on_mount(
+        self,
+    ) -> None:
+        """Initial highlight skips separator row."""
+        bundles = _make_bundles("alpha")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            # Highlight should be on the first bundle,
+            # not the separator
+            assert ol.highlighted == 1
+            await pilot.press("escape")
