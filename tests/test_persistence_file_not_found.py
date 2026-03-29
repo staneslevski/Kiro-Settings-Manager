@@ -73,6 +73,10 @@ def test_expected_behavior_with_default_registry_path(
     default_dir = tmp_path / "config_bundles"
     default_dir.mkdir(exist_ok=True)
 
+    # Clean up from prior Hypothesis examples sharing tmp_path
+    if reg_file.exists():
+        reg_file.unlink()
+
     assert not reg_file.exists()
 
     index = load_registry_index(reg_file, default_registry_path=default_dir)

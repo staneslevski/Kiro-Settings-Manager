@@ -168,9 +168,6 @@ class BundleSelectorApp(App[None]):
             default=0,
         )
         badge_text = " [installed]"
-        any_installed = any(
-            b.name in self.installed_names for _, b in self.filtered_items
-        )
         any_installed = any(b.name in self.installed_names for _, b in bundle_items)
         badge_width = len(badge_text) if any_installed else 0
         for i, (display, bundle) in enumerate(self.filtered_items):
@@ -445,9 +442,6 @@ class RemovalSelectorApp(App[None]):
             )
             label = Text()
             label.append(check)
-            label.append(entry.bundle_name, style="bold cyan")
-            scope_str = f" [{entry.scope}]"
-            label.append(scope_str.ljust(max_scope + 1), style="dim")
             label.append(
                 entry.bundle_name.ljust(max_name),
                 style="bold cyan",
