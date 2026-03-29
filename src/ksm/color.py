@@ -12,6 +12,7 @@ import locale
 import os
 import re
 import sys
+from collections.abc import Sequence
 from typing import TextIO
 
 # ---------------------------------------------------------------------------
@@ -209,7 +210,7 @@ def _strip_ansi(text: str) -> str:
 
 
 def _align_columns(
-    rows: list[tuple[str, ...]],
+    rows: Sequence[tuple[str, ...]],
     gap: int = 2,
 ) -> list[str]:
     """Align columns with consistent padding.

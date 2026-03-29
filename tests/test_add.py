@@ -2964,9 +2964,7 @@ class TestAddSuccessOutputVisualOverhaul:
             global_=use_global,
         )
 
-        with patch(
-            "ksm.color._color_level", return_value=2
-        ):
+        with patch("ksm.color._color_level", return_value=2):
             code = run_add(
                 args,
                 registry_index=idx,
@@ -2985,9 +2983,7 @@ class TestAddSuccessOutputVisualOverhaul:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """Req 7.1: bundle name styled with accent (96)."""
-        err = self._run_add_with_color(
-            tmp_path, capsys, "mybundle"
-        )
+        err = self._run_add_with_color(tmp_path, capsys, "mybundle")
         assert f"{self._ACCENT_CODE}mybundle{self._RESET}" in err
 
     def test_sym_arrow_in_output(
@@ -2998,9 +2994,7 @@ class TestAddSuccessOutputVisualOverhaul:
         """Req 7.1: SYM_ARROW present in success line."""
         from ksm.color import SYM_ARROW
 
-        err = self._run_add_with_color(
-            tmp_path, capsys
-        )
+        err = self._run_add_with_color(tmp_path, capsys)
         assert SYM_ARROW in err
 
     def test_muted_scope_label_local(
@@ -3009,9 +3003,7 @@ class TestAddSuccessOutputVisualOverhaul:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """Req 7.1: scope label styled with muted (2)."""
-        err = self._run_add_with_color(
-            tmp_path, capsys, use_global=False
-        )
+        err = self._run_add_with_color(tmp_path, capsys, use_global=False)
         assert f"{self._MUTED_CODE}(local){self._RESET}" in err
 
     def test_muted_scope_label_global(
@@ -3020,9 +3012,7 @@ class TestAddSuccessOutputVisualOverhaul:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """Req 7.1: global scope label styled with muted."""
-        err = self._run_add_with_color(
-            tmp_path, capsys, use_global=True
-        )
+        err = self._run_add_with_color(tmp_path, capsys, use_global=True)
         assert f"{self._MUTED_CODE}(global){self._RESET}" in err
 
     def test_scope_path_local(
@@ -3031,9 +3021,7 @@ class TestAddSuccessOutputVisualOverhaul:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """Req 7.1: local scope shows .kiro/ path."""
-        err = self._run_add_with_color(
-            tmp_path, capsys, use_global=False
-        )
+        err = self._run_add_with_color(tmp_path, capsys, use_global=False)
         assert ".kiro/" in err
 
     def test_scope_path_global(
@@ -3042,9 +3030,7 @@ class TestAddSuccessOutputVisualOverhaul:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """Req 7.1: global scope shows ~/.kiro/ path."""
-        err = self._run_add_with_color(
-            tmp_path, capsys, use_global=True
-        )
+        err = self._run_add_with_color(tmp_path, capsys, use_global=True)
         assert "~/.kiro/" in err
 
     def test_success_styled_checkmark(
@@ -3055,12 +3041,8 @@ class TestAddSuccessOutputVisualOverhaul:
         """Req 7.1: SYM_CHECK styled with success (92)."""
         from ksm.color import SYM_CHECK
 
-        err = self._run_add_with_color(
-            tmp_path, capsys
-        )
-        expected = (
-            f"{self._SUCCESS_CODE}{SYM_CHECK}{self._RESET}"
-        )
+        err = self._run_add_with_color(tmp_path, capsys)
+        expected = f"{self._SUCCESS_CODE}{SYM_CHECK}{self._RESET}"
         assert expected in err
 
     def test_full_format_pattern(
@@ -3071,22 +3053,11 @@ class TestAddSuccessOutputVisualOverhaul:
         """Req 7.1: full output matches expected pattern."""
         from ksm.color import SYM_ARROW, SYM_CHECK
 
-        err = self._run_add_with_color(
-            tmp_path, capsys, "testbundle"
-        )
-        check = (
-            f"{self._SUCCESS_CODE}{SYM_CHECK}{self._RESET}"
-        )
-        name = (
-            f"{self._ACCENT_CODE}testbundle{self._RESET}"
-        )
-        scope = (
-            f"{self._MUTED_CODE}(local){self._RESET}"
-        )
-        expected = (
-            f"{check} Installed {name}"
-            f" {SYM_ARROW} .kiro/ {scope}"
-        )
+        err = self._run_add_with_color(tmp_path, capsys, "testbundle")
+        check = f"{self._SUCCESS_CODE}{SYM_CHECK}{self._RESET}"
+        name = f"{self._ACCENT_CODE}testbundle{self._RESET}"
+        scope = f"{self._MUTED_CODE}(local){self._RESET}"
+        expected = f"{check} Installed {name}" f" {SYM_ARROW} .kiro/ {scope}"
         assert expected in err
 
     def test_diff_summary_present(
@@ -3095,9 +3066,7 @@ class TestAddSuccessOutputVisualOverhaul:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """Req 7.2-7.4: diff summary lines present."""
-        err = self._run_add_with_color(
-            tmp_path, capsys
-        )
+        err = self._run_add_with_color(tmp_path, capsys)
         # New file should show + symbol and (new)
         assert "+" in err
         assert "(new)" in err
@@ -3113,9 +3082,7 @@ class TestAddSuccessOutputVisualOverhaul:
         clone_dir = tmp_path / "clone"
         bundle_path = clone_dir / "mybundle"
         (bundle_path / "skills").mkdir(parents=True)
-        (bundle_path / "skills" / "S.md").write_bytes(
-            b"skill"
-        )
+        (bundle_path / "skills" / "S.md").write_bytes(b"skill")
 
         target_local = tmp_path / "workspace" / ".kiro"
         ksm_dir = tmp_path / "ksm_state"
@@ -3205,9 +3172,7 @@ def test_property_add_success_output_format(
         )
 
         captured = io.StringIO()
-        with patch(
-            "sys.stderr", new=captured
-        ):
+        with patch("sys.stderr", new=captured):
             with patch(
                 "ksm.color._color_level",
                 return_value=2,
@@ -3232,7 +3197,5 @@ def test_property_add_success_output_format(
         scope = "global" if use_global else "local"
         assert f"\033[2m({scope})\033[0m" in output
         # scope path
-        expected_path = (
-            "~/.kiro/" if use_global else ".kiro/"
-        )
+        expected_path = "~/.kiro/" if use_global else ".kiro/"
         assert expected_path in output

@@ -74,9 +74,7 @@ def _format_result(
     name = accent(bundle_name, stream=stream)
 
     if skipped == 0:
-        summary = muted(
-            f"{removed} files deleted ({scope})", stream=stream
-        )
+        summary = muted(f"{removed} files deleted ({scope})", stream=stream)
     elif removed == 0:
         summary = muted(
             f"all {skipped} files were already missing ({scope})",
@@ -84,8 +82,7 @@ def _format_result(
         )
     else:
         summary = muted(
-            f"{removed} files deleted,"
-            f" {skipped} already missing ({scope})",
+            f"{removed} files deleted," f" {skipped} already missing ({scope})",
             stream=stream,
         )
     return f"{check} Removed {name} — {summary}"

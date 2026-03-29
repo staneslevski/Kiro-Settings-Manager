@@ -20,6 +20,7 @@ from ksm.persistence import (
     KSM_DIR,
     MANIFEST_FILE,
     REGISTRIES_FILE,
+    CONFIG_BUNDLES_DIR,
 )
 from ksm.registry import load_registry_index
 
@@ -319,7 +320,9 @@ def _build_parser() -> argparse.ArgumentParser:
 def _dispatch_add(args: argparse.Namespace) -> int:
     """Dispatch the add command."""
     ensure_ksm_dir()
-    registry_index = load_registry_index(REGISTRIES_FILE)
+    registry_index = load_registry_index(
+        REGISTRIES_FILE, default_registry_path=CONFIG_BUNDLES_DIR
+    )
     manifest = load_manifest(MANIFEST_FILE)
 
     from ksm.commands.add import run_add
@@ -346,7 +349,9 @@ def _dispatch_ls(args: argparse.Namespace) -> int:
 def _dispatch_sync(args: argparse.Namespace) -> int:
     """Dispatch the sync command."""
     ensure_ksm_dir()
-    registry_index = load_registry_index(REGISTRIES_FILE)
+    registry_index = load_registry_index(
+        REGISTRIES_FILE, default_registry_path=CONFIG_BUNDLES_DIR
+    )
     manifest = load_manifest(MANIFEST_FILE)
 
     from ksm.commands.sync import run_sync
@@ -364,7 +369,9 @@ def _dispatch_sync(args: argparse.Namespace) -> int:
 def _dispatch_add_registry(args: argparse.Namespace) -> int:
     """Dispatch the add-registry command."""
     ensure_ksm_dir()
-    registry_index = load_registry_index(REGISTRIES_FILE)
+    registry_index = load_registry_index(
+        REGISTRIES_FILE, default_registry_path=CONFIG_BUNDLES_DIR
+    )
 
     from ksm.commands.add_registry import run_add_registry
 
@@ -395,7 +402,9 @@ def _dispatch_rm(args: argparse.Namespace) -> int:
 def _dispatch_registry(args: argparse.Namespace) -> int:
     """Dispatch registry subcommands."""
     ensure_ksm_dir()
-    registry_index = load_registry_index(REGISTRIES_FILE)
+    registry_index = load_registry_index(
+        REGISTRIES_FILE, default_registry_path=CONFIG_BUNDLES_DIR
+    )
     subcmd = getattr(args, "registry_command", None)
 
     if subcmd in ("list", "ls"):
@@ -461,7 +470,9 @@ def _dispatch_init(args: argparse.Namespace) -> int:
 
 def _dispatch_info(args: argparse.Namespace) -> int:
     """Dispatch the info command."""
-    registry_index = load_registry_index(REGISTRIES_FILE)
+    registry_index = load_registry_index(
+        REGISTRIES_FILE, default_registry_path=CONFIG_BUNDLES_DIR
+    )
     manifest = load_manifest(MANIFEST_FILE)
 
     from ksm.commands.info import run_info
@@ -475,7 +486,9 @@ def _dispatch_info(args: argparse.Namespace) -> int:
 
 def _dispatch_search(args: argparse.Namespace) -> int:
     """Dispatch the search command."""
-    registry_index = load_registry_index(REGISTRIES_FILE)
+    registry_index = load_registry_index(
+        REGISTRIES_FILE, default_registry_path=CONFIG_BUNDLES_DIR
+    )
 
     from ksm.commands.search import run_search
 

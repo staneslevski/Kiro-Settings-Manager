@@ -13,7 +13,7 @@ from ksm.scanner import BundleInfo
 from ksm.tui import BundleSelectorApp, RemovalSelectorApp, ScopeSelectorApp
 
 from rich.text import Text
-from textual.widgets import OptionList
+from textual.widgets import Input, OptionList
 
 
 def _make_bundles(*names: str, registry: str = "default") -> list[BundleInfo]:
@@ -175,7 +175,7 @@ class TestBundleSelectorApp:
         bundles = _make_bundles("sql-queries", "alpha")
         app = BundleSelectorApp(bundles, installed_names=set())
         async with app.run_test() as pilot:
-            input_widget = app.query_one("Input")
+            input_widget = app.query_one(Input)
             input_widget.focus()
             await pilot.press("s")
             await pilot.press("q")
@@ -539,7 +539,8 @@ class TestRichTextOptions:
         app = BundleSelectorApp(bundles, installed_names=set())
         async with app.run_test() as pilot:
             ol = app.query_one(OptionList)
-            option = ol.get_option_at_index(0)
+            # Index 0 is the separator; index 1 is the bundle
+            option = ol.get_option_at_index(1)
             prompt = option.prompt
             assert isinstance(prompt, Text)
             assert "bold cyan" in str(prompt._spans)
@@ -552,7 +553,8 @@ class TestRichTextOptions:
         app = BundleSelectorApp(bundles, installed_names={"alpha"})
         async with app.run_test() as pilot:
             ol = app.query_one(OptionList)
-            option = ol.get_option_at_index(0)
+            # Index 0 is the separator; index 1 is the bundle
+            option = ol.get_option_at_index(1)
             prompt = option.prompt
             assert isinstance(prompt, Text)
             plain = prompt.plain
@@ -626,7 +628,8 @@ class TestBundleSelectorCoverage:
             await pilot.press("a")
             await pilot.press("backspace")
             ol = app.query_one(OptionList)
-            assert ol.option_count == 2
+            # 1 separator + 2 bundles = 3 options
+            assert ol.option_count == 3
             await pilot.press("escape")
 
     @pytest.mark.asyncio
@@ -701,7 +704,7 @@ class TestRemovalSelectorCoverage:
         entries = _make_entries(("sql-queries", "local"), ("alpha", "local"))
         app = RemovalSelectorApp(entries)
         async with app.run_test() as pilot:
-            inp = app.query_one("Input")
+            inp = app.query_one(Input)
             inp.focus()
             await pilot.press("s")
             await pilot.press("q")
@@ -789,3 +792,134 @@ class TestColorCoexistence:
 
         source = inspect.getsource(tui_mod)
         assert "from ksm.color" not in source
+
+
+# ---------------------------------------------------------------
+# Task 4.1.4: TUI grouped display tests
+# ---------------------------------------------------------------
+
+
+class TestTUIGroupedDisplay:
+    """Tests for TUI grouped display with separator rows."""
+
+    @pytest.mark.asyncio
+    async def test_separator_rows_are_non_selectable(
+        self,
+    ) -> None:
+        """Separator rows are disabled (non-selectable).
+
+        Validates: Requirement 2.2
+        """
+        bundles = _make_bundles("alpha", "beta")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            # First option is the separator for "default"
+            sep = ol.get_option_at_index(0)
+            assert sep.disabled is True
+            # Second option is a bundle (not disabled)
+            bundle_opt = ol.get_option_at_index(1)
+            assert bundle_opt.disabled is not True
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_multi_select_across_groups(
+        self,
+    ) -> None:
+        """Multi-select across groups tracks correct indices.
+
+        Validates: Requirement 5.2
+        """
+        b1 = BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="reg1",
+        )
+        b2 = BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["skills"],
+            registry_name="reg2",
+        )
+        app = BundleSelectorApp([b1, b2], installed_names=set())
+        async with app.run_test() as pilot:
+            # Highlight starts on alpha (index 1)
+            await pilot.press("space")  # toggle alpha
+            # Down skips reg2 separator, lands on beta
+            await pilot.press("down")
+            await pilot.press("space")  # toggle beta
+            await pilot.press("enter")
+        assert app.selected_names is not None
+        assert set(app.selected_names) == {
+            "reg1/alpha",
+            "reg2/beta",
+        }
+
+    @pytest.mark.asyncio
+    async def test_filter_preserves_grouping_hides_empty(
+        self,
+    ) -> None:
+        """Filter preserves grouping and hides empty groups.
+
+        Validates: Requirement 2.4
+        """
+        b1 = BundleInfo(
+            name="alpha",
+            path=Path("/a"),
+            subdirectories=["skills"],
+            registry_name="reg1",
+        )
+        b2 = BundleInfo(
+            name="beta",
+            path=Path("/b"),
+            subdirectories=["skills"],
+            registry_name="reg2",
+        )
+        app = BundleSelectorApp([b1, b2], installed_names=set())
+        async with app.run_test() as pilot:
+            inp = app.query_one(Input)
+            inp.focus()
+            await pilot.press("a", "l", "p")
+            ol = app.query_one(OptionList)
+            # Should show: reg1 separator + alpha = 2
+            assert ol.option_count == 2
+            # First is separator
+            sep = ol.get_option_at_index(0)
+            assert sep.disabled is True
+            await pilot.press("enter")
+        assert app.selected_names == ["reg1/alpha"]
+
+    @pytest.mark.asyncio
+    async def test_single_registry_shows_separator(
+        self,
+    ) -> None:
+        """Single registry shows separator header.
+
+        Validates: Requirement 1.4
+        """
+        bundles = _make_bundles("alpha", "beta")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            # 1 separator + 2 bundles = 3 options
+            assert ol.option_count == 3
+            sep = ol.get_option_at_index(0)
+            assert sep.disabled is True
+            prompt_text = str(sep.prompt)
+            assert "default" in prompt_text
+            await pilot.press("escape")
+
+    @pytest.mark.asyncio
+    async def test_highlight_skips_separator_on_mount(
+        self,
+    ) -> None:
+        """Initial highlight skips separator row."""
+        bundles = _make_bundles("alpha")
+        app = BundleSelectorApp(bundles, installed_names=set())
+        async with app.run_test() as pilot:
+            ol = app.query_one(OptionList)
+            # Highlight should be on the first bundle,
+            # not the separator
+            assert ol.highlighted == 1
+            await pilot.press("escape")

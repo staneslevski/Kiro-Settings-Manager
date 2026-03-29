@@ -37,8 +37,7 @@ def run_registry_inspect(
             format_error(
                 f"Registry '{name}' not found.",
                 f"Registered: {', '.join(registered)}",
-                "Run `ksm registry list` to see"
-                " all registries.",
+                "Run `ksm registry list` to see" " all registries.",
                 stream=sys.stderr,
             ),
             file=sys.stderr,
@@ -68,9 +67,7 @@ def run_registry_inspect(
                 p.name for p in subdir_path.iterdir() if p.is_dir() or p.is_file()
             )
             items_str = ", ".join(items)
-            lines.append(
-                f"    {muted(f'{subdir}/')}  {items_str}"
-            )
+            lines.append(f"    {muted(f'{subdir}/')}  {items_str}")
         lines.append("")
 
     # Remove trailing blank line

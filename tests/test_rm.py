@@ -1,6 +1,7 @@
 """Tests for ksm.commands.rm module."""
 
 import argparse
+import io
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -1254,7 +1255,7 @@ class TestRmGreenSuccessPrefix:
 # **Validates: Requirements 7.1, 7.2, 7.3, 7.4**
 
 
-class FakeTTY:
+class FakeTTY(io.StringIO):
     """A fake stream that reports isatty() = True."""
 
     def isatty(self) -> bool:
