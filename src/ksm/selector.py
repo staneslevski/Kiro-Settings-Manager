@@ -13,7 +13,7 @@ import os
 import sys
 
 from ksm.color import bold, dim
-from ksm.manifest import ManifestEntry
+from ksm.manifest import ManifestEntry, format_installed_badge
 from ksm.scanner import BundleInfo
 
 
@@ -130,7 +130,7 @@ _RM_INSTRUCTIONS = "↑/↓ navigate, Enter select, q quit"
 
 def render_add_selector(
     bundles: list[BundleInfo],
-    installed_names: set[str],
+    installed_info: dict[str, set[str]],
     selected: int,
     filter_text: str = "",
     multi_selected: set[int] | None = None,
@@ -164,9 +164,6 @@ def render_add_selector(
             if ft in b.name.lower() or ft in b.registry_name.lower()
         ]
 
-    max_name = max((len(b.name) for b in sorted_bundles), default=0)
-    badge_text = " [installed]"
-    any_installed = any(b.name in installed_names for b in sorted_bundles)
     grouped = group_bundles_by_registry(sorted_bundles)
 
     flat_bundles: list[BundleInfo] = []
@@ -174,9 +171,16 @@ def render_add_selector(
         flat_bundles.extend(group)
 
     max_name = max((len(b.name) for b in flat_bundles), default=0)
-    badge_text = " [installed]"
-    any_installed = any(b.name in installed_names for b in flat_bundles)
-    badge_width = len(badge_text) if any_installed else 0
+    badge_width = 0
+    if installed_info:
+        badge_width = max(
+            (
+                len(" " + format_installed_badge(installed_info.get(b.name, set())))
+                for b in flat_bundles
+                if b.name in installed_info
+            ),
+            default=0,
+        )
     lines: list[str] = [
         bold(_ADD_HEADER, stream=sys.stderr),
         dim(_ADD_INSTRUCTIONS, stream=sys.stderr),
@@ -197,8 +201,12 @@ def render_add_selector(
             padded = bundle.name.ljust(max_name)
             if i == selected:
                 padded = bold(padded, stream=sys.stderr)
-            if bundle.name in installed_names:
-                label = dim(badge_text, stream=sys.stderr)
+            if bundle.name in installed_info:
+                badge = format_installed_badge(installed_info[bundle.name])
+                label = dim(
+                    (" " + badge).ljust(badge_width),
+                    stream=sys.stderr,
+                )
             else:
                 label = " " * badge_width
             reg_col = ""
@@ -321,7 +329,7 @@ def scope_select() -> str | None:
 
 def interactive_select(
     bundles: list[BundleInfo],
-    installed_names: set[str],
+    installed_info: dict[str, set[str]],
 ) -> list[str] | None:
     """Show interactive add-bundle selector.
 
@@ -348,8 +356,9 @@ def interactive_select(
             group_headers[len(items)] = header
             for b in group:
                 label_parts: list[str] = []
-                if b.name in installed_names:
-                    label_parts.append("[installed]")
+                badge = format_installed_badge(installed_info.get(b.name, set()))
+                if badge:
+                    label_parts.append(badge)
                 items.append((b.name, "  ".join(label_parts)))
                 flat_bundles.append(b)
 
@@ -369,7 +378,7 @@ def interactive_select(
     try:
         from ksm.tui import BundleSelectorApp
 
-        app = BundleSelectorApp(bundles, installed_names)
+        app = BundleSelectorApp(bundles, installed_info)
         app.run()
         return app.selected_names
     except KeyboardInterrupt:

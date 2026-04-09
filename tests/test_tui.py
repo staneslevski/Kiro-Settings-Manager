@@ -54,7 +54,7 @@ class TestBundleSelectorApp:
     async def test_enter_returns_highlighted_bundle(self) -> None:
         """Enter with no toggles returns the highlighted bundle."""
         bundles = _make_bundles("alpha", "beta", "gamma")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             await pilot.press("enter")
         assert app.selected_names == ["default/alpha"]
@@ -63,7 +63,7 @@ class TestBundleSelectorApp:
     async def test_navigate_down_and_select(self) -> None:
         """Down arrow then Enter selects second bundle."""
         bundles = _make_bundles("alpha", "beta", "gamma")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             await pilot.press("down")
             await pilot.press("enter")
@@ -73,7 +73,7 @@ class TestBundleSelectorApp:
     async def test_escape_aborts(self) -> None:
         """Escape returns None."""
         bundles = _make_bundles("alpha")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             await pilot.press("escape")
         assert app.selected_names is None
@@ -82,7 +82,7 @@ class TestBundleSelectorApp:
     async def test_q_aborts_when_filter_empty(self) -> None:
         """q aborts when filter is empty."""
         bundles = _make_bundles("alpha")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             await pilot.press("q")
         assert app.selected_names is None
@@ -91,7 +91,7 @@ class TestBundleSelectorApp:
     async def test_home_end_navigation(self) -> None:
         """Home/End jump to first/last item."""
         bundles = _make_bundles("alpha", "beta", "gamma")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             await pilot.press("end")
             await pilot.press("enter")
@@ -101,7 +101,7 @@ class TestBundleSelectorApp:
     async def test_multi_select_with_space(self) -> None:
         """Space toggles multi-select, Enter returns all toggled."""
         bundles = _make_bundles("alpha", "beta", "gamma")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             await pilot.press("space")  # toggle alpha
             await pilot.press("down")
@@ -114,7 +114,7 @@ class TestBundleSelectorApp:
     async def test_filter_narrows_list(self) -> None:
         """Typing in filter narrows the option list."""
         bundles = _make_bundles("alpha", "beta", "gamma")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             # Focus the input and type
             input_widget = app.query_one("Input")
@@ -127,7 +127,7 @@ class TestBundleSelectorApp:
     async def test_filter_change_resets_highlight_and_toggles(self) -> None:
         """Property 4: Filter change resets highlight to 0 and clears toggles."""
         bundles = _make_bundles("alpha", "beta", "gamma")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             await pilot.press("space")  # toggle alpha
             input_widget = app.query_one("Input")
@@ -140,7 +140,7 @@ class TestBundleSelectorApp:
     async def test_selected_count_indicator(self) -> None:
         """Property 6: Selected count equals cardinality of toggled set."""
         bundles = _make_bundles("alpha", "beta", "gamma")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             await pilot.press("space")
             await pilot.press("down")
@@ -163,7 +163,7 @@ class TestBundleSelectorApp:
             subdirectories=["skills"],
             registry_name="reg2",
         )
-        app = BundleSelectorApp([b1, b2], installed_names=set())
+        app = BundleSelectorApp([b1, b2], installed_info={})
         async with app.run_test() as pilot:
             await pilot.press("enter")
         # Should return the bundle name (not qualified)
@@ -173,7 +173,7 @@ class TestBundleSelectorApp:
     async def test_q_appends_to_filter_when_nonempty(self) -> None:
         """Property 12: q appends to filter when filter is non-empty."""
         bundles = _make_bundles("sql-queries", "alpha")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             input_widget = app.query_one(Input)
             input_widget.focus()
@@ -309,7 +309,7 @@ class TestEdgeCases:
         """interactive_select with empty list returns None without app."""
         from ksm.selector import interactive_select
 
-        result = interactive_select([], set())
+        result = interactive_select([], {})
         assert result is None
 
     def test_empty_entry_list_returns_none(self) -> None:
@@ -323,7 +323,7 @@ class TestEdgeCases:
     async def test_single_bundle_shows_full_ui(self) -> None:
         """Single item still shows full UI (Req 16.3)."""
         bundles = _make_bundles("only-one")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             # Verify header is present
             header = app.query_one(".selector-header")
@@ -365,7 +365,7 @@ class TestKSMTheme:
     ) -> None:
         """BundleSelectorApp registers and activates KSM_THEME."""
         bundles = _make_bundles("alpha")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             assert app.theme == "ksm"
             await pilot.press("escape")
@@ -406,7 +406,7 @@ class TestContainerAndFooter:
     async def test_bundle_selector_has_container(self) -> None:
         """BundleSelectorApp has Container#container."""
         bundles = _make_bundles("alpha")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             container = app.query_one("#container")
             assert container is not None
@@ -439,7 +439,7 @@ class TestContainerAndFooter:
     async def test_bundle_selector_has_footer_bar(self) -> None:
         """BundleSelectorApp has footer bar with key hints."""
         bundles = _make_bundles("alpha")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             footer = app.query_one("#footer-bar")
             assert footer is not None
@@ -536,7 +536,7 @@ class TestRichTextOptions:
     async def test_bundle_names_use_bold_cyan(self) -> None:
         """Bundle names use bold cyan Rich Text."""
         bundles = _make_bundles("alpha")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             ol = app.query_one(OptionList)
             # Index 0 is the separator; index 1 is the bundle
@@ -550,7 +550,7 @@ class TestRichTextOptions:
     async def test_installed_badge_uses_dim(self) -> None:
         """Installed badges use dim Rich Text."""
         bundles = _make_bundles("alpha")
-        app = BundleSelectorApp(bundles, installed_names={"alpha"})
+        app = BundleSelectorApp(bundles, installed_info={"alpha": {"global"}})
         async with app.run_test() as pilot:
             ol = app.query_one(OptionList)
             # Index 0 is the separator; index 1 is the bundle
@@ -558,7 +558,7 @@ class TestRichTextOptions:
             prompt = option.prompt
             assert isinstance(prompt, Text)
             plain = prompt.plain
-            assert "[installed]" in plain
+            assert "[installed: global]" in plain
             assert "dim" in str(prompt._spans)
             await pilot.press("escape")
 
@@ -742,7 +742,7 @@ class TestBundleSelectorCoverage:
     async def test_no_match_filter_shows_message(self) -> None:
         """Filter with no matches shows disabled message."""
         bundles = _make_bundles("alpha", "beta")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             inp = app.query_one("Input")
             inp.focus()
@@ -758,7 +758,7 @@ class TestBundleSelectorCoverage:
     async def test_clear_filter_restores_all(self) -> None:
         """Clearing filter restores all items."""
         bundles = _make_bundles("alpha", "beta")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             inp = app.query_one("Input")
             inp.focus()
@@ -775,7 +775,7 @@ class TestBundleSelectorCoverage:
     ) -> None:
         """Enter with no filtered items does nothing."""
         bundles = _make_bundles("alpha")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             inp = app.query_one("Input")
             inp.focus()
@@ -964,7 +964,7 @@ class TestNoColor:
     async def test_bundle_selector_works_with_no_color(self) -> None:
         """App functions correctly when NO_COLOR is set."""
         bundles = _make_bundles("alpha", "beta")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         with pytest.MonkeyPatch.context() as mp:
             mp.setenv("NO_COLOR", "1")
             async with app.run_test() as pilot:
@@ -1022,7 +1022,7 @@ class TestTUIGroupedDisplay:
         Validates: Requirement 2.2
         """
         bundles = _make_bundles("alpha", "beta")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             ol = app.query_one(OptionList)
             # First option is the separator for "default"
@@ -1053,7 +1053,7 @@ class TestTUIGroupedDisplay:
             subdirectories=["skills"],
             registry_name="reg2",
         )
-        app = BundleSelectorApp([b1, b2], installed_names=set())
+        app = BundleSelectorApp([b1, b2], installed_info={})
         async with app.run_test() as pilot:
             # Highlight starts on alpha (index 1)
             await pilot.press("space")  # toggle alpha
@@ -1087,7 +1087,7 @@ class TestTUIGroupedDisplay:
             subdirectories=["skills"],
             registry_name="reg2",
         )
-        app = BundleSelectorApp([b1, b2], installed_names=set())
+        app = BundleSelectorApp([b1, b2], installed_info={})
         async with app.run_test() as pilot:
             inp = app.query_one(Input)
             inp.focus()
@@ -1110,7 +1110,7 @@ class TestTUIGroupedDisplay:
         Validates: Requirement 1.4
         """
         bundles = _make_bundles("alpha", "beta")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             ol = app.query_one(OptionList)
             # 1 separator + 2 bundles = 3 options
@@ -1127,7 +1127,7 @@ class TestTUIGroupedDisplay:
     ) -> None:
         """Initial highlight skips separator row."""
         bundles = _make_bundles("alpha")
-        app = BundleSelectorApp(bundles, installed_names=set())
+        app = BundleSelectorApp(bundles, installed_info={})
         async with app.run_test() as pilot:
             ol = app.query_one(OptionList)
             # Highlight should be on the first bundle,

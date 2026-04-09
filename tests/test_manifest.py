@@ -605,3 +605,165 @@ def test_find_entries_multiple_entries_returns_correct_one() -> None:
     result = find_entries(manifest, "git_and_github", "local", "/home/user/project-a")
     assert len(result) == 1
     assert result[0].bundle_name == "git_and_github"
+
+
+# --- build_installed_info tests ---
+
+
+def test_build_installed_info_cross_workspace_excluded() -> None:
+    """Local entries from a different workspace are excluded."""
+    from ksm.manifest import build_installed_info
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path="/home/user/project-a",
+            ),
+        ]
+    )
+
+    result = build_installed_info(manifest, "/home/user/project-b")
+    assert "python_dev" not in result
+
+
+def test_build_installed_info_current_workspace_included() -> None:
+    """Local entries for the current workspace are included."""
+    from ksm.manifest import build_installed_info
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path="/home/user/project-a",
+            ),
+        ]
+    )
+
+    result = build_installed_info(manifest, "/home/user/project-a")
+    assert "python_dev" in result
+    assert result["python_dev"] == {"local"}
+
+
+def test_build_installed_info_global_included() -> None:
+    """Global entries are always included."""
+    from ksm.manifest import build_installed_info
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="global",
+                installed_files=["steering/AWS-IAM.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+            ),
+        ]
+    )
+
+    result = build_installed_info(manifest, "/any/workspace")
+    assert "aws" in result
+    assert result["aws"] == {"global"}
+
+
+def test_build_installed_info_mixed_local_global() -> None:
+    """Bundle installed both locally and globally returns both."""
+    from ksm.manifest import build_installed_info
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="git",
+                source_registry="default",
+                scope="local",
+                installed_files=["skills/github-pr/SKILL.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path="/home/user/project-a",
+            ),
+            ManifestEntry(
+                bundle_name="git",
+                source_registry="default",
+                scope="global",
+                installed_files=["skills/github-pr/SKILL.md"],
+                installed_at="2025-01-16T10:30:00Z",
+                updated_at="2025-01-16T10:30:00Z",
+            ),
+        ]
+    )
+
+    result = build_installed_info(manifest, "/home/user/project-a")
+    assert result["git"] == {"local", "global"}
+
+
+def test_build_installed_info_empty_manifest() -> None:
+    """Empty manifest returns empty dict."""
+    from ksm.manifest import build_installed_info
+
+    manifest = Manifest(entries=[])
+    result = build_installed_info(manifest, "/any/workspace")
+    assert result == {}
+
+
+def test_build_installed_info_legacy_none_workspace_excluded() -> None:
+    """Legacy entries with workspace_path=None are excluded."""
+    from ksm.manifest import build_installed_info
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="legacy_bundle",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/legacy.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path=None,
+            ),
+        ]
+    )
+
+    result = build_installed_info(manifest, "/home/user/project-a")
+    assert "legacy_bundle" not in result
+
+
+# --- format_installed_badge tests ---
+
+
+def test_format_installed_badge_empty() -> None:
+    """Empty set returns empty string."""
+    from ksm.manifest import format_installed_badge
+
+    assert format_installed_badge(set()) == ""
+
+
+def test_format_installed_badge_local() -> None:
+    """Local-only returns '[installed: local]'."""
+    from ksm.manifest import format_installed_badge
+
+    assert format_installed_badge({"local"}) == "[installed: local]"
+
+
+def test_format_installed_badge_global() -> None:
+    """Global-only returns '[installed: global]'."""
+    from ksm.manifest import format_installed_badge
+
+    assert format_installed_badge({"global"}) == "[installed: global]"
+
+
+def test_format_installed_badge_local_global() -> None:
+    """Both scopes returns '[installed: local, global]'."""
+    from ksm.manifest import format_installed_badge
+
+    assert format_installed_badge({"local", "global"}) == "[installed: local, global]"

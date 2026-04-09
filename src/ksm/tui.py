@@ -18,11 +18,9 @@ from textual.widgets.option_list import Option
 
 from rich.text import Text
 
-from ksm.manifest import ManifestEntry
+from ksm.manifest import ManifestEntry, format_installed_badge
 from ksm.scanner import BundleInfo
 from ksm.selector import group_bundles_by_registry
-
-BindingType = Union[Binding, tuple[str, str], tuple[str, str, str]]
 
 BindingType = Union[Binding, tuple[str, str], tuple[str, str, str]]
 
@@ -105,13 +103,13 @@ class BundleSelectorApp(App[None]):
     def __init__(
         self,
         bundles: list[BundleInfo],
-        installed_names: set[str],
+        installed_info: dict[str, set[str]],
     ) -> None:
         super().__init__()
         self.register_theme(KSM_THEME)
         self.theme = "ksm"
         self.bundles = bundles
-        self.installed_names = installed_names
+        self.installed_info = installed_info
         self.selected_names: list[str] | None = None
         self.multi_selected: set[int] = set()
         self.display_items: list[tuple[str, BundleInfo | None]] = []
@@ -167,9 +165,19 @@ class BundleSelectorApp(App[None]):
             (len(name) for name, _ in bundle_items),
             default=0,
         )
-        badge_text = " [installed]"
-        any_installed = any(b.name in self.installed_names for _, b in bundle_items)
-        badge_width = len(badge_text) if any_installed else 0
+        badge_width = 0
+        if self.installed_info:
+            badge_width = max(
+                (
+                    len(
+                        " "
+                        + format_installed_badge(self.installed_info.get(b.name, set()))
+                    )
+                    for _, b in bundle_items
+                    if b.name in self.installed_info
+                ),
+                default=0,
+            )
         for i, (display, bundle) in enumerate(self.filtered_items):
             if bundle is None:
                 header = display if display else "(no registry)"
@@ -186,14 +194,17 @@ class BundleSelectorApp(App[None]):
                 if bi in self.multi_selected
                 else "[ ] " if self.multi_selected else ""
             )
-            installed = bundle.name in self.installed_names
+            installed = bundle.name in self.installed_info
+            badge_text = format_installed_badge(
+                self.installed_info.get(bundle.name, set())
+            )
             label = Text()
             label.append(check)
             label.append(display.ljust(max_name), style="bold cyan")
             if badge_width:
                 if installed:
                     label.append(
-                        badge_text.ljust(badge_width),
+                        (" " + badge_text).ljust(badge_width),
                         style="dim",
                     )
                 else:

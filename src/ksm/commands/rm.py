@@ -160,6 +160,18 @@ def run_rm(
             print("No matching bundles at the" " specified scope.")
             return 0
 
+        # Filter local entries to current workspace only
+        workspace_path = str(target_local.parent.resolve())
+        entries_to_show = [
+            e
+            for e in entries_to_show
+            if e.scope == "global" or e.workspace_path == workspace_path
+        ]
+
+        if not entries_to_show:
+            print("No matching bundles at the" " specified scope.")
+            return 0
+
         selected_list = interactive_removal_select(entries_to_show)
         if selected_list is None:
             return 0

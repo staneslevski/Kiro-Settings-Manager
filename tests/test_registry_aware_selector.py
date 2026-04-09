@@ -68,7 +68,7 @@ def test_property_display_contains_bundle_and_registry_name(
     """
     from ksm.selector import render_add_selector
 
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
     full_output = _strip_ansi("\n".join(lines))
 
     for bundle in bundles:
@@ -105,7 +105,7 @@ def test_property_installed_detection_uses_bare_name(
     from ksm.selector import render_add_selector
 
     all_names = list({b.name for b in bundles})
-    installed = set(
+    installed_names = set(
         data.draw(
             st.lists(
                 st.sampled_from(all_names),
@@ -115,8 +115,9 @@ def test_property_installed_detection_uses_bare_name(
             label="installed",
         )
     )
+    installed_info = {name: {"global"} for name in installed_names}
 
-    lines = render_add_selector(bundles, installed_names=installed, selected=0)
+    lines = render_add_selector(bundles, installed_info=installed_info, selected=0)
     bundle_lines = _extract_bundle_lines(lines)
 
     # The selector groups by registry (sorted), then sorts
@@ -133,13 +134,13 @@ def test_property_installed_detection_uses_bare_name(
 
     for i, bundle in enumerate(flat_bundles):
         line = bundle_lines[i]
-        if bundle.name in installed:
-            assert "[installed]" in line, (
-                f"Expected [installed] for {bundle.name!r} "
+        if bundle.name in installed_info:
+            assert "[installed" in line, (
+                f"Expected [installed: ...] for {bundle.name!r} "
                 f"(registry={bundle.registry_name!r})"
             )
         else:
-            assert "[installed]" not in line, (
+            assert "[installed" not in line, (
                 f"Unexpected [installed] for {bundle.name!r} "
                 f"(registry={bundle.registry_name!r})"
             )
@@ -178,7 +179,7 @@ def test_property_duplicate_names_produce_separate_items(
         )
         for reg in registries
     ]
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
     bundle_lines = _extract_bundle_lines(lines)
 
     assert len(bundle_lines) == len(registries), (
@@ -283,7 +284,7 @@ def test_property_filter_matches_both_fields(
 
     lines = render_add_selector(
         bundles,
-        installed_names=set(),
+        installed_info={},
         selected=0,
         filter_text=filter_str,
     )
@@ -409,7 +410,7 @@ def test_handle_display_returns_qualified_name_unchanged(
     )
     monkeypatch.setattr(
         "ksm.commands.add.interactive_select",
-        lambda bundles, installed: [qualified],
+        lambda bundles, installed_info: [qualified],
     )
 
     index = RegistryIndex(
@@ -424,7 +425,7 @@ def test_handle_display_returns_qualified_name_unchanged(
     )
     manifest = Manifest(entries=[])
 
-    result = _handle_display(index, manifest)
+    result = _handle_display(index, manifest, "/fake/workspace")
     assert result == qualified, f"Expected {qualified!r}, got {result!r}"
 
 
@@ -452,7 +453,7 @@ def test_handle_display_cancellation_returns_none(
     )
     monkeypatch.setattr(
         "ksm.commands.add.interactive_select",
-        lambda bundles, installed: None,
+        lambda bundles, installed_info: None,
     )
 
     index = RegistryIndex(
@@ -467,7 +468,7 @@ def test_handle_display_cancellation_returns_none(
     )
     manifest = Manifest(entries=[])
 
-    result = _handle_display(index, manifest)
+    result = _handle_display(index, manifest, "/fake/workspace")
     assert result is None
 
 
@@ -491,7 +492,7 @@ def test_empty_registry_display_shows_bare_name() -> None:
         subdirectories=["skills"],
         registry_name="",
     )
-    lines = render_add_selector([bundle], installed_names=set(), selected=0)
+    lines = render_add_selector([bundle], installed_info={}, selected=0)
     bundle_lines = _extract_bundle_lines(lines)
     assert len(bundle_lines) == 1
     stripped = _strip_ansi(bundle_lines[0])
@@ -524,7 +525,7 @@ def test_empty_registry_return_is_bare_name(
         lambda items, header, group_headers=None: 0,
     )
 
-    result = interactive_select([bundle], installed_names=set())
+    result = interactive_select([bundle], installed_info={})
     assert result is not None
     assert len(result) == 1
     assert result[0] == "my-bundle"
@@ -555,7 +556,7 @@ def test_empty_registry_handle_display_returns_bare_name(
     )
     monkeypatch.setattr(
         "ksm.commands.add.interactive_select",
-        lambda bundles, installed: ["my-bundle"],
+        lambda bundles, installed_info: ["my-bundle"],
     )
 
     index = RegistryIndex(
@@ -570,7 +571,7 @@ def test_empty_registry_handle_display_returns_bare_name(
     )
     manifest = Manifest(entries=[])
 
-    result = _handle_display(index, manifest)
+    result = _handle_display(index, manifest, "/fake/workspace")
     assert result == "my-bundle"
     assert "/" not in result
 

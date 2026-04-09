@@ -29,7 +29,7 @@ from ksm.git_ops import (
     list_versions,
 )
 from ksm.installer import install_bundle
-from ksm.manifest import Manifest, save_manifest
+from ksm.manifest import Manifest, build_installed_info, save_manifest
 from ksm.registry import RegistryEntry, RegistryIndex
 from ksm.resolver import (
     parse_qualified_name,
@@ -171,7 +171,11 @@ def run_add(
     _interactive_path = False
 
     if interactive:
-        bundle_name = _handle_display(registry_index, manifest)
+        bundle_name = _handle_display(
+            registry_index,
+            manifest,
+            workspace_path=str(target_local.parent.resolve()),
+        )
         if bundle_name is None:
             return 0
         bundle_spec = bundle_name
@@ -180,7 +184,11 @@ def run_add(
     if bundle_spec is None:
         # Auto-launch selector if TTY (Req 9)
         if sys.stdin.isatty():
-            bundle_name = _handle_display(registry_index, manifest)
+            bundle_name = _handle_display(
+                registry_index,
+                manifest,
+                workspace_path=str(target_local.parent.resolve()),
+            )
             if bundle_name is None:
                 return 0
             bundle_spec = bundle_name
@@ -413,6 +421,7 @@ def run_add(
 def _handle_display(
     registry_index: RegistryIndex,
     manifest: Manifest,
+    workspace_path: str,
 ) -> str | None:
     """Launch interactive selector and return chosen bundle name."""
     all_bundles = []
@@ -421,8 +430,8 @@ def _handle_display(
         bundles = scan_registry(registry_path, registry_name=entry.name)
         all_bundles.extend(bundles)
 
-    installed_names = {e.bundle_name for e in manifest.entries}
-    result = interactive_select(all_bundles, installed_names)
+    installed_info = build_installed_info(manifest, workspace_path)
+    result = interactive_select(all_bundles, installed_info)
     if result is None:
         return None
     return result[0] if result else None

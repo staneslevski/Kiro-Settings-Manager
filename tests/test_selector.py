@@ -55,7 +55,7 @@ def test_render_add_selector_alphabetical_with_prefix() -> None:
             registry_name="default",
         ),
     ]
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
 
     # Extract bundle lines (skip headers and group headers)
     bundle_lines = _extract_bundle_lines(lines)
@@ -86,12 +86,12 @@ def test_render_add_selector_installed_label() -> None:
             registry_name="default",
         ),
     ]
-    lines = render_add_selector(bundles, installed_names={"aws"}, selected=0)
+    lines = render_add_selector(bundles, installed_info={"aws": {"global"}}, selected=0)
 
     aws_line = [ln for ln in lines if "aws" in ln][0]
     git_line = [ln for ln in lines if "git" in ln][0]
-    assert "[installed]" in aws_line
-    assert "[installed]" not in git_line
+    assert "[installed: global]" in aws_line
+    assert "[installed" not in git_line
 
 
 def test_render_add_selector_shows_registry_name() -> None:
@@ -112,7 +112,7 @@ def test_render_add_selector_shows_registry_name() -> None:
             registry_name="team-repo",
         ),
     ]
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
 
     bundle_lines = _extract_bundle_lines(lines)
     plain = [_ANSI_RE.sub("", ln) for ln in bundle_lines]
@@ -139,7 +139,7 @@ def test_render_add_selector_multi_registry_sorted() -> None:
             registry_name="default",
         ),
     ]
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
 
     bundle_lines = _extract_bundle_lines(lines)
     assert "alpha" in bundle_lines[0]
@@ -218,7 +218,7 @@ def test_property_selector_sorted_alphabetically(
         )
         for n in names
     ]
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
 
     # Extract bundle lines (skip header + group header lines)
     bundle_lines = _extract_bundle_lines(lines)
@@ -256,6 +256,7 @@ def test_property_installed_label_accuracy(
             label="installed",
         )
     )
+    installed_info = {n: {"global"} for n in installed}
     bundles = [
         BundleInfo(
             name=n,
@@ -265,7 +266,9 @@ def test_property_installed_label_accuracy(
         )
         for n in names
     ]
-    lines = render_add_selector(bundles, installed_names=installed, selected=0)
+    lines = render_add_selector(
+        bundles, installed_info=installed_info, selected=0
+    )
 
     # Extract bundle lines (skip header + group header lines)
     bundle_lines = _extract_bundle_lines(lines)
@@ -273,9 +276,9 @@ def test_property_installed_label_accuracy(
     for i, line in enumerate(bundle_lines):
         name = sorted_names[i]
         if name in installed:
-            assert "[installed]" in line
+            assert "[installed: global]" in line
         else:
-            assert "[installed]" not in line
+            assert "[installed" not in line
 
 
 # Feature: kiro-settings-manager, Property 7: Arrow key navigation wraps correctly
@@ -347,7 +350,7 @@ def test_interactive_select_empty_bundles_returns_none() -> None:
     """interactive_select returns None for empty bundle list."""
     from ksm.selector import interactive_select
 
-    result = interactive_select([], installed_names=set())
+    result = interactive_select([], installed_info={})
     assert result is None
 
 
@@ -378,13 +381,13 @@ def test_render_add_selector_columns_aligned() -> None:
             subdirectories=["steering", "hooks"],
         ),
     ]
-    lines = render_add_selector(bundles, installed_names={"aws"}, selected=0)
+    lines = render_add_selector(bundles, installed_info={"aws": {"global"}}, selected=0)
 
     # Skip header lines and group headers; only check bundle lines
     bundle_lines = _extract_bundle_lines(lines)
-    # Find where the [installed] tag starts — it should be
+    # Find where the [installed: *] tag starts — it should be
     # at a consistent column even though names differ in length.
-    # The line without [installed] should still have the name
+    # The line without [installed: *] should still have the name
     # padded so that if a tag were present it would align.
     # Check that the name field is padded to the same width.
     # Strip the 2-char prefix (">" or " " + space)
@@ -401,9 +404,9 @@ def test_render_add_selector_columns_aligned() -> None:
     col_widths = []
     for line in bundle_lines:
         after_prefix = line[2:]
-        # Name column ends where [installed] or end of line is
-        if "[installed]" in after_prefix:
-            col_widths.append(after_prefix.index("[installed]"))
+        # Name column ends where [installed: or end of line is
+        if "[installed:" in after_prefix:
+            col_widths.append(after_prefix.index("[installed:"))
         else:
             # Padded name should have trailing spaces
             col_widths.append(
@@ -413,16 +416,16 @@ def test_render_add_selector_columns_aligned() -> None:
                 if after_prefix.strip()
                 else 0
             )
-    # At minimum, lines with [installed] should have the tag
+    # At minimum, lines with [installed:] should have the tag
     # at a consistent position
-    installed_lines = [ln for ln in bundle_lines if "[installed]" in ln]
+    installed_lines = [ln for ln in bundle_lines if "[installed:" in ln]
     if len(installed_lines) > 1:
-        positions = [ln.index("[installed]") for ln in installed_lines]
+        positions = [ln.index("[installed:") for ln in installed_lines]
         assert len(set(positions)) == 1
 
 
 def test_render_add_selector_installed_column_aligned() -> None:
-    """[installed] tags must start at the same column."""
+    """[installed: *] tags must start at the same column."""
     from ksm.selector import render_add_selector
 
     bundles = [
@@ -438,16 +441,16 @@ def test_render_add_selector_installed_column_aligned() -> None:
         ),
     ]
     lines = render_add_selector(
-        bundles, installed_names={"a", "long_bundle_name"}, selected=0
+        bundles, installed_info={"a": {"global"}, "long_bundle_name": {"global"}}, selected=0
     )
 
     # Skip header lines and group headers; only check bundle lines
     bundle_lines = _extract_bundle_lines(lines)
     tag_positions = []
     for line in bundle_lines:
-        pos = line.index("[installed]")
+        pos = line.index("[installed:")
         tag_positions.append(pos)
-    assert len(set(tag_positions)) == 1, f"[installed] tags misaligned: {tag_positions}"
+    assert len(set(tag_positions)) == 1, f"[installed:] tags misaligned: {tag_positions}"
 
 
 def test_render_removal_selector_columns_aligned() -> None:
@@ -1099,7 +1102,7 @@ def test_property_term_dumb_no_ansi_in_add_selector(
         mock_sys.stderr = stderr_buf
         mock_sys.stdout = stdout_buf
 
-        interactive_select(bundles, installed_names=set())
+        interactive_select(bundles, installed_info={})
 
     all_output = stderr_buf.getvalue() + stdout_buf.getvalue()
     assert (
@@ -1172,7 +1175,7 @@ def test_interactive_select_uses_fallback_when_no_textual() -> None:
         patch("ksm.selector.sys") as mock_sys,
     ):
         mock_sys.stderr = stderr_buf
-        result = interactive_select(bundles, installed_names=set())
+        result = interactive_select(bundles, installed_info={})
 
     # Sorted alphabetically: alpha=1, beta=2. Input "1" -> alpha
     assert result == ["alpha"]
@@ -1219,7 +1222,7 @@ def test_render_add_selector_filter_narrows_list() -> None:
         BundleInfo(name="gamma", path=Path("/g"), subdirectories=["steering"]),
     ]
     lines = render_add_selector(
-        bundles, installed_names=set(), selected=0, filter_text="al"
+        bundles, installed_info={}, selected=0, filter_text="al"
     )
     bundle_lines = _extract_bundle_lines(lines)
     # Only "alpha" matches "al"
@@ -1236,7 +1239,7 @@ def test_render_add_selector_filter_case_insensitive() -> None:
         BundleInfo(name="beta", path=Path("/b"), subdirectories=["hooks"]),
     ]
     lines = render_add_selector(
-        bundles, installed_names=set(), selected=0, filter_text="ALPHA"
+        bundles, installed_info={}, selected=0, filter_text="ALPHA"
     )
     bundle_lines = _extract_bundle_lines(lines)
     assert len(bundle_lines) == 1
@@ -1252,7 +1255,7 @@ def test_render_add_selector_empty_filter_shows_all() -> None:
         BundleInfo(name="beta", path=Path("/b"), subdirectories=["hooks"]),
     ]
     lines = render_add_selector(
-        bundles, installed_names=set(), selected=0, filter_text=""
+        bundles, installed_info={}, selected=0, filter_text=""
     )
     bundle_lines = _extract_bundle_lines(lines)
     assert len(bundle_lines) == 2
@@ -1266,7 +1269,7 @@ def test_render_add_selector_filter_text_displayed() -> None:
         BundleInfo(name="alpha", path=Path("/a"), subdirectories=["skills"]),
     ]
     lines = render_add_selector(
-        bundles, installed_names=set(), selected=0, filter_text="alp"
+        bundles, installed_info={}, selected=0, filter_text="alp"
     )
     # The filter text should appear somewhere in the output
     full_output = "\n".join(lines)
@@ -1430,7 +1433,7 @@ def test_property_filter_produces_correct_list(
     ]
     lines = render_add_selector(
         bundles,
-        installed_names=set(),
+        installed_info={},
         selected=0,
         filter_text=filter_text,
     )
@@ -1465,7 +1468,7 @@ def test_render_add_selector_multi_select_indicators() -> None:
     ]
     lines = render_add_selector(
         bundles,
-        installed_names=set(),
+        installed_info={},
         selected=1,
         multi_selected={0, 2},
     )
@@ -1514,7 +1517,7 @@ def test_render_add_selector_no_multi_select_no_indicators() -> None:
         BundleInfo(name="alpha", path=Path("/a"), subdirectories=["skills"]),
     ]
     lines = render_add_selector(
-        bundles, installed_names=set(), selected=0, multi_selected=None
+        bundles, installed_info={}, selected=0, multi_selected=None
     )
     bundle_lines = _extract_bundle_lines(lines)
     assert "[✓]" not in bundle_lines[0]
@@ -1549,7 +1552,7 @@ def test_property_selector_includes_header_and_instructions(
     bundles = [
         BundleInfo(name=n, path=Path(f"/{n}"), subdirectories=["skills"]) for n in names
     ]
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
     assert lines[0] == _ADD_HEADER
     assert lines[1] == _ADD_INSTRUCTIONS
     assert lines[2] == ""  # blank separator
@@ -1670,7 +1673,7 @@ def test_property_multi_select_correct_indicators(
     ]
     lines = render_add_selector(
         bundles,
-        installed_names=set(),
+        installed_info={},
         selected=0,
         multi_selected=selected_indices,
     )
@@ -1714,7 +1717,7 @@ def test_render_add_selector_ambiguous_shows_qualified() -> None:
             registry_name="first",
         ),
     ]
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
 
     bundle_lines = _extract_bundle_lines(lines)
     # "aws" appears in two registries → both shown with registry col
@@ -1747,7 +1750,7 @@ def test_render_add_selector_unique_shows_plain_name() -> None:
             registry_name="team",
         ),
     ]
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
 
     bundle_lines = _extract_bundle_lines(lines)
     # Two-column layout: name is primary, registry is secondary
@@ -1815,7 +1818,7 @@ def test_property_selector_qualifies_ambiguous_names(
             )
         )
 
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
     bundle_lines = _extract_bundle_lines(lines)
     full_output = _ANSI_RE.sub("", "\n".join(bundle_lines))
 
@@ -1895,7 +1898,7 @@ class TestSelectorColor:
         bundles = self._make_bundles(["alpha"])
         lines = render_add_selector(
             bundles,
-            installed_names=set(),
+            installed_info={},
             selected=0,
         )
         assert self.BOLD in lines[0], (
@@ -1916,7 +1919,7 @@ class TestSelectorColor:
         bundles = self._make_bundles(["alpha"])
         lines = render_add_selector(
             bundles,
-            installed_names=set(),
+            installed_info={},
             selected=0,
         )
         assert self.DIM in lines[1], (
@@ -1937,7 +1940,7 @@ class TestSelectorColor:
         bundles = self._make_bundles(["alpha", "beta"])
         lines = render_add_selector(
             bundles,
-            installed_names=set(),
+            installed_info={},
             selected=0,
         )
         # Extract bundle lines (skip group headers)
@@ -1968,7 +1971,7 @@ class TestSelectorColor:
         bundles = self._make_bundles(["alpha", "beta"])
         lines = render_add_selector(
             bundles,
-            installed_names={"alpha"},
+            installed_info={"alpha": {"global"}},
             selected=0,
         )
         alpha_line = [ln for ln in lines if "installed" in ln][0]
@@ -2007,7 +2010,7 @@ class TestSelectorColor:
         bundles = self._make_bundles(["alpha"])
         lines = render_add_selector(
             bundles,
-            installed_names=set(),
+            installed_info={},
             selected=0,
             filter_text="al",
         )
@@ -2034,7 +2037,7 @@ class TestSelectorColor:
         bundles = self._make_bundles(["alpha", "beta"])
         lines = render_add_selector(
             bundles,
-            installed_names={"alpha"},
+            installed_info={"alpha": {"global"}},
             selected=0,
             filter_text="al",
         )
@@ -2059,7 +2062,7 @@ class TestSelectorColor:
         bundles = self._make_bundles(["alpha", "beta"])
         lines = render_add_selector(
             bundles,
-            installed_names={"alpha"},
+            installed_info={"alpha": {"global"}},
             selected=0,
             filter_text="al",
         )
@@ -2429,6 +2432,7 @@ def test_preservation_add_selector_sorting_filtering_prefix(
             label="installed",
         )
     )
+    installed_info = {n: {"global"} for n in installed}
     filter_text = data.draw(
         st.sampled_from(["", names[0][:2]]),
         label="filter_text",
@@ -2484,7 +2488,7 @@ def test_preservation_add_selector_sorting_filtering_prefix(
 
     lines = render_add_selector(
         bundles,
-        installed_names=installed,
+        installed_info=installed_info,
         selected=selected,
         filter_text=filter_text,
         multi_selected=multi_selected,
@@ -2683,7 +2687,10 @@ def test_bug_condition_registry_column_alignment(
         )
         for n in names
     ]
-    lines = render_add_selector(bundles, installed_names=installed, selected=0)
+    installed_info = {n: {"global"} for n in installed}
+    lines = render_add_selector(
+        bundles, installed_info=installed_info, selected=0
+    )
     bundle_lines = lines[3:]
     bundle_lines = _extract_bundle_lines(lines)
 
@@ -2810,6 +2817,8 @@ def test_bug_condition_tui_registry_column_alignment(
     )
     from hypothesis import assume
 
+    from ksm.manifest import format_installed_badge
+
     assume(len(set(names) - installed) >= 1)
 
     bundles = [
@@ -2826,23 +2835,40 @@ def test_bug_condition_tui_registry_column_alignment(
         key=lambda b: (b.name.lower(), b.registry_name.lower()),
     )
     display_items = [(b.name, b) for b in sorted_bundles]
-    installed_names = installed
+    installed_info: dict[str, set[str]] = {
+        n: {"global"} for n in installed
+    }
 
     max_name = max(len(name) for name, _ in display_items)
 
-    badge_text = " [installed]"
-    any_installed = any(b.name in installed_names for _, b in display_items)
-    badge_width = len(badge_text) if any_installed else 0
+    badge_width = 0
+    if installed_info:
+        badge_width = max(
+            (
+                len(
+                    " "
+                    + format_installed_badge(
+                        installed_info.get(b.name, set())
+                    )
+                )
+                for _, b in display_items
+                if b.name in installed_info
+            ),
+            default=0,
+        )
 
     labels: list[Text] = []
     for _display, bundle in display_items:
-        is_installed = bundle.name in installed_names
+        is_installed = bundle.name in installed_info
+        badge_text = format_installed_badge(
+            installed_info.get(bundle.name, set())
+        )
         label = Text()
         label.append(_display.ljust(max_name), style="bold cyan")
         if badge_width:
             if is_installed:
                 label.append(
-                    badge_text.ljust(badge_width),
+                    (" " + badge_text).ljust(badge_width),
                     style="dim",
                 )
             else:
@@ -3235,7 +3261,7 @@ def test_property_group_headers_in_rendered_output(
         )
         for name, reg in bundles_data
     ]
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
 
     # Collect distinct registries from input
     registries = {reg for _, reg in bundles_data}
@@ -3332,7 +3358,7 @@ def test_property_filtering_hides_empty_groups(
 
     lines = render_add_selector(
         bundles,
-        installed_names=set(),
+        installed_info={},
         selected=0,
         filter_text=filter_text,
     )
@@ -3392,7 +3418,7 @@ def test_grouped_single_registry_shows_header() -> None:
             registry_name="default",
         ),
     ]
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
     content = lines[3:]
     plain = [_ANSI_RE.sub("", ln) for ln in content]
 
@@ -3427,7 +3453,7 @@ def test_grouped_multiple_registries_sorted_headers() -> None:
             registry_name="team",
         ),
     ]
-    lines = render_add_selector(bundles, installed_names=set(), selected=0)
+    lines = render_add_selector(bundles, installed_info={}, selected=0)
     content = lines[3:]
     plain = [_ANSI_RE.sub("", ln) for ln in content]
 
@@ -3456,7 +3482,7 @@ def test_grouped_filter_no_match_no_headers() -> None:
     ]
     lines = render_add_selector(
         bundles,
-        installed_names=set(),
+        installed_info={},
         selected=0,
         filter_text="zzz",
     )
@@ -3482,13 +3508,13 @@ def test_grouped_installed_label_within_groups() -> None:
             registry_name="team",
         ),
     ]
-    lines = render_add_selector(bundles, installed_names={"aws"}, selected=0)
+    lines = render_add_selector(bundles, installed_info={"aws": {"global"}}, selected=0)
     bundle_lines = _extract_bundle_lines(lines)
 
     aws_line = [ln for ln in bundle_lines if "aws" in ln][0]
     git_line = [ln for ln in bundle_lines if "git" in ln][0]
-    assert "[installed]" in aws_line
-    assert "[installed]" not in git_line
+    assert "[installed: global]" in aws_line
+    assert "[installed" not in git_line
 
 
 # --- Task 3.1.2: Property 5 — Continuous numbering in fallback ---
@@ -3623,7 +3649,7 @@ def test_fallback_multiple_registries_show_group_headers() -> None:
         patch("ksm.selector.sys") as mock_sys,
     ):
         mock_sys.stderr = stderr_buf
-        interactive_select(bundles, installed_names=set())
+        interactive_select(bundles, installed_info={})
 
     output = stderr_buf.getvalue()
     # Both registry group headers must appear
@@ -3671,7 +3697,7 @@ def test_fallback_continuous_numbering_across_groups() -> None:
         patch("ksm.selector.sys") as mock_sys,
     ):
         mock_sys.stderr = stderr_buf
-        result = interactive_select(bundles, installed_names=set())
+        result = interactive_select(bundles, installed_info={})
 
     output = stderr_buf.getvalue()
     # Numbers 1, 2, 3 should all appear
@@ -3714,7 +3740,7 @@ def test_fallback_single_registry_shows_header() -> None:
         patch("ksm.selector.sys") as mock_sys,
     ):
         mock_sys.stderr = stderr_buf
-        interactive_select(bundles, installed_names=set())
+        interactive_select(bundles, installed_info={})
 
     output = stderr_buf.getvalue()
     # The single registry header must appear
@@ -3811,7 +3837,7 @@ def test_integration_select_first_registry_group() -> None:
         patch("ksm.selector.sys") as mock_sys,
     ):
         mock_sys.stderr = stderr_buf
-        result = interactive_select(bundles, installed_names=set())
+        result = interactive_select(bundles, installed_info={})
 
     assert result == ["default/alpha"]
 
@@ -3857,7 +3883,7 @@ def test_integration_select_second_registry_group() -> None:
         patch("ksm.selector.sys") as mock_sys,
     ):
         mock_sys.stderr = stderr_buf
-        result = interactive_select(bundles, installed_names=set())
+        result = interactive_select(bundles, installed_info={})
 
     assert result == ["team/zulu"]
 
@@ -3912,7 +3938,7 @@ def test_integration_selection_index_maps_through_groups() -> None:
         patch("ksm.selector.sys") as mock_sys,
     ):
         mock_sys.stderr = stderr_buf
-        result = interactive_select(bundles, installed_names=set())
+        result = interactive_select(bundles, installed_info={})
 
     assert result == ["alpha-reg/epsilon"]
 
@@ -3928,7 +3954,7 @@ def test_integration_selection_index_maps_through_groups() -> None:
         patch("ksm.selector.sys") as mock_sys,
     ):
         mock_sys.stderr = stderr_buf2
-        result = interactive_select(bundles, installed_names=set())
+        result = interactive_select(bundles, installed_info={})
 
     assert result == ["beta-reg/zeta"]
 

@@ -13,7 +13,7 @@ from pathlib import Path
 
 from ksm.color import SYM_CHECK, info, muted, subtle, success
 from ksm.registry import RegistryIndex
-from ksm.manifest import Manifest
+from ksm.manifest import Manifest, build_installed_info
 from ksm.scanner import scan_registry
 from ksm.selector import interactive_select
 
@@ -59,7 +59,7 @@ def run_init(
             )
 
         if all_bundles:
-            installed = {e.bundle_name for e in manifest.entries}
-            interactive_select(all_bundles, installed)
+            installed_info = build_installed_info(manifest, str(target_dir.resolve()))
+            interactive_select(all_bundles, installed_info)
 
     return 0

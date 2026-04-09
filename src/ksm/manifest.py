@@ -4,6 +4,7 @@ Manages the persistent install manifest (manifest.json) that tracks
 which bundles are installed, their source, scope, and file paths.
 """
 
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -132,3 +133,42 @@ def backfill_workspace_paths(
                     updated = True
                     break
     return updated
+
+
+def build_installed_info(
+    manifest: Manifest,
+    workspace_path: str,
+) -> dict[str, set[str]]:
+    """Build workspace-aware installed info mapping.
+
+    Returns a dict mapping bundle names to sets of scope labels
+    ("local", "global") relevant to the given workspace_path.
+
+    Global entries are always included. Local entries are only
+    included when their workspace_path matches the provided
+    workspace_path.
+    """
+    result: dict[str, set[str]] = defaultdict(set)
+    for entry in manifest.entries:
+        if entry.scope == "global":
+            result[entry.bundle_name].add("global")
+        elif entry.scope == "local" and entry.workspace_path == workspace_path:
+            result[entry.bundle_name].add("local")
+    return dict(result)
+
+
+def format_installed_badge(scopes: set[str]) -> str:
+    """Format a human-readable installed badge from scope labels.
+
+    Returns "" for empty set, "[installed: local]" for {"local"},
+    "[installed: global]" for {"global"}, or
+    "[installed: local, global]" for {"local", "global"}.
+    """
+    if not scopes:
+        return ""
+    parts: list[str] = []
+    if "local" in scopes:
+        parts.append("local")
+    if "global" in scopes:
+        parts.append("global")
+    return f"[installed: {', '.join(parts)}]"

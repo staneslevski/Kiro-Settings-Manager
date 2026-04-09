@@ -157,7 +157,8 @@ def test_run_rm_display_launches_removal_selector(
     ksm_dir = tmp_path / "ksm"
     ksm_dir.mkdir(parents=True)
 
-    entry = _make_entry("aws", files=["skills/f.md"])
+    ws_path = str((tmp_path / "workspace").resolve())
+    entry = _make_entry("aws", files=["skills/f.md"], workspace_path=ws_path)
     manifest = Manifest(entries=[entry])
 
     args = _make_args(bundle_name=None, interactive=True)
@@ -636,7 +637,8 @@ def test_run_rm_interactive_confirmation_y(
     ksm_dir = tmp_path / "ksm"
     ksm_dir.mkdir(parents=True)
 
-    entry = _make_entry("aws", files=["skills/f.md"])
+    ws_path = str((tmp_path / "workspace").resolve())
+    entry = _make_entry("aws", files=["skills/f.md"], workspace_path=ws_path)
     manifest = Manifest(entries=[entry])
 
     args = _make_args(bundle_name=None, interactive=True, yes=False)
@@ -674,7 +676,8 @@ def test_run_rm_interactive_confirmation_n(
     ksm_dir = tmp_path / "ksm"
     ksm_dir.mkdir(parents=True)
 
-    entry = _make_entry("aws", files=["skills/f.md"])
+    ws_path = str((tmp_path / "workspace").resolve())
+    entry = _make_entry("aws", files=["skills/f.md"], workspace_path=ws_path)
     manifest = Manifest(entries=[entry])
 
     args = _make_args(bundle_name=None, interactive=True, yes=False)
@@ -705,7 +708,8 @@ def test_run_rm_interactive_confirmation_eof(
     """run_rm --interactive without --yes handles EOFError."""
     from ksm.commands.rm import run_rm
 
-    entry = _make_entry("aws", files=["skills/f.md"])
+    ws_path = str((tmp_path / "local").parent.resolve())
+    entry = _make_entry("aws", files=["skills/f.md"], workspace_path=ws_path)
     manifest = Manifest(entries=[entry])
 
     args = _make_args(bundle_name=None, interactive=True, yes=False)
@@ -736,7 +740,8 @@ def test_run_rm_interactive_tty_check_blocks(
     """run_rm --interactive blocks when stdin is not TTY."""
     from ksm.commands.rm import run_rm
 
-    entry = _make_entry("aws", files=["skills/f.md"])
+    ws_path = str((tmp_path / "local").parent.resolve())
+    entry = _make_entry("aws", files=["skills/f.md"], workspace_path=ws_path)
     manifest = Manifest(entries=[entry])
 
     args = _make_args(bundle_name=None, interactive=True, yes=False)
@@ -772,7 +777,8 @@ def test_run_rm_interactive_dry_run(
     (target / "skills").mkdir(parents=True)
     (target / "skills" / "f.md").write_bytes(b"data")
 
-    entry = _make_entry("aws", files=["skills/f.md"])
+    ws_path = str((tmp_path / "workspace").resolve())
+    entry = _make_entry("aws", files=["skills/f.md"], workspace_path=ws_path)
     manifest = Manifest(entries=[entry])
 
     args = _make_args(bundle_name=None, interactive=True, yes=True, dry_run=True)
@@ -806,12 +812,17 @@ class TestRmDisplayDeprecation:
         """--display prints deprecation warning to stderr (Req 5.6)."""
         from ksm.commands.rm import run_rm
 
-        entry = _make_entry("aws", files=["skills/f.md"])
-        manifest = Manifest(entries=[entry])
-
         target = tmp_path / "workspace" / ".kiro"
         (target / "skills").mkdir(parents=True)
         (target / "skills" / "f.md").write_bytes(b"data")
+
+        ws_path = str((tmp_path / "workspace").resolve())
+        entry = _make_entry(
+            "aws",
+            files=["skills/f.md"],
+            workspace_path=ws_path,
+        )
+        manifest = Manifest(entries=[entry])
 
         args = _make_args(
             bundle_name=None,
@@ -844,7 +855,8 @@ class TestRmDisplayDeprecation:
         """--display behaves as -i, launching selector (Req 5.2)."""
         from ksm.commands.rm import run_rm
 
-        entry = _make_entry("aws", files=["skills/f.md"])
+        ws_path = str((tmp_path / "workspace").resolve())
+        entry = _make_entry("aws", files=["skills/f.md"], workspace_path=ws_path)
         manifest = Manifest(entries=[entry])
 
         target = tmp_path / "workspace" / ".kiro"
@@ -879,7 +891,8 @@ class TestRmDisplayDeprecation:
         """rm -i launches interactive selector (Req 5.8)."""
         from ksm.commands.rm import run_rm
 
-        entry = _make_entry("aws", files=["skills/f.md"])
+        ws_path = str((tmp_path / "workspace").resolve())
+        entry = _make_entry("aws", files=["skills/f.md"], workspace_path=ws_path)
         manifest = Manifest(entries=[entry])
 
         target = tmp_path / "workspace" / ".kiro"
@@ -952,12 +965,17 @@ class TestRmDisplayDeprecation:
         """--display deprecation warning includes version numbers."""
         from ksm.commands.rm import run_rm
 
-        entry = _make_entry("aws", files=["skills/f.md"])
-        manifest = Manifest(entries=[entry])
-
         target = tmp_path / "workspace" / ".kiro"
         (target / "skills").mkdir(parents=True)
         (target / "skills" / "f.md").write_bytes(b"data")
+
+        ws_path = str((tmp_path / "workspace").resolve())
+        entry = _make_entry(
+            "aws",
+            files=["skills/f.md"],
+            workspace_path=ws_path,
+        )
+        manifest = Manifest(entries=[entry])
 
         args = _make_args(
             bundle_name=None,
@@ -1494,7 +1512,13 @@ class TestRmInteractiveScopeBehavior:
         ksm_dir = tmp_path / "ksm"
         ksm_dir.mkdir(parents=True)
 
-        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        ws_path = str((tmp_path / "workspace").resolve())
+        entry = _make_entry(
+            "aws",
+            scope="local",
+            files=["skills/f.md"],
+            workspace_path=ws_path,
+        )
         manifest = Manifest(entries=[entry])
 
         args = _make_args(bundle_name=None, interactive=True)
@@ -1582,7 +1606,13 @@ class TestRmInteractiveScopeBehavior:
         ksm_dir = tmp_path / "ksm"
         ksm_dir.mkdir(parents=True)
 
-        entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        ws_path = str((tmp_path / "workspace").resolve())
+        entry = _make_entry(
+            "aws",
+            scope="local",
+            files=["skills/f.md"],
+            workspace_path=ws_path,
+        )
         manifest = Manifest(entries=[entry])
 
         args = _make_args(bundle_name=None, interactive=True)
@@ -1623,7 +1653,13 @@ class TestRmInteractiveScopeBehavior:
         ksm_dir = tmp_path / "ksm"
         ksm_dir.mkdir(parents=True)
 
-        local_entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        ws_path = str((tmp_path / "workspace").resolve())
+        local_entry = _make_entry(
+            "aws",
+            scope="local",
+            files=["skills/f.md"],
+            workspace_path=ws_path,
+        )
         global_entry = _make_entry("cli", scope="global", files=["skills/g.md"])
         manifest = Manifest(entries=[local_entry, global_entry])
 
@@ -1714,7 +1750,13 @@ class TestRmInteractiveScopeBehavior:
         ksm_dir = tmp_path / "ksm"
         ksm_dir.mkdir(parents=True)
 
-        local_entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+        ws_path = str((tmp_path / "workspace").resolve())
+        local_entry = _make_entry(
+            "aws",
+            scope="local",
+            files=["skills/f.md"],
+            workspace_path=ws_path,
+        )
         global_entry = _make_entry("cli", scope="global", files=["skills/g.md"])
         manifest = Manifest(entries=[local_entry, global_entry])
 
