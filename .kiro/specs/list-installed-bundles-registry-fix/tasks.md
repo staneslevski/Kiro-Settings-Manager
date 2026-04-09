@@ -42,7 +42,7 @@
   - Mark task complete when tests are written, run, and passing on unfixed code
   - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 3. Fix for multi-workspace local bundle removal
+- [x] 3. Fix for multi-workspace local bundle removal
 
   - [x] 3.1 Implement the fix
     - Modify the list comprehension in `remove_bundle()` in `src/ksm/remover.py` (lines 62-65)
@@ -63,7 +63,7 @@
     - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
     - _Requirements: 2.1, 2.2_
 
-  - [ ] 3.3 Verify preservation tests still pass
+  - [x] 3.3 Verify preservation tests still pass
     - **Property 2: Preservation** - Single-workspace and global removal unchanged
     - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
     - Run preservation property tests from step 2
@@ -71,7 +71,7 @@
     - Confirm all tests still pass after fix (no regressions)
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 4. Checkpoint - Ensure all tests pass
+- [x] 4. Checkpoint - Ensure all tests pass
   - Run the full test suite (`pytest tests/`) to verify no regressions
   - Run linting (`black`, `flake8`, `mypy`) on changed files
   - Ensure all tests pass, ask the user if questions arise
