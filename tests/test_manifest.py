@@ -432,3 +432,176 @@ def test_backfill_returns_true_when_updated_false_otherwise(
 
     # Second call: entry already backfilled, nothing to update
     assert backfill_workspace_paths(manifest_with_match, ws) is False
+
+
+# --- find_entries tests ---
+
+
+def test_find_entries_global_scope_matches_by_name_and_scope() -> None:
+    """Global scope returns match by (bundle_name, scope) only."""
+    from ksm.manifest import find_entries
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="global",
+                installed_files=["steering/AWS-IAM.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+            ),
+        ]
+    )
+
+    result = find_entries(manifest, "aws", "global")
+    assert len(result) == 1
+    assert result[0].bundle_name == "aws"
+    assert result[0].scope == "global"
+
+
+def test_find_entries_local_with_workspace_returns_matching_entry() -> None:
+    """Local scope with workspace_path returns only the matching
+    workspace entry."""
+    from ksm.manifest import find_entries
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path="/home/user/project-a",
+            ),
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python.md"],
+                installed_at="2025-01-16T10:30:00Z",
+                updated_at="2025-01-16T10:30:00Z",
+                workspace_path="/home/user/project-b",
+            ),
+        ]
+    )
+
+    result = find_entries(manifest, "python_dev", "local", "/home/user/project-a")
+    assert len(result) == 1
+    assert result[0].workspace_path == "/home/user/project-a"
+
+
+def test_find_entries_local_with_none_workspace_falls_back() -> None:
+    """Local scope with workspace_path=None falls back to
+    (bundle_name, scope) matching, returning all local entries."""
+    from ksm.manifest import find_entries
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+                workspace_path="/home/user/project-a",
+            ),
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python.md"],
+                installed_at="2025-01-16T10:30:00Z",
+                updated_at="2025-01-16T10:30:00Z",
+                workspace_path="/home/user/project-b",
+            ),
+        ]
+    )
+
+    result = find_entries(manifest, "python_dev", "local", None)
+    assert len(result) == 2
+
+
+def test_find_entries_no_match_returns_empty_list() -> None:
+    """No match returns empty list."""
+    from ksm.manifest import find_entries
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="global",
+                installed_files=["steering/AWS-IAM.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+            ),
+        ]
+    )
+
+    result = find_entries(manifest, "nonexistent", "global")
+    assert result == []
+
+
+def test_find_entries_multiple_entries_returns_correct_one() -> None:
+    """With multiple entries, only the correct one is returned."""
+    from ksm.manifest import find_entries
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="global",
+                installed_files=["steering/AWS-IAM.md"],
+                installed_at="2025-01-15T10:30:00Z",
+                updated_at="2025-01-15T10:30:00Z",
+            ),
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python.md"],
+                installed_at="2025-01-16T10:30:00Z",
+                updated_at="2025-01-16T10:30:00Z",
+                workspace_path="/home/user/project-a",
+            ),
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python2.md"],
+                installed_at="2025-01-17T10:30:00Z",
+                updated_at="2025-01-17T10:30:00Z",
+                workspace_path="/home/user/project-b",
+            ),
+            ManifestEntry(
+                bundle_name="git_and_github",
+                source_registry="default",
+                scope="local",
+                installed_files=["skills/github-pr/SKILL.md"],
+                installed_at="2025-01-18T10:30:00Z",
+                updated_at="2025-01-18T10:30:00Z",
+                workspace_path="/home/user/project-a",
+            ),
+        ]
+    )
+
+    # Global lookup
+    result = find_entries(manifest, "aws", "global")
+    assert len(result) == 1
+    assert result[0].bundle_name == "aws"
+
+    # Local lookup with workspace
+    result = find_entries(manifest, "python_dev", "local", "/home/user/project-b")
+    assert len(result) == 1
+    assert result[0].workspace_path == "/home/user/project-b"
+    assert result[0].installed_files == ["steering/python2.md"]
+
+    # Different bundle in same workspace
+    result = find_entries(manifest, "git_and_github", "local", "/home/user/project-a")
+    assert len(result) == 1
+    assert result[0].bundle_name == "git_and_github"

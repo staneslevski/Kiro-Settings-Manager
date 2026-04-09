@@ -18,6 +18,7 @@ def _make_entry(
     scope: str = "local",
     source: str = "default",
     files: list[str] | None = None,
+    workspace_path: str | None = None,
 ) -> ManifestEntry:
     return ManifestEntry(
         bundle_name=name,
@@ -26,6 +27,7 @@ def _make_entry(
         installed_files=files or ["skills/f.md"],
         installed_at="2025-01-01T00:00:00Z",
         updated_at="2025-01-01T00:00:00Z",
+        workspace_path=workspace_path,
     )
 
 
@@ -55,7 +57,15 @@ def test_run_rm_removes_files_and_updates_manifest(
     ksm_dir = tmp_path / "ksm"
     ksm_dir.mkdir(parents=True)
 
-    manifest = Manifest(entries=[_make_entry("aws", files=["skills/f.md"])])
+    manifest = Manifest(
+        entries=[
+            _make_entry(
+                "aws",
+                files=["skills/f.md"],
+                workspace_path=str(target.parent.resolve()),
+            )
+        ]
+    )
 
     args = _make_args()
     code = run_rm(
@@ -83,7 +93,14 @@ def test_run_rm_local_scope(tmp_path: Path) -> None:
     ksm_dir.mkdir(parents=True)
 
     manifest = Manifest(
-        entries=[_make_entry("aws", scope="local", files=["skills/f.md"])]
+        entries=[
+            _make_entry(
+                "aws",
+                scope="local",
+                files=["skills/f.md"],
+                workspace_path=str(target_local.parent.resolve()),
+            )
+        ]
     )
 
     args = _make_args(local=True)
@@ -221,7 +238,7 @@ def test_run_rm_display_quit_exits_zero(
     from ksm.commands.rm import run_rm
 
     manifest = Manifest(entries=[_make_entry("aws", "local", "default")])
-    args = _make_args(interactive=True)
+    args = _make_args(bundle_name=None, interactive=True)
 
     with patch(
         "ksm.commands.rm.interactive_removal_select",
@@ -323,8 +340,16 @@ def test_property_rm_scope_flag_determines_target(
         (target / "skills").mkdir(parents=True)
         (target / "skills" / "f.md").write_bytes(b"data")
 
+        ws_path = None if use_global else str(target_local.parent.resolve())
         manifest = Manifest(
-            entries=[_make_entry("b", scope=scope, files=["skills/f.md"])]
+            entries=[
+                _make_entry(
+                    "b",
+                    scope=scope,
+                    files=["skills/f.md"],
+                    workspace_path=ws_path,
+                )
+            ]
         )
 
         args = _make_args(
@@ -410,7 +435,12 @@ def test_property_non_y_input_aborts_removal(
         ksm_dir = base / "ksm"
         ksm_dir.mkdir(parents=True)
 
-        entry = _make_entry("bundle", scope="local", files=["skills/f.md"])
+        entry = _make_entry(
+            "bundle",
+            scope="local",
+            files=["skills/f.md"],
+            workspace_path=str(target.parent.resolve()),
+        )
         manifest = Manifest(entries=[entry])
         original_count = len(manifest.entries)
 
@@ -499,7 +529,12 @@ def test_property_tty_check_blocks_prompt_rm(
         ksm_dir = base / "ksm"
         ksm_dir.mkdir(parents=True)
 
-        entry = _make_entry(bundle_name, scope="local", files=["skills/f.md"])
+        entry = _make_entry(
+            bundle_name,
+            scope="local",
+            files=["skills/f.md"],
+            workspace_path=str(target.parent.resolve()),
+        )
         manifest = Manifest(entries=[entry])
         original_count = len(manifest.entries)
 
@@ -551,7 +586,13 @@ def test_property_dry_run_rm_does_not_modify_state(
         ksm_dir = base / "ksm"
         ksm_dir.mkdir(parents=True)
 
-        entry = _make_entry(bundle_name, scope=scope, files=["skills/f.md"])
+        ws_path = None if scope == "global" else str(target_local.parent.resolve())
+        entry = _make_entry(
+            bundle_name,
+            scope=scope,
+            files=["skills/f.md"],
+            workspace_path=ws_path,
+        )
         manifest = Manifest(entries=[entry])
         original_count = len(manifest.entries)
 
@@ -873,12 +914,16 @@ class TestRmDisplayDeprecation:
         """-i ignored when bundle_name provided, stderr msg (Req 5.10)."""
         from ksm.commands.rm import run_rm
 
-        entry = _make_entry("aws", files=["skills/f.md"])
-        manifest = Manifest(entries=[entry])
-
         target = tmp_path / "workspace" / ".kiro"
         (target / "skills").mkdir(parents=True)
         (target / "skills" / "f.md").write_bytes(b"data")
+
+        entry = _make_entry(
+            "aws",
+            files=["skills/f.md"],
+            workspace_path=str(target.parent.resolve()),
+        )
+        manifest = Manifest(entries=[entry])
 
         args = _make_args(
             bundle_name="aws",
@@ -945,7 +990,11 @@ def test_run_rm_eof_aborts(tmp_path: Path) -> None:
     (target / "skills").mkdir(parents=True)
     (target / "skills" / "f.md").write_bytes(b"data")
 
-    entry = _make_entry("aws", files=["skills/f.md"])
+    entry = _make_entry(
+        "aws",
+        files=["skills/f.md"],
+        workspace_path=str(target.parent.resolve()),
+    )
     manifest = Manifest(entries=[entry])
 
     args = _make_args(bundle_name="aws", yes=False)

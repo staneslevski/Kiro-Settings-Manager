@@ -13,7 +13,7 @@ from typing import TextIO
 
 from ksm.color import SYM_CHECK, accent, bold, info, muted, success
 from ksm.errors import format_deprecation, format_error, format_warning
-from ksm.manifest import Manifest, ManifestEntry, save_manifest
+from ksm.manifest import Manifest, ManifestEntry, find_entries, save_manifest
 from ksm.remover import RemovalResult, remove_bundle
 from ksm.selector import interactive_removal_select
 
@@ -214,10 +214,12 @@ def run_rm(
     scope = "global" if getattr(args, "global_", False) else "local"
     target_dir = target_global if scope == "global" else target_local
 
-    # Find matching manifest entry
-    matches = [
-        e for e in manifest.entries if e.bundle_name == bundle_name and e.scope == scope
-    ]
+    # Find matching manifest entry (workspace-aware for local scope)
+    if scope == "local":
+        workspace_path = str(target_local.parent.resolve())
+        matches = find_entries(manifest, bundle_name, scope, workspace_path)
+    else:
+        matches = find_entries(manifest, bundle_name, scope)
 
     if not matches:
         print(

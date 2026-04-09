@@ -10,7 +10,7 @@ from pathlib import Path
 
 from ksm.copier import CopyResult, copy_file, copy_tree
 from ksm.dot_notation import DotSelection
-from ksm.manifest import Manifest, ManifestEntry
+from ksm.manifest import Manifest, ManifestEntry, find_entries
 from ksm.resolver import ResolvedBundle
 from ksm.scanner import RECOGNISED_SUBDIRS
 
@@ -146,9 +146,7 @@ def _update_manifest(
     """Add or update a manifest entry for the installed bundle."""
     now = datetime.now(timezone.utc).isoformat()
 
-    existing = [
-        e for e in manifest.entries if e.bundle_name == bundle_name and e.scope == scope
-    ]
+    existing = find_entries(manifest, bundle_name, scope, workspace_path)
 
     if existing:
         entry = existing[0]

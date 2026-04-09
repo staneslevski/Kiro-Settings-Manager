@@ -7,7 +7,7 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "You MUST use the git-manager agent for all git and GitHub operations in this hook. Do not perform git or gh commands directly yourself — delegate everything to the git-manager agent.\n\n1. Stage and commit: Ask the git-manager agent to run `git add -A` to stage all changes, then commit with a clear summary commit message.\n\n2. Push: Ask the git-manager agent to push the current branch to origin.\n\n3. Pull request: Ask the git-manager agent to check if there is already an open pull request for the current branch. If no PR exists, ask it to create one targeting `main`. The PR title should match the commit message and the body should summarise the changes. If a PR already exists, skip PR creation. All PRs MUST target `main` unless the user has given explicit instruction to target a different branch."
+    "prompt": "You MUST use the git-manager agent for all git and GitHub operations in this hook. Do not perform git or gh commands directly yourself — delegate everything to the git-manager agent.\n\n1. Stage and commit: Ask the git-manager agent to run `git add -A` to stage all changes, then commit with a clear summary commit message."
   },
   "workspaceFolderName": "Kiro-Settings-Manager",
   "shortName": "manual-commit"

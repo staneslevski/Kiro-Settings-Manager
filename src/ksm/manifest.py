@@ -82,6 +82,32 @@ def save_manifest(manifest: Manifest, path: Path) -> None:
     write_json(path, data)
 
 
+def find_entries(
+    manifest: Manifest,
+    bundle_name: str,
+    scope: str,
+    workspace_path: str | None = None,
+) -> list[ManifestEntry]:
+    """Find manifest entries with workspace-aware matching.
+
+    For local scope with a workspace_path, matches on
+    (bundle_name, scope, workspace_path).
+    For global scope or when workspace_path is None, matches
+    on (bundle_name, scope) only.
+    """
+    if scope == "local" and workspace_path is not None:
+        return [
+            e
+            for e in manifest.entries
+            if e.bundle_name == bundle_name
+            and e.scope == scope
+            and e.workspace_path == workspace_path
+        ]
+    return [
+        e for e in manifest.entries if e.bundle_name == bundle_name and e.scope == scope
+    ]
+
+
 def backfill_workspace_paths(
     manifest: Manifest,
     workspace_dir: Path,

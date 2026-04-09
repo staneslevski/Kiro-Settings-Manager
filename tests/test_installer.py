@@ -360,10 +360,11 @@ def test_local_scope_updates_workspace_path_on_existing_entry(
         source_label="default",
     )
 
-    assert len(manifest.entries) == 1
-    entry = manifest.entries[0]
-    expected_ws = str((tmp_path / "project-b").resolve())
-    assert entry.workspace_path == expected_ws
+    assert len(manifest.entries) == 2
+    expected_ws_a = str((tmp_path / "project-a").resolve())
+    expected_ws_b = str((tmp_path / "project-b").resolve())
+    ws_paths = {e.workspace_path for e in manifest.entries}
+    assert ws_paths == {expected_ws_a, expected_ws_b}
 
 
 def test_global_scope_leaves_workspace_path_none(

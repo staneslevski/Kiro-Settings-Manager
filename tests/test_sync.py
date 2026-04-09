@@ -303,12 +303,14 @@ def test_sync_updates_manifest_timestamp(
         ]
     )
     old_ts = "2020-01-01T00:00:00Z"
+    ws_path = str((tmp_path / "target").resolve())
     manifest = Manifest(
         entries=[
             _make_entry("aws", files=["skills/f.md"]),
         ]
     )
     manifest.entries[0].updated_at = old_ts
+    manifest.entries[0].workspace_path = ws_path
 
     args = _make_args(bundle_names=["aws"], yes=True)
     before = datetime.now(timezone.utc)
@@ -813,8 +815,10 @@ def test_property_sync_updates_timestamp(
             ]
         )
         old_ts = "2020-01-01T00:00:00+00:00"
+        ws_path = str((base / "target").resolve())
         manifest = Manifest(entries=[_make_entry("b", files=["skills/f.md"])])
         manifest.entries[0].updated_at = old_ts
+        manifest.entries[0].workspace_path = ws_path
 
         before = datetime.now(timezone.utc)
         args = _make_args(bundle_names=["b"], yes=True)
