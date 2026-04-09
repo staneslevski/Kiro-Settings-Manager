@@ -61,7 +61,13 @@ def remove_bundle(
     manifest.entries = [
         e
         for e in manifest.entries
-        if not (e.bundle_name == entry.bundle_name and e.scope == entry.scope)
+        if not (
+            e.bundle_name == entry.bundle_name
+            and e.scope == entry.scope
+            and (
+                entry.workspace_path is None or e.workspace_path == entry.workspace_path
+            )
+        )
     ]
 
     return result

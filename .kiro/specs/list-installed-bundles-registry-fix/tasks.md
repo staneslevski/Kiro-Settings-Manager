@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Write bug condition exploration test
+- [x] 1. Write bug condition exploration test
   - **Property 1: Bug Condition** - Multi-workspace local removal removes all entries
   - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
   - **DO NOT attempt to fix the test or the code when it fails**
@@ -21,7 +21,7 @@
   - Mark task complete when test is written, run, and failure is documented
   - _Requirements: 1.1, 1.2, 2.1, 2.2_
 
-- [ ] 2. Write preservation property tests (BEFORE implementing fix)
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
   - **Property 2: Preservation** - Single-workspace and global removal unchanged
   - **IMPORTANT**: Follow observation-first methodology
   - Observe behavior on UNFIXED code for non-buggy inputs:
@@ -44,7 +44,7 @@
 
 - [ ] 3. Fix for multi-workspace local bundle removal
 
-  - [ ] 3.1 Implement the fix
+  - [x] 3.1 Implement the fix
     - Modify the list comprehension in `remove_bundle()` in `src/ksm/remover.py` (lines 62-65)
     - Add `workspace_path` comparison to the filter predicate for local-scoped entries with non-`None` `workspace_path`
     - The filter should keep entries that do NOT match on all three fields (`bundle_name`, `scope`, and `workspace_path`) when `entry.workspace_path` is not `None`
@@ -54,7 +54,7 @@
     - _Preservation: Global removal, single-workspace local removal, legacy None workspace_path removal, file deletion, and directory cleanup all unchanged_
     - _Requirements: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3, 3.4_
 
-  - [ ] 3.2 Verify bug condition exploration test now passes
+  - [x] 3.2 Verify bug condition exploration test now passes
     - **Property 1: Expected Behavior** - Multi-workspace local removal preserves other workspaces
     - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
     - The test from task 1 encodes the expected behavior
