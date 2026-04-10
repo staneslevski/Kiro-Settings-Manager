@@ -303,15 +303,35 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # --- ide2cli ---
+    _ide2cli_desc = (
+        "Convert Kiro IDE-format agent and hook files to\n"
+        "CLI-compatible JSON. Scans both the workspace .kiro/\n"
+        "and global ~/.kiro/ directories in a single pass.\n"
+        "The IDE files remain the source of truth; the CLI\n"
+        "JSON files are derived output.\n"
+        "\n"
+        "Agents: .md files in agents/ with YAML frontmatter\n"
+        "(name, description, tools) are converted to .json\n"
+        "files in the same directory. IDE tool names are\n"
+        "mapped automatically (e.g. read -> fs_read).\n"
+        "\n"
+        "Hooks: .kiro.hook files in hooks/ are converted to a\n"
+        "grouped _cli_hooks.json file. Event types are mapped\n"
+        "(e.g. promptSubmit -> userPromptSubmit). Hooks with\n"
+        "enabled: false are skipped. Hook types without a CLI\n"
+        "equivalent are skipped with a warning.\n"
+        "\n"
+        "Skills and steering use identical formats on both\n"
+        "platforms and need no conversion.\n"
+        "\n"
+        "The command is idempotent — running it multiple times\n"
+        "on unchanged input produces identical output."
+    )
     sub.add_parser(
         "ide2cli",
-        help="Convert IDE config files to CLI format",
-        description=(
-            "Convert Kiro IDE-format agent and hook files to "
-            "CLI-compatible JSON format. Scans both the "
-            "workspace .kiro/ and global ~/.kiro/ directories. "
-            "The IDE markdown files remain the source of truth."
-        ),
+        help="Convert IDE agent/hook files to CLI JSON",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=_ide2cli_desc,
     )
 
     # Hide short aliases from the top-level choices metavar
