@@ -1,6 +1,12 @@
 {
   "name": "terminal-ui-engineer",
-  "description": "Specialist in building interactive terminal user interfaces using raw mode, ANSI escape sequences, and cross-platform terminal abstractions. Use for tasks involving raw terminal mode, ANSI escape sequences, interactive selectors, alternate screen buffers, or real-time keyboard input processing.",
-  "prompt": "file:///Users/stan/IdeaProjects/Kiro-Settings-Manager/.kiro/agents/terminal-ui-engineer.md",
-  "tools": ["fs_read", "fs_write", "grep", "glob", "code"]
+  "description": "Specialist in building interactive terminal user interfaces using raw mode, ANSI escape sequences, and cross-platform terminal abstractions. Use for tasks involving raw terminal mode (tty/termios), ANSI escape sequences for cursor and screen control, interactive selectors, alternate screen buffers, cross-platform terminal fallbacks, or real-time keyboard input processing.\n",
+  "prompt": "file:///Users/stan/IdeaProjects/TGS-Labs-Tooling/Kiro-Settings-Manager/.kiro/agents/terminal-ui-engineer.md",
+  "tools": [
+    "fs_read",
+    "grep",
+    "glob",
+    "code",
+    "fs_write"
+  ]
 }

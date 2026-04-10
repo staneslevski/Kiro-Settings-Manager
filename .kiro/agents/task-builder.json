@@ -1,7 +1,7 @@
 {
-  "name": "task-agent-matcher",
+  "name": "task-builder",
   "description": "Builds the tasks.md implementation plan for Kiro's spec-driven development workflow. Use this agent when a spec's requirements.md and design.md are complete and you need to produce a structured tasks.md. Invoke with the path to the spec directory (e.g. .kiro/specs/my-feature/). The agent reads requirements, design, and any referenced documents, then produces a dependency-ordered, TDD-based task list with agent assignments. Do not use for executing tasks or writing code.\n",
-  "prompt": "file:///Users/stan/IdeaProjects/TGS-Labs-Tooling/Kiro-Settings-Manager/.kiro/agents/task-agent-matcher.md",
+  "prompt": "file:///Users/stan/IdeaProjects/TGS-Labs-Tooling/Kiro-Settings-Manager/.kiro/agents/task-builder.md",
   "tools": [
     "fs_read",
     "grep",
