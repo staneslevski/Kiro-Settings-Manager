@@ -30,7 +30,7 @@ from ksm.git_ops import (
 )
 from ksm.commands.ide2cli import auto_convert
 from ksm.installer import install_bundle
-from ksm.manifest import Manifest, build_installed_info, save_manifest
+from ksm.manifest import Manifest, build_installed_info, find_entries, save_manifest
 from ksm.registry import RegistryEntry, RegistryIndex
 from ksm.resolver import (
     parse_qualified_name,
@@ -363,9 +363,7 @@ def run_add(
 
     # Check dot notation item exists
     if dot_selection is not None:
-        item_path = (
-            resolved.path / dot_selection.subdirectory / dot_selection.item_name
-        )
+        item_path = resolved.path / dot_selection.subdirectory / dot_selection.item_name
         if not item_path.exists():
             print(
                 format_error(
@@ -407,11 +405,18 @@ def run_add(
             format_diff_summary(results, stream=sys.stderr),
             file=sys.stderr,
         )
-        rel = [
-            str(r.path.relative_to(target_dir))
-            for r in results
-        ]
-        auto_convert(target_dir, rel)
+        rel = [str(r.path.relative_to(target_dir)) for r in results]
+        generated = auto_convert(target_dir, rel)
+        if generated:
+            ws = str(target_dir.parent.resolve()) if scope == "local" else None
+            entries = find_entries(
+                manifest,
+                resolved.name,
+                scope,
+                ws,
+            )
+            if entries:
+                entries[0].installed_files.extend(generated)
 
     save_manifest(manifest, manifest_path)
     return 0
@@ -523,11 +528,18 @@ def _handle_ephemeral(
                 format_diff_summary(results, stream=sys.stderr),
                 file=sys.stderr,
             )
-            rel = [
-                str(r.path.relative_to(target_dir))
-                for r in results
-            ]
-            auto_convert(target_dir, rel)
+            rel = [str(r.path.relative_to(target_dir)) for r in results]
+            generated = auto_convert(target_dir, rel)
+            if generated:
+                ws = str(target_dir.parent.resolve()) if scope == "local" else None
+                entries = find_entries(
+                    manifest,
+                    bundle_name,
+                    scope,
+                    ws,
+                )
+                if entries:
+                    entries[0].installed_files.extend(generated)
 
         save_manifest(manifest, manifest_path)
         return 0

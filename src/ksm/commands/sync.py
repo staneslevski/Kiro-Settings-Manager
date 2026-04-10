@@ -17,7 +17,7 @@ from ksm.copier import format_diff_summary
 from ksm.errors import format_error, format_warning
 from ksm.git_ops import pull_repo
 from ksm.installer import install_bundle
-from ksm.manifest import Manifest, ManifestEntry, save_manifest
+from ksm.manifest import Manifest, ManifestEntry, find_entries, save_manifest
 from ksm.registry import RegistryIndex
 from ksm.resolver import resolve_bundle
 
@@ -232,8 +232,15 @@ def _sync_entry(
             format_diff_summary(results, stream=sys.stderr),
             file=sys.stderr,
         )
-        rel = [
-            str(r.path.relative_to(target_dir))
-            for r in results
-        ]
-        auto_convert(target_dir, rel)
+        rel = [str(r.path.relative_to(target_dir)) for r in results]
+        generated = auto_convert(target_dir, rel)
+        if generated:
+            ws = str(target_dir.parent.resolve()) if entry.scope == "local" else None
+            matches = find_entries(
+                manifest,
+                entry.bundle_name,
+                entry.scope,
+                ws,
+            )
+            if matches:
+                matches[0].installed_files.extend(generated)

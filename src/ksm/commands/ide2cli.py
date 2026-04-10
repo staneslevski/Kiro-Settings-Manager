@@ -98,7 +98,7 @@ def _scan_hooks(
 def auto_convert(
     target_dir: Path,
     installed_paths: list[str],
-) -> None:
+) -> list[str]:
     """Run ide2cli conversion on only the installed files.
 
     *installed_paths* are relative to *target_dir* (e.g.
@@ -108,19 +108,22 @@ def auto_convert(
 
     For hooks the full ``hooks/`` directory is re-scanned so
     the grouped ``_cli_hooks.json`` stays complete.
+
+    Returns a list of generated file paths relative to
+    *target_dir* so callers can track them in the manifest.
     """
+    generated: list[str] = []
     agent_mds = [
         target_dir / p
         for p in installed_paths
         if p.startswith("agents/") and p.endswith(".md")
     ]
     has_hooks = any(
-        p.startswith("hooks/") and p.endswith(".kiro.hook")
-        for p in installed_paths
+        p.startswith("hooks/") and p.endswith(".kiro.hook") for p in installed_paths
     )
 
     if not agent_mds and not has_hooks:
-        return
+        return generated
 
     summary = ConversionSummary()
 
@@ -129,6 +132,9 @@ def auto_convert(
             result = convert_agent(md)
             if result.status == "converted":
                 summary.converted += 1
+                if result.output_path is not None:
+                    rel = str(result.output_path.relative_to(target_dir))
+                    generated.append(rel)
             for w in result.warnings:
                 print(
                     format_warning(md.name, w, stream=sys.stderr),
@@ -137,13 +143,17 @@ def auto_convert(
 
     if has_hooks:
         _scan_hooks(target_dir, summary)
+        cli_hooks = target_dir / "hooks" / "_cli_hooks.json"
+        if cli_hooks.is_file():
+            generated.append(str(cli_hooks.relative_to(target_dir)))
 
     if summary.converted:
         print(
-            f"Auto-converted {summary.converted} file(s)"
-            " to CLI format.",
+            f"Auto-converted {summary.converted} file(s)" " to CLI format.",
             file=sys.stderr,
         )
+
+    return generated
 
 
 def run_ide2cli(

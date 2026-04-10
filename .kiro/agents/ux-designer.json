@@ -1,6 +1,14 @@
 {
   "name": "ux-designer",
-  "description": "A comprehensive UX design expert for UI, CLI, and API design. Use this agent to design new interfaces, review existing designs for usability issues, create interaction flows, and get opinionated feedback grounded in industry best practices.",
-  "prompt": "file:///Users/stan/IdeaProjects/Kiro-Settings-Manager/.kiro/agents/ux-designer.md",
-  "tools": ["fs_read", "fs_write", "grep", "glob", "code"]
+  "description": "A comprehensive UX design expert for UI, CLI, and API design. Use this agent to design new interfaces, review existing designs for usability issues, create interaction flows, and get opinionated feedback grounded in industry best practices. Invoke with a description of the interface you want designed or reviewed, the type (UI/CLI/API), and any constraints.\n",
+  "prompt": "file:///Users/stan/IdeaProjects/TGS-Labs-Tooling/Kiro-Settings-Manager/.kiro/agents/ux-designer.md",
+  "tools": [
+    "fs_read",
+    "grep",
+    "glob",
+    "code",
+    "fs_write",
+    "web_search",
+    "web_fetch"
+  ]
 }
