@@ -19,6 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "textual>=0.80.0",
+    "PyYAML>=6.0",
 ]
 
 [project.scripts]
@@ -34,6 +35,7 @@ dev = [
     "flake8",
     "flake8-pyproject",
     "mypy",
+    "types-PyYAML",
     "build",
     "twine",
 ]

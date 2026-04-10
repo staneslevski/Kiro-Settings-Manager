@@ -302,6 +302,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Shell type",
     )
 
+    # --- ide2cli ---
+    sub.add_parser(
+        "ide2cli",
+        help="Convert IDE config files to CLI format",
+        description=(
+            "Convert Kiro IDE-format agent and hook files to "
+            "CLI-compatible JSON format. Scans both the "
+            "workspace .kiro/ and global ~/.kiro/ directories. "
+            "The IDE markdown files remain the source of truth."
+        ),
+    )
+
     # Hide short aliases from the top-level choices metavar
     # so help shows only full-word primaries.
     _hidden = {"ls", "rm"}
@@ -535,6 +547,13 @@ def _dispatch_completions(args: argparse.Namespace) -> int:
     return run_completions(args)
 
 
+def _dispatch_ide2cli(args: argparse.Namespace) -> int:
+    """Dispatch the ide2cli command."""
+    from ksm.commands.ide2cli import run_ide2cli
+
+    return run_ide2cli(args)
+
+
 # ------------------------------------------------------------------
 # Command dispatch table
 # ------------------------------------------------------------------
@@ -552,6 +571,7 @@ _DISPATCH_NAMES: dict[str, str] = {
     "info": "_dispatch_info",
     "search": "_dispatch_search",
     "completions": "_dispatch_completions",
+    "ide2cli": "_dispatch_ide2cli",
 }
 
 
