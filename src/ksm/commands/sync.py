@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TextIO
 
 from ksm.color import SYM_CHECK, SYM_DOT, accent, bold, muted, success
+from ksm.commands.ide2cli import auto_convert
 from ksm.copier import format_diff_summary
 from ksm.errors import format_error, format_warning
 from ksm.git_ops import pull_repo
@@ -231,3 +232,8 @@ def _sync_entry(
             format_diff_summary(results, stream=sys.stderr),
             file=sys.stderr,
         )
+        rel = [
+            str(r.path.relative_to(target_dir))
+            for r in results
+        ]
+        auto_convert(target_dir, rel)

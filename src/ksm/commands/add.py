@@ -28,6 +28,7 @@ from ksm.git_ops import (
     clone_ephemeral,
     list_versions,
 )
+from ksm.commands.ide2cli import auto_convert
 from ksm.installer import install_bundle
 from ksm.manifest import Manifest, build_installed_info, save_manifest
 from ksm.registry import RegistryEntry, RegistryIndex
@@ -267,155 +268,153 @@ def run_add(
 
     # Handle --from ephemeral registry
     from_url: str | None = getattr(args, "from_url", None)
-    ephemeral_path: Path | None = None
 
-    try:
-        if from_url is not None:
-            return _handle_ephemeral(
-                from_url=from_url,
-                bundle_name=bundle_spec,
-                target_dir=target_dir,
-                scope=scope,
-                subdirectory_filter=subdirectory_filter,
-                dot_selection=dot_selection,
-                manifest=manifest,
-                manifest_path=manifest_path,
-            )
+    if from_url is not None:
+        return _handle_ephemeral(
+            from_url=from_url,
+            bundle_name=bundle_spec,
+            target_dir=target_dir,
+            scope=scope,
+            subdirectory_filter=subdirectory_filter,
+            dot_selection=dot_selection,
+            manifest=manifest,
+            manifest_path=manifest_path,
+        )
 
-        # Parse qualified name (Req 10)
-        reg_name, bare_name = parse_qualified_name(bundle_spec)
+    # Parse qualified name (Req 10)
+    reg_name, bare_name = parse_qualified_name(bundle_spec)
 
-        if reg_name is not None:
-            # Qualified: resolve from specific registry
-            from ksm.errors import BundleNotFoundError
-
-            try:
-                resolved = resolve_qualified_bundle(bundle_spec, registry_index)
-            except BundleNotFoundError as exc:
-                print(
-                    format_error(
-                        str(exc),
-                        "Check the registry and bundle" " names.",
-                        "Run `ksm registry list` to see" " available registries.",
-                        stream=sys.stderr,
-                    ),
-                    file=sys.stderr,
-                )
-                return 1
-        else:
-            # Unqualified: resolve across all registries
-            result = resolve_bundle(bare_name, registry_index)
-            if not result.matches:
-                print(
-                    format_error(
-                        f"Bundle '{bare_name}' not found.",
-                        f"Searched {len(result.searched)}"
-                        " "
-                        f"{'registry' if len(result.searched) == 1 else 'registries'}"
-                        f": {', '.join(result.searched)}",
-                        "Run `ksm registry list` to see" " available registries.",
-                        stream=sys.stderr,
-                    ),
-                    file=sys.stderr,
-                )
-                return 1
-            if len(result.matches) > 1:
-                registries = [m.registry_name for m in result.matches]
-                print(
-                    format_error(
-                        f"Bundle '{bare_name}' found in" " multiple registries.",
-                        "Found in:" f" {', '.join(registries)}",
-                        "Use qualified name:" " ksm add" f" <registry>/{bare_name}",
-                        stream=sys.stderr,
-                    ),
-                    file=sys.stderr,
-                )
-                return 1
-            resolved = result.matches[0]
-
-        # Handle versioned install
-        if version is not None:
-            registry_path = Path(resolved.path).parent
-            try:
-                checkout_version(registry_path, version)
-            except GitError:
-                available = list_versions(registry_path)
-                if available:
-                    print(
-                        format_error(
-                            f"Version '{version}' not" " found.",
-                            f"Available:" f" {', '.join(available)}",
-                            "Use one of the listed" " versions.",
-                            stream=sys.stderr,
-                        ),
-                        file=sys.stderr,
-                    )
-                else:
-                    print(
-                        format_error(
-                            f"Version '{version}' not" " found.",
-                            "No versions available in" " this registry.",
-                            "Omit the @version to" " install the latest.",
-                            stream=sys.stderr,
-                        ),
-                        file=sys.stderr,
-                    )
-                return 1
-
-        # Check dot notation item exists
-        if dot_selection is not None:
-            item_path = (
-                resolved.path / dot_selection.subdirectory / dot_selection.item_name
-            )
-            if not item_path.exists():
-                print(
-                    format_error(
-                        f"Item '{dot_selection.item_name}'"
-                        f" not found in"
-                        f" {dot_selection.subdirectory}/.",
-                        "Check the item name and" " subdirectory.",
-                        "Run `ksm info <bundle>` to see" " available items.",
-                        stream=sys.stderr,
-                    ),
-                    file=sys.stderr,
-                )
-                return 1
+    if reg_name is not None:
+        # Qualified: resolve from specific registry
+        from ksm.errors import BundleNotFoundError
 
         try:
-            results = install_bundle(
-                bundle=resolved,
-                target_dir=target_dir,
-                scope=scope,
-                subdirectory_filter=subdirectory_filter,
-                dot_selection=dot_selection,
-                manifest=manifest,
-                source_label=resolved.registry_name,
-                version=version,
+            resolved = resolve_qualified_bundle(bundle_spec, registry_index)
+        except BundleNotFoundError as exc:
+            print(
+                format_error(
+                    str(exc),
+                    "Check the registry and bundle" " names.",
+                    "Run `ksm registry list` to see" " available registries.",
+                    stream=sys.stderr,
+                ),
+                file=sys.stderr,
             )
-        except SystemExit:
+            return 1
+    else:
+        # Unqualified: resolve across all registries
+        result = resolve_bundle(bare_name, registry_index)
+        if not result.matches:
+            print(
+                format_error(
+                    f"Bundle '{bare_name}' not found.",
+                    f"Searched {len(result.searched)}"
+                    " "
+                    f"{'registry' if len(result.searched) == 1 else 'registries'}"
+                    f": {', '.join(result.searched)}",
+                    "Run `ksm registry list` to see" " available registries.",
+                    stream=sys.stderr,
+                ),
+                file=sys.stderr,
+            )
+            return 1
+        if len(result.matches) > 1:
+            registries = [m.registry_name for m in result.matches]
+            print(
+                format_error(
+                    f"Bundle '{bare_name}' found in" " multiple registries.",
+                    "Found in:" f" {', '.join(registries)}",
+                    "Use qualified name:" " ksm add" f" <registry>/{bare_name}",
+                    stream=sys.stderr,
+                ),
+                file=sys.stderr,
+            )
+            return 1
+        resolved = result.matches[0]
+
+    # Handle versioned install
+    if version is not None:
+        registry_path = Path(resolved.path).parent
+        try:
+            checkout_version(registry_path, version)
+        except GitError:
+            available = list_versions(registry_path)
+            if available:
+                print(
+                    format_error(
+                        f"Version '{version}' not" " found.",
+                        f"Available:" f" {', '.join(available)}",
+                        "Use one of the listed" " versions.",
+                        stream=sys.stderr,
+                    ),
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    format_error(
+                        f"Version '{version}' not" " found.",
+                        "No versions available in" " this registry.",
+                        "Omit the @version to" " install the latest.",
+                        stream=sys.stderr,
+                    ),
+                    file=sys.stderr,
+                )
             return 1
 
-        if results:
-            scope_path = ".kiro/" if scope == "local" else "~/.kiro/"
-            check = success(SYM_CHECK, stream=sys.stderr)
-            name = accent(bundle_spec, stream=sys.stderr)
-            scope_label = muted(f"({scope})", stream=sys.stderr)
+    # Check dot notation item exists
+    if dot_selection is not None:
+        item_path = (
+            resolved.path / dot_selection.subdirectory / dot_selection.item_name
+        )
+        if not item_path.exists():
             print(
-                f"{check} Installed {name} {SYM_ARROW}" f" {scope_path} {scope_label}",
+                format_error(
+                    f"Item '{dot_selection.item_name}'"
+                    f" not found in"
+                    f" {dot_selection.subdirectory}/.",
+                    "Check the item name and" " subdirectory.",
+                    "Run `ksm info <bundle>` to see" " available items.",
+                    stream=sys.stderr,
+                ),
                 file=sys.stderr,
             )
-            print(
-                format_diff_summary(results, stream=sys.stderr),
-                file=sys.stderr,
-            )
+            return 1
 
-        save_manifest(manifest, manifest_path)
-        return 0
+    try:
+        results = install_bundle(
+            bundle=resolved,
+            target_dir=target_dir,
+            scope=scope,
+            subdirectory_filter=subdirectory_filter,
+            dot_selection=dot_selection,
+            manifest=manifest,
+            source_label=resolved.registry_name,
+            version=version,
+        )
+    except SystemExit:
+        return 1
 
-    finally:
-        if ephemeral_path is not None:
-            shutil.rmtree(ephemeral_path, ignore_errors=True)
-            unregister_temp_dir(ephemeral_path)
+    if results:
+        scope_path = ".kiro/" if scope == "local" else "~/.kiro/"
+        check = success(SYM_CHECK, stream=sys.stderr)
+        name = accent(bundle_spec, stream=sys.stderr)
+        scope_label = muted(f"({scope})", stream=sys.stderr)
+        print(
+            f"{check} Installed {name} {SYM_ARROW}" f" {scope_path} {scope_label}",
+            file=sys.stderr,
+        )
+        print(
+            format_diff_summary(results, stream=sys.stderr),
+            file=sys.stderr,
+        )
+        rel = [
+            str(r.path.relative_to(target_dir))
+            for r in results
+        ]
+        auto_convert(target_dir, rel)
+
+    save_manifest(manifest, manifest_path)
+    return 0
 
 
 def _handle_display(
@@ -524,6 +523,11 @@ def _handle_ephemeral(
                 format_diff_summary(results, stream=sys.stderr),
                 file=sys.stderr,
             )
+            rel = [
+                str(r.path.relative_to(target_dir))
+                for r in results
+            ]
+            auto_convert(target_dir, rel)
 
         save_manifest(manifest, manifest_path)
         return 0

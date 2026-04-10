@@ -95,6 +95,57 @@ def _scan_hooks(
         out.write_text(text, encoding="utf-8")
 
 
+def auto_convert(
+    target_dir: Path,
+    installed_paths: list[str],
+) -> None:
+    """Run ide2cli conversion on only the installed files.
+
+    *installed_paths* are relative to *target_dir* (e.g.
+    ``agents/my-agent.md``, ``hooks/on-save.kiro.hook``).
+    Only agent ``.md`` and hook ``.kiro.hook`` files are
+    converted; everything else is silently ignored.
+
+    For hooks the full ``hooks/`` directory is re-scanned so
+    the grouped ``_cli_hooks.json`` stays complete.
+    """
+    agent_mds = [
+        target_dir / p
+        for p in installed_paths
+        if p.startswith("agents/") and p.endswith(".md")
+    ]
+    has_hooks = any(
+        p.startswith("hooks/") and p.endswith(".kiro.hook")
+        for p in installed_paths
+    )
+
+    if not agent_mds and not has_hooks:
+        return
+
+    summary = ConversionSummary()
+
+    for md in sorted(agent_mds):
+        if md.is_file():
+            result = convert_agent(md)
+            if result.status == "converted":
+                summary.converted += 1
+            for w in result.warnings:
+                print(
+                    format_warning(md.name, w, stream=sys.stderr),
+                    file=sys.stderr,
+                )
+
+    if has_hooks:
+        _scan_hooks(target_dir, summary)
+
+    if summary.converted:
+        print(
+            f"Auto-converted {summary.converted} file(s)"
+            " to CLI format.",
+            file=sys.stderr,
+        )
+
+
 def run_ide2cli(
     args: argparse.Namespace,
     *,
