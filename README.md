@@ -18,6 +18,7 @@ A CLI tool for managing [Kiro IDE](https://kiro.dev) configuration bundles. Inst
   - [ksm search](#ksm-search)
   - [ksm registry](#ksm-registry)
   - [ksm completions](#ksm-completions)
+  - [ksm ide2cli](#ksm-ide2cli)
 - [Built-in Bundles](#built-in-bundles)
 - [Creating and Sharing Bundles](#creating-and-sharing-bundles)
   - [Bundle Structure](#bundle-structure)
@@ -122,6 +123,7 @@ ksm --version
 | `ksm search <query>` | Find bundles by name across all registries |
 | `ksm registry add\|list\|remove\|inspect` | Manage bundle registries |
 | `ksm completions <shell>` | Generate shell completion scripts |
+| `ksm ide2cli` | Convert IDE-format agent and hook files to CLI JSON |
 | `ksm --version` | Show version |
 
 ## Usage
@@ -315,6 +317,21 @@ ksm completions fish   # Fish
 
 See [Shell Completions](#shell-completions) for setup instructions.
 
+### ksm ide2cli
+
+Convert Kiro IDE-format agent markdown files and hook files into CLI-compatible JSON. The IDE files remain the source of truth; the CLI JSON files are derived output. Skills and steering use identical formats on both platforms and need no conversion.
+
+```bash
+ksm ide2cli
+```
+
+The command scans both the workspace `.kiro/` and global `~/.kiro/` directories in a single pass:
+
+- **Agents** — `.md` files in `agents/` with YAML frontmatter (`name`, `description`, `tools`) are converted to `.json` files in the same directory. IDE tool names are mapped automatically (e.g. `read` → `fs_read`, `grep`, `glob`, `code`).
+- **Hooks** — `.kiro.hook` files in `hooks/` are converted to a grouped `_cli_hooks.json` file. Event types are mapped (e.g. `promptSubmit` → `userPromptSubmit`). Hooks with `enabled: false` are skipped silently. Hook types without a CLI equivalent (`askAgent`, `fileEdited`, etc.) are skipped with a warning.
+
+The command is idempotent — running it multiple times on unchanged input produces identical output. A summary of converted, skipped, and failed files is printed to stderr.
+
 ## Built-in Bundles
 
 These bundles ship with `ksm` in the default registry:
@@ -494,6 +511,7 @@ src/ksm/
 │   ├── add.py          # ksm add
 │   ├── add_registry.py # ksm add-registry (legacy)
 │   ├── completions.py  # ksm completions
+│   ├── ide2cli.py      # ksm ide2cli
 │   ├── info.py         # ksm info
 │   ├── init.py         # ksm init
 │   ├── ls.py           # ksm list / ls
@@ -504,6 +522,10 @@ src/ksm/
 │   ├── rm.py           # ksm remove / rm
 │   ├── search.py       # ksm search
 │   └── sync.py         # ksm sync
+├── converters/
+│   ├── tool_map.py          # IDE → CLI tool name mapping
+│   ├── agent_converter.py   # Agent .md → .json conversion
+│   └── hook_converter.py    # Hook .kiro.hook → CLI hook dict
 ├── scanner.py          # Discovers valid bundles in a registry directory
 ├── resolver.py         # Finds a bundle by name across all registries
 ├── installer.py        # Copies bundle files to target .kiro/ directory
@@ -708,6 +730,7 @@ src/ksm/
 │   ├── add.py          # ksm add
 │   ├── add_registry.py # ksm add-registry (legacy)
 │   ├── completions.py  # ksm completions
+│   ├── ide2cli.py      # ksm ide2cli
 │   ├── info.py         # ksm info
 │   ├── init.py         # ksm init
 │   ├── ls.py           # ksm list / ls
@@ -718,6 +741,10 @@ src/ksm/
 │   ├── rm.py           # ksm remove / rm
 │   ├── search.py       # ksm search
 │   └── sync.py         # ksm sync
+├── converters/
+│   ├── tool_map.py          # IDE → CLI tool name mapping
+│   ├── agent_converter.py   # Agent .md → .json conversion
+│   └── hook_converter.py    # Hook .kiro.hook → CLI hook dict
 ├── scanner.py          # Discovers valid bundles in a registry directory
 ├── resolver.py         # Finds a bundle by name across all registries
 ├── installer.py        # Copies bundle files to target .kiro/ directory
