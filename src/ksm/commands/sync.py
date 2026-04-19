@@ -95,7 +95,17 @@ def run_sync(
 
     # Determine which bundles to sync
     if sync_all:
-        entries_to_sync = list(manifest.entries)
+        # Deduplicate by (bundle_name, scope, workspace_path)
+        # to avoid syncing the same bundle multiple times per
+        # workspace. Keeps first entry per key (oldest, since
+        # entries are appended chronologically). Issue #28.
+        seen: set[tuple[str, str, str | None]] = set()
+        entries_to_sync = []
+        for e in manifest.entries:
+            key = (e.bundle_name, e.scope, e.workspace_path)
+            if key not in seen:
+                seen.add(key)
+                entries_to_sync.append(e)
     else:
         entries_to_sync = []
         for name in bundle_names:

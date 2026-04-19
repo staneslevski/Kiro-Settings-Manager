@@ -7,7 +7,7 @@ from hypothesis import HealthCheck, given, settings as h_settings
 from hypothesis import strategies as st
 
 from ksm.dot_notation import DotSelection
-from ksm.manifest import Manifest
+from ksm.manifest import Manifest, ManifestEntry
 from ksm.resolver import ResolvedBundle
 from ksm.scanner import RECOGNISED_SUBDIRS
 
@@ -737,3 +737,161 @@ def test_property_dot_notation_installs_only_target(
 
         assert (target / subdir / "target-item" / "f.md").exists()
         assert not (target / subdir / "other").exists()
+
+
+# --- Tests for legacy entry matching in _update_manifest (Issue #28) ---
+
+
+def test_update_manifest_legacy_entry_updated_in_place(
+    tmp_path: Path,
+) -> None:
+    """_update_manifest with existing legacy entry (workspace_path=None)
+    updates it in place when workspace_path is now provided."""
+    from ksm.installer import _update_manifest
+
+    manifest = Manifest(entries=[])
+
+    # Simulate a legacy entry (no workspace_path)
+    manifest.entries.append(
+        ManifestEntry(
+            bundle_name="python_dev",
+            source_registry="default",
+            scope="local",
+            installed_files=["steering/old.md"],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+            workspace_path=None,
+        )
+    )
+
+    # Now install with workspace_path set
+    _update_manifest(
+        manifest,
+        bundle_name="python_dev",
+        source_registry="default",
+        scope="local",
+        installed_files=["steering/new.md"],
+        workspace_path="/home/user/project",
+    )
+
+    # Should update in place, not create a duplicate
+    assert len(manifest.entries) == 1
+    entry = manifest.entries[0]
+    assert entry.workspace_path == "/home/user/project"
+    assert entry.installed_files == ["steering/new.md"]
+    # installed_at should be preserved (original timestamp)
+    assert entry.installed_at == "2025-01-01T00:00:00Z"
+
+
+def test_update_manifest_multiple_legacy_upgrades_first_only(
+    tmp_path: Path,
+) -> None:
+    """_update_manifest with multiple legacy entries
+    (workspace_path=None) upgrades only the first one."""
+    from ksm.installer import _update_manifest
+
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/first.md"],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+                workspace_path=None,
+            ),
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/second.md"],
+                installed_at="2025-01-02T00:00:00Z",
+                updated_at="2025-01-02T00:00:00Z",
+                workspace_path=None,
+            ),
+        ]
+    )
+
+    _update_manifest(
+        manifest,
+        bundle_name="aws",
+        source_registry="default",
+        scope="local",
+        installed_files=["steering/updated.md"],
+        workspace_path="/home/user/project",
+    )
+
+    # Should still have 2 entries (first upgraded, second untouched)
+    assert len(manifest.entries) == 2
+
+    first = manifest.entries[0]
+    assert first.workspace_path == "/home/user/project"
+    assert first.installed_files == ["steering/updated.md"]
+
+    second = manifest.entries[1]
+    assert second.workspace_path is None
+    assert second.installed_files == ["steering/second.md"]
+
+
+def test_update_manifest_no_legacy_creates_new_entry(
+    tmp_path: Path,
+) -> None:
+    """_update_manifest with no legacy entry and no matching entry
+    creates a new entry (existing behavior preserved)."""
+    from ksm.installer import _update_manifest
+
+    manifest = Manifest(entries=[])
+
+    _update_manifest(
+        manifest,
+        bundle_name="aws",
+        source_registry="default",
+        scope="local",
+        installed_files=["steering/new.md"],
+        workspace_path="/home/user/project",
+    )
+
+    assert len(manifest.entries) == 1
+    entry = manifest.entries[0]
+    assert entry.bundle_name == "aws"
+    assert entry.workspace_path == "/home/user/project"
+    assert entry.installed_files == ["steering/new.md"]
+
+
+def test_update_manifest_matching_entry_updates_it(
+    tmp_path: Path,
+) -> None:
+    """_update_manifest with matching entry (workspace_path set)
+    updates it (existing behavior preserved)."""
+    from ksm.installer import _update_manifest
+
+    ws = "/home/user/project"
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/old.md"],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+                workspace_path=ws,
+            ),
+        ]
+    )
+
+    _update_manifest(
+        manifest,
+        bundle_name="aws",
+        source_registry="updated",
+        scope="local",
+        installed_files=["steering/new.md"],
+        workspace_path=ws,
+    )
+
+    assert len(manifest.entries) == 1
+    entry = manifest.entries[0]
+    assert entry.source_registry == "updated"
+    assert entry.installed_files == ["steering/new.md"]
+    assert entry.workspace_path == ws

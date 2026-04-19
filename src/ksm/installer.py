@@ -148,6 +148,22 @@ def _update_manifest(
 
     existing = find_entries(manifest, bundle_name, scope, workspace_path)
 
+    # Fallback: match legacy entry with workspace_path=None.
+    # This handles entries created before workspace_path tracking
+    # was introduced. We take the first match because entries are
+    # appended chronologically — the first is the original install.
+    # Issue #28.
+    if not existing and scope == "local" and workspace_path is not None:
+        legacy_none = [
+            e
+            for e in manifest.entries
+            if e.bundle_name == bundle_name
+            and e.scope == scope
+            and e.workspace_path is None
+        ]
+        if legacy_none:
+            existing = [legacy_none[0]]
+
     if existing:
         entry = existing[0]
         entry.installed_files = installed_files

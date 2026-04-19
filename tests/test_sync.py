@@ -1573,3 +1573,358 @@ class TestSyncConfirmationColor:
         assert "2 bundles" in msg
         assert "Continue?" in msg
         assert "[y/n]" in msg
+
+
+# --- Tests for sync --all deduplication (Issue #28) ---
+
+
+def test_sync_all_deduplicates_same_bundle_workspace(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """sync --all with duplicate entries for same
+    (bundle_name, scope, workspace_path) syncs only once."""
+    from ksm.commands.sync import run_sync
+
+    reg = tmp_path / "reg"
+    _setup_bundle(reg, "python_dev", {"steering/python.md": b"data"})
+    target = tmp_path / "target" / ".kiro"
+    target.mkdir(parents=True)
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    ws_path = str((tmp_path / "target").resolve())
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    # Four duplicate entries for the same bundle+scope+workspace
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python.md"],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+                workspace_path=ws_path,
+            ),
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python.md"],
+                installed_at="2025-01-02T00:00:00Z",
+                updated_at="2025-01-02T00:00:00Z",
+                workspace_path=ws_path,
+            ),
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python.md"],
+                installed_at="2025-01-03T00:00:00Z",
+                updated_at="2025-01-03T00:00:00Z",
+                workspace_path=ws_path,
+            ),
+            ManifestEntry(
+                bundle_name="python_dev",
+                source_registry="default",
+                scope="local",
+                installed_files=["steering/python.md"],
+                installed_at="2025-01-04T00:00:00Z",
+                updated_at="2025-01-04T00:00:00Z",
+                workspace_path=ws_path,
+            ),
+        ]
+    )
+
+    args = _make_args(all=True, yes=True)
+    code = run_sync(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    # "Synced" should appear exactly once, not four times
+    assert captured.err.count("Synced") == 1
+
+
+def test_sync_all_distinct_workspaces_all_synced(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """sync --all with same bundle in different workspaces
+    syncs each workspace independently."""
+    from ksm.commands.sync import run_sync
+
+    reg = tmp_path / "reg"
+    _setup_bundle(reg, "aws", {"skills/f.md": b"data"})
+
+    target_a = tmp_path / "ws-a" / ".kiro"
+    target_b = tmp_path / "ws-b" / ".kiro"
+    target_a.mkdir(parents=True)
+    target_b.mkdir(parents=True)
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    ws_a = str((tmp_path / "ws-a").resolve())
+    ws_b = str((tmp_path / "ws-b").resolve())
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="local",
+                installed_files=["skills/f.md"],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+                workspace_path=ws_a,
+            ),
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="local",
+                installed_files=["skills/f.md"],
+                installed_at="2025-01-02T00:00:00Z",
+                updated_at="2025-01-02T00:00:00Z",
+                workspace_path=ws_b,
+            ),
+        ]
+    )
+
+    # Use ws-a as target_local — only ws-a entry will actually
+    # install files (ws-b targets a different path). Both should
+    # be attempted.
+    args = _make_args(all=True, yes=True)
+    code = run_sync(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_a,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    # Both entries should be synced (distinct workspace_path keys)
+    assert captured.err.count("Synced") == 2
+
+
+def test_sync_all_legacy_and_modern_not_collapsed(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """sync --all treats legacy (workspace_path=None) and modern
+    (workspace_path set) entries as distinct — not deduplicated."""
+    from ksm.commands.sync import run_sync
+
+    reg = tmp_path / "reg"
+    _setup_bundle(reg, "aws", {"skills/f.md": b"data"})
+    target = tmp_path / "target" / ".kiro"
+    target.mkdir(parents=True)
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    ws_path = str((tmp_path / "target").resolve())
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="local",
+                installed_files=["skills/f.md"],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+                workspace_path=None,
+            ),
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="local",
+                installed_files=["skills/f.md"],
+                installed_at="2025-01-02T00:00:00Z",
+                updated_at="2025-01-02T00:00:00Z",
+                workspace_path=ws_path,
+            ),
+        ]
+    )
+
+    args = _make_args(all=True, yes=True)
+    code = run_sync(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    # Both entries should be synced (None vs set are distinct keys)
+    assert captured.err.count("Synced") == 2
+
+
+def test_sync_all_confirmation_count_reflects_dedup(
+    tmp_path: Path,
+) -> None:
+    """Confirmation message count reflects deduplicated set,
+    not raw manifest entry count."""
+    from ksm.commands.sync import _build_confirmation_message
+
+    ws_path = "/home/user/project"
+    # 3 raw entries, but only 1 unique key
+    entries_raw = [
+        ManifestEntry(
+            bundle_name="aws",
+            source_registry="default",
+            scope="local",
+            installed_files=["skills/f.md"],
+            installed_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+            workspace_path=ws_path,
+        ),
+        ManifestEntry(
+            bundle_name="aws",
+            source_registry="default",
+            scope="local",
+            installed_files=["skills/f.md"],
+            installed_at="2025-01-02T00:00:00Z",
+            updated_at="2025-01-02T00:00:00Z",
+            workspace_path=ws_path,
+        ),
+        ManifestEntry(
+            bundle_name="aws",
+            source_registry="default",
+            scope="local",
+            installed_files=["skills/f.md"],
+            installed_at="2025-01-03T00:00:00Z",
+            updated_at="2025-01-03T00:00:00Z",
+            workspace_path=ws_path,
+        ),
+    ]
+
+    # Simulate dedup (what run_sync will do)
+    seen: set[tuple[str, str, str | None]] = set()
+    deduped: list[ManifestEntry] = []
+    for e in entries_raw:
+        key = (e.bundle_name, e.scope, e.workspace_path)
+        if key not in seen:
+            seen.add(key)
+            deduped.append(e)
+
+    msg = _build_confirmation_message(deduped)
+    assert "1 bundle" in msg
+    # Should NOT say "3 bundles"
+    assert "3 bundle" not in msg
+
+
+# --- Regression guard: named sync with duplicates (Issue #28) ---
+
+
+def test_sync_named_with_duplicates_syncs_all(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Named sync (ksm sync <bundle>) with duplicate entries
+    syncs all of them — no dedup applied to named sync."""
+    from ksm.commands.sync import run_sync
+
+    reg = tmp_path / "reg"
+    _setup_bundle(reg, "aws", {"skills/f.md": b"data"})
+    target = tmp_path / "target" / ".kiro"
+    target.mkdir(parents=True)
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    ws_path = str((tmp_path / "target").resolve())
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    # Two duplicate entries
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="local",
+                installed_files=["skills/f.md"],
+                installed_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+                workspace_path=ws_path,
+            ),
+            ManifestEntry(
+                bundle_name="aws",
+                source_registry="default",
+                scope="local",
+                installed_files=["skills/f.md"],
+                installed_at="2025-01-02T00:00:00Z",
+                updated_at="2025-01-02T00:00:00Z",
+                workspace_path=ws_path,
+            ),
+        ]
+    )
+
+    args = _make_args(bundle_names=["aws"], yes=True)
+    code = run_sync(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    # Named sync should sync both entries (no dedup)
+    assert captured.err.count("Synced") == 2
