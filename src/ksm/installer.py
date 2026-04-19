@@ -12,7 +12,7 @@ from ksm.copier import CopyResult, copy_file, copy_tree
 from ksm.dot_notation import DotSelection
 from ksm.manifest import Manifest, ManifestEntry, find_entries
 from ksm.resolver import ResolvedBundle
-from ksm.scanner import RECOGNISED_SUBDIRS
+from ksm.scanner import RECOGNISED_SUBDIRS, WORKSPACE_ONLY_SUBDIRS
 
 
 def install_bundle(
@@ -41,6 +41,14 @@ def install_bundle(
         )
 
     subdirs_to_copy = _resolve_subdirs(bundle, subdirectory_filter)
+
+    # Filter workspace-only subdirs for global scope
+    hooks_skipped = False
+    if scope == "global":
+        filtered = [sd for sd in subdirs_to_copy if sd not in WORKSPACE_ONLY_SUBDIRS]
+        hooks_skipped = len(filtered) < len(subdirs_to_copy)
+        subdirs_to_copy = filtered
+
     results: list[CopyResult] = []
 
     for subdir in subdirs_to_copy:
@@ -59,6 +67,7 @@ def install_bundle(
         rel_paths,
         version=version,
         workspace_path=workspace_path,
+        has_hooks=hooks_skipped,
     )
     return results
 
@@ -142,6 +151,7 @@ def _update_manifest(
     installed_files: list[str],
     version: str | None = None,
     workspace_path: str | None = None,
+    has_hooks: bool = False,
 ) -> None:
     """Add or update a manifest entry for the installed bundle."""
     now = datetime.now(timezone.utc).isoformat()
@@ -171,6 +181,7 @@ def _update_manifest(
         entry.source_registry = source_registry
         entry.version = version
         entry.workspace_path = workspace_path
+        entry.has_hooks = has_hooks
     else:
         manifest.entries.append(
             ManifestEntry(
@@ -182,5 +193,6 @@ def _update_manifest(
                 updated_at=now,
                 version=version,
                 workspace_path=workspace_path,
+                has_hooks=has_hooks,
             )
         )

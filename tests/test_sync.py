@@ -2162,3 +2162,621 @@ def test_property_sync_entry_targets_workspace_path(
             f"Expected target_dir={expected}, " f"got {actual_target}"
         )
         assert actual_target != target_local
+
+
+# --- Tests for _sync_global_hooks (FR-4.1, FR-4.2, FR-4.4, FR-4.5, FR-4.6) ---
+
+
+class TestSyncGlobalHooks:
+    """Tests for _sync_global_hooks: distributing hooks from
+    global bundles to workspaces."""
+
+    def test_copies_hooks_from_global_bundle_to_workspace(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """(a) _sync_global_hooks copies hooks from a global bundle
+        with has_hooks=True to a workspace.
+        **Validates: Requirements FR-4.1, FR-4.2**"""
+        from ksm.commands.sync import _sync_global_hooks
+
+        # Set up a registry with a bundle that has hooks
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg,
+            "my-bundle",
+            {
+                "hooks/pre-commit.json": b"hook-content",
+                "hooks/on-save.json": b"save-hook",
+                "skills/skill.md": b"skill-data",
+            },
+        )
+
+        # Create a workspace directory
+        ws_dir = tmp_path / "workspace"
+        ws_dir.mkdir()
+
+        # Build registry index
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+
+        # Build manifest with a global entry that has_hooks=True
+        manifest = Manifest(
+            entries=[
+                ManifestEntry(
+                    bundle_name="my-bundle",
+                    source_registry="default",
+                    scope="global",
+                    installed_files=["skills/skill.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    has_hooks=True,
+                ),
+            ]
+        )
+
+        results = _sync_global_hooks(
+            registry_index=idx,
+            manifest=manifest,
+            target_workspaces=[ws_dir],
+        )
+
+        # Hooks should be copied to workspace/.kiro/hooks/
+        hooks_dir = ws_dir / ".kiro" / "hooks"
+        assert (hooks_dir / "pre-commit.json").exists()
+        assert (hooks_dir / "pre-commit.json").read_bytes() == b"hook-content"
+        assert (hooks_dir / "on-save.json").exists()
+        assert (hooks_dir / "on-save.json").read_bytes() == b"save-hook"
+
+        # Should NOT copy non-hook subdirs
+        assert not (ws_dir / ".kiro" / "skills").exists()
+
+        # Should return CopyResult entries
+        assert len(results) == 2
+
+    def test_skips_bundle_not_found_in_registry_with_warning(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """(b) Skips bundles not found in registry with warning.
+        **Validates: Requirements FR-4.6**"""
+        from ksm.commands.sync import _sync_global_hooks
+
+        # Empty registry — bundle won't be found
+        reg = tmp_path / "reg"
+        reg.mkdir(parents=True)
+
+        ws_dir = tmp_path / "workspace"
+        ws_dir.mkdir()
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+
+        manifest = Manifest(
+            entries=[
+                ManifestEntry(
+                    bundle_name="gone-bundle",
+                    source_registry="default",
+                    scope="global",
+                    installed_files=["skills/f.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    has_hooks=True,
+                ),
+            ]
+        )
+
+        results = _sync_global_hooks(
+            registry_index=idx,
+            manifest=manifest,
+            target_workspaces=[ws_dir],
+        )
+
+        # No files should be copied
+        assert results == []
+        # Warning should be printed
+        captured = capsys.readouterr()
+        assert "warning" in captured.err.lower()
+        assert "gone-bundle" in captured.err
+
+    def test_skips_workspace_that_no_longer_exists_with_warning(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """(c) Skips workspaces that no longer exist with warning.
+        **Validates: Requirements FR-4.5**"""
+        from ksm.commands.sync import _sync_global_hooks
+
+        # Set up a registry with a bundle that has hooks
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg,
+            "my-bundle",
+            {"hooks/pre-commit.json": b"hook-content"},
+        )
+
+        # Point to a workspace that does NOT exist
+        missing_ws = tmp_path / "gone-workspace"
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+
+        manifest = Manifest(
+            entries=[
+                ManifestEntry(
+                    bundle_name="my-bundle",
+                    source_registry="default",
+                    scope="global",
+                    installed_files=["skills/f.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    has_hooks=True,
+                ),
+            ]
+        )
+
+        results = _sync_global_hooks(
+            registry_index=idx,
+            manifest=manifest,
+            target_workspaces=[missing_ws],
+        )
+
+        # No files should be copied
+        assert results == []
+        # Warning should be printed about missing workspace
+        captured = capsys.readouterr()
+        assert "warning" in captured.err.lower()
+
+    def test_idempotent_second_call_all_unchanged(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """(d) Idempotent — second call produces all UNCHANGED results.
+        **Validates: Requirements FR-4.4**"""
+        from ksm.copier import CopyStatus
+        from ksm.commands.sync import _sync_global_hooks
+
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg,
+            "my-bundle",
+            {"hooks/pre-commit.json": b"hook-content"},
+        )
+
+        ws_dir = tmp_path / "workspace"
+        ws_dir.mkdir()
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+
+        manifest = Manifest(
+            entries=[
+                ManifestEntry(
+                    bundle_name="my-bundle",
+                    source_registry="default",
+                    scope="global",
+                    installed_files=["skills/f.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    has_hooks=True,
+                ),
+            ]
+        )
+
+        # First call — should create files
+        results1 = _sync_global_hooks(
+            registry_index=idx,
+            manifest=manifest,
+            target_workspaces=[ws_dir],
+        )
+        assert len(results1) == 1
+        assert results1[0].status == CopyStatus.NEW
+
+        # Second call — files already exist and are identical
+        results2 = _sync_global_hooks(
+            registry_index=idx,
+            manifest=manifest,
+            target_workspaces=[ws_dir],
+        )
+        assert len(results2) == 1
+        assert all(r.status == CopyStatus.UNCHANGED for r in results2)
+
+    def test_does_nothing_when_no_global_entries_have_hooks(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """(e) Does nothing when no global entries have has_hooks=True.
+        **Validates: Requirements FR-4.1**"""
+        from ksm.commands.sync import _sync_global_hooks
+
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg,
+            "my-bundle",
+            {"skills/f.md": b"data"},
+        )
+
+        ws_dir = tmp_path / "workspace"
+        ws_dir.mkdir()
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+
+        # Global entry with has_hooks=False
+        manifest = Manifest(
+            entries=[
+                ManifestEntry(
+                    bundle_name="my-bundle",
+                    source_registry="default",
+                    scope="global",
+                    installed_files=["skills/f.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    has_hooks=False,
+                ),
+                # Local entry with has_hooks=True should be ignored
+                ManifestEntry(
+                    bundle_name="local-bundle",
+                    source_registry="default",
+                    scope="local",
+                    installed_files=["hooks/h.json"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    has_hooks=True,
+                ),
+            ]
+        )
+
+        results = _sync_global_hooks(
+            registry_index=idx,
+            manifest=manifest,
+            target_workspaces=[ws_dir],
+        )
+
+        # No results — nothing to sync
+        assert results == []
+        # No hooks directory created
+        assert not (ws_dir / ".kiro" / "hooks").exists()
+
+
+# --- Tests for run_sync hooks integration (FR-4.2, FR-4.3) ---
+
+
+class TestRunSyncHooksIntegration:
+    """Tests for run_sync integration with _sync_global_hooks:
+    verifying hooks are distributed to the correct workspaces
+    during sync.
+    **Validates: Requirements FR-4.2, FR-4.3**"""
+
+    def test_run_sync_all_distributes_hooks_to_all_workspaces(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """(a) run_sync with --all distributes hooks from global
+        bundles to all tracked workspaces.
+        **Validates: Requirements FR-4.3**"""
+        from ksm.commands.sync import run_sync
+
+        # Set up registry with a bundle that has hooks + skills
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg,
+            "my-bundle",
+            {
+                "hooks/on-save.json": b"hook-data",
+                "skills/skill.md": b"skill-data",
+            },
+        )
+
+        # Create two workspace directories
+        ws_a = tmp_path / "workspace-a"
+        ws_a.mkdir()
+        ws_b = tmp_path / "workspace-b"
+        ws_b.mkdir()
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+
+        ws_a_resolved = str(ws_a.resolve())
+        ws_b_resolved = str(ws_b.resolve())
+
+        # Manifest: global entry with has_hooks=True, plus
+        # two local entries in different workspaces
+        manifest = Manifest(
+            entries=[
+                ManifestEntry(
+                    bundle_name="my-bundle",
+                    source_registry="default",
+                    scope="global",
+                    installed_files=["skills/skill.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    has_hooks=True,
+                ),
+                ManifestEntry(
+                    bundle_name="other-local",
+                    source_registry="default",
+                    scope="local",
+                    installed_files=["skills/f.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    workspace_path=ws_a_resolved,
+                ),
+                ManifestEntry(
+                    bundle_name="another-local",
+                    source_registry="default",
+                    scope="local",
+                    installed_files=["steering/s.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    workspace_path=ws_b_resolved,
+                ),
+            ]
+        )
+
+        # Set up the local bundles in the registry too
+        _setup_bundle(reg, "other-local", {"skills/f.md": b"x"})
+        _setup_bundle(reg, "another-local", {"steering/s.md": b"y"})
+
+        # target_local points to ws_a
+        target_local = ws_a / ".kiro"
+        target_local.mkdir(parents=True)
+
+        args = _make_args(all=True, yes=True)
+        code = run_sync(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=tmp_path / "global" / ".kiro",
+        )
+
+        assert code == 0
+
+        # Hooks should be distributed to BOTH workspaces
+        hooks_a = ws_a / ".kiro" / "hooks" / "on-save.json"
+        hooks_b = ws_b / ".kiro" / "hooks" / "on-save.json"
+        assert hooks_a.exists(), "Hooks should be distributed to workspace-a"
+        assert hooks_a.read_bytes() == b"hook-data"
+        assert hooks_b.exists(), "Hooks should be distributed to workspace-b"
+        assert hooks_b.read_bytes() == b"hook-data"
+
+    def test_run_sync_without_all_distributes_hooks_to_current_only(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """(b) run_sync without --all distributes hooks to
+        current workspace only (target_local.parent).
+        **Validates: Requirements FR-4.2**"""
+        from ksm.commands.sync import run_sync
+
+        # Set up registry with a bundle that has hooks
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg,
+            "my-bundle",
+            {
+                "hooks/on-save.json": b"hook-data",
+                "skills/skill.md": b"skill-data",
+            },
+        )
+
+        # Create two workspace directories
+        ws_current = tmp_path / "current-ws"
+        ws_other = tmp_path / "other-ws"
+        ws_current.mkdir()
+        ws_other.mkdir()
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+
+        ws_other_resolved = str(ws_other.resolve())
+
+        # Manifest: global entry with has_hooks=True, plus
+        # a local entry in a different workspace
+        manifest = Manifest(
+            entries=[
+                ManifestEntry(
+                    bundle_name="my-bundle",
+                    source_registry="default",
+                    scope="global",
+                    installed_files=["skills/skill.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    has_hooks=True,
+                ),
+                ManifestEntry(
+                    bundle_name="other-local",
+                    source_registry="default",
+                    scope="local",
+                    installed_files=["skills/f.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    workspace_path=ws_other_resolved,
+                ),
+            ]
+        )
+
+        # Set up the local bundle in the registry
+        _setup_bundle(reg, "other-local", {"skills/f.md": b"x"})
+
+        # target_local points to current workspace
+        target_local = ws_current / ".kiro"
+        target_local.mkdir(parents=True)
+
+        # Sync a specific bundle name (not --all)
+        args = _make_args(bundle_names=["my-bundle"], yes=True)
+        code = run_sync(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=tmp_path / "global" / ".kiro",
+        )
+
+        assert code == 0
+
+        # Hooks should be distributed to current workspace only
+        hooks_current = ws_current / ".kiro" / "hooks" / "on-save.json"
+        hooks_other = ws_other / ".kiro" / "hooks" / "on-save.json"
+        assert (
+            hooks_current.exists()
+        ), "Hooks should be distributed to current workspace"
+        assert hooks_current.read_bytes() == b"hook-data"
+        assert not hooks_other.exists(), (
+            "Hooks should NOT be distributed to other"
+            " workspaces when --all is not used"
+        )
+
+    def test_sync_entry_global_does_not_copy_hooks(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """(c) Global entry sync via _sync_entry does not copy
+        hooks — installer filtering excludes hooks/ for global
+        scope.
+        **Validates: Requirements FR-4.2**"""
+        from ksm.commands.sync import run_sync
+
+        # Set up registry with a bundle that has hooks + skills
+        reg = tmp_path / "reg"
+        _setup_bundle(
+            reg,
+            "my-bundle",
+            {
+                "hooks/on-save.json": b"hook-data",
+                "skills/skill.md": b"skill-data",
+            },
+        )
+
+        ksm_dir = tmp_path / "ksm"
+        ksm_dir.mkdir(parents=True)
+
+        target_global = tmp_path / "global" / ".kiro"
+        target_global.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+
+        # Manifest: global entry with has_hooks=True
+        manifest = Manifest(
+            entries=[
+                ManifestEntry(
+                    bundle_name="my-bundle",
+                    source_registry="default",
+                    scope="global",
+                    installed_files=["skills/skill.md"],
+                    installed_at="2025-01-01T00:00:00Z",
+                    updated_at="2025-01-01T00:00:00Z",
+                    has_hooks=True,
+                ),
+            ]
+        )
+
+        # Sync the global bundle by name
+        args = _make_args(bundle_names=["my-bundle"], yes=True)
+        code = run_sync(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=tmp_path / "local" / ".kiro",
+            target_global=target_global,
+        )
+
+        assert code == 0
+
+        # Skills should be installed to global target
+        assert (target_global / "skills" / "skill.md").exists()
+        assert (target_global / "skills" / "skill.md").read_bytes() == b"skill-data"
+
+        # Hooks should NOT be installed to global target
+        assert not (target_global / "hooks").exists(), (
+            "Hooks should not be copied during global"
+            " entry sync — installer filters them out"
+        )
+
+        # Verify no installed_files contain hooks/ paths
+        entry = manifest.entries[0]
+        for f in entry.installed_files:
+            assert not f.startswith("hooks/"), (
+                f"Installed file '{f}' should not start"
+                " with 'hooks/' for a global entry"
+            )

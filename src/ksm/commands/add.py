@@ -256,6 +256,42 @@ def run_add(
     else:
         scope = "global" if getattr(args, "global_", False) else "local"
     target_dir = target_global if scope == "global" else target_local
+
+    # Reject hooks-only global install (FR-2.1)
+    hooks_stripped_from_filter = False
+    if scope == "global" and subdirectory_filter is not None:
+        if subdirectory_filter == {"hooks"}:
+            print(
+                format_error(
+                    "Hooks can only be installed at" " the workspace level.",
+                    "Hooks are loaded from .kiro/hooks/" " which is workspace-only.",
+                    "Use -l to install locally, or run" " `ksm sync` in a workspace.",
+                    stream=sys.stderr,
+                ),
+                file=sys.stderr,
+            )
+            return 1
+        elif "hooks" in subdirectory_filter:
+            subdirectory_filter = subdirectory_filter - {"hooks"}
+            hooks_stripped_from_filter = True
+
+    # Reject dot notation hooks + global scope (FR-2.1 edge case)
+    if (
+        dot_selection is not None
+        and dot_selection.subdirectory == "hooks"
+        and scope == "global"
+    ):
+        print(
+            format_error(
+                "Hooks can only be installed at" " the workspace level.",
+                "Hooks are loaded from .kiro/hooks/" " which is workspace-only.",
+                "Use -l to install locally, or run" " `ksm sync` in a workspace.",
+                stream=sys.stderr,
+            ),
+            file=sys.stderr,
+        )
+        return 1
+
     dry_run: bool = getattr(args, "dry_run", False)
 
     # Dry-run: preview without modifying (Req 12.1)
@@ -418,6 +454,26 @@ def run_add(
             if entries:
                 entries[0].installed_files.extend(generated)
 
+        # Check if hooks were skipped during global install
+        if scope == "global":
+            ws_path = None
+            entries = find_entries(manifest, resolved.name, scope, ws_path)
+            has_hooks = (entries and entries[0].has_hooks) or hooks_stripped_from_filter
+            if has_hooks:
+                print(
+                    format_warning(
+                        f"{bundle_spec} contains hooks,"
+                        " but hooks only work at the"
+                        " workspace level.",
+                        "Hooks were not installed"
+                        " globally. Run `ksm sync`"
+                        " in a workspace to install"
+                        " hooks locally.",
+                        stream=sys.stderr,
+                    ),
+                    file=sys.stderr,
+                )
+
     save_manifest(manifest, manifest_path)
     return 0
 
@@ -540,6 +596,31 @@ def _handle_ephemeral(
                 )
                 if entries:
                     entries[0].installed_files.extend(generated)
+
+            # Check if hooks were skipped during global install
+            if scope == "global":
+                ws_path = None
+                entries = find_entries(
+                    manifest,
+                    bundle_name,
+                    scope,
+                    ws_path,
+                )
+                if entries and entries[0].has_hooks:
+                    print(
+                        format_warning(
+                            f"{bundle_name} contains"
+                            " hooks, but hooks only"
+                            " work at the workspace"
+                            " level.",
+                            "Hooks were not installed"
+                            " globally. Run `ksm sync`"
+                            " in a workspace to"
+                            " install hooks locally.",
+                            stream=sys.stderr,
+                        ),
+                        file=sys.stderr,
+                    )
 
         save_manifest(manifest, manifest_path)
         return 0

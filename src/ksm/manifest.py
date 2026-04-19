@@ -23,6 +23,7 @@ class ManifestEntry:
     updated_at: str  # ISO 8601 timestamp
     version: str | None = None
     workspace_path: str | None = None
+    has_hooks: bool = False
 
 
 @dataclass
@@ -46,6 +47,8 @@ def _entry_to_dict(entry: ManifestEntry) -> dict:
         d["version"] = entry.version
     if entry.workspace_path is not None:
         d["workspace_path"] = entry.workspace_path
+    if entry.has_hooks:
+        d["has_hooks"] = True
     return d
 
 
@@ -60,6 +63,7 @@ def _dict_to_entry(data: dict) -> ManifestEntry:
         updated_at=data["updated_at"],
         version=data.get("version"),
         workspace_path=data.get("workspace_path"),
+        has_hooks=data.get("has_hooks", False),
     )
 
 

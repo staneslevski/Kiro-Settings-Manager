@@ -64,6 +64,8 @@ def _entry_to_dict(entry: ManifestEntry) -> dict[str, object]:
     }
     if entry.workspace_path is not None:
         d["workspace_path"] = entry.workspace_path
+    if entry.has_hooks:
+        d["has_hooks"] = True
     return d
 
 
@@ -115,6 +117,8 @@ def _format_grouped(
             if verbose:
                 for f in sorted(row_entries[i].installed_files):
                     lines.append(f"    {muted(f)}")
+                if row_entries[i].scope == "global" and row_entries[i].has_hooks:
+                    lines.append(f"    {muted('[hooks: workspace-only]')}")
 
         lines.append("")
 

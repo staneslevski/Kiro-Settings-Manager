@@ -11,9 +11,9 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
-from ksm.color import SYM_CHECK, SYM_DOT, accent, bold, muted, success
+from ksm.color import SYM_ARROW, SYM_CHECK, SYM_DOT, accent, bold, muted, success
 from ksm.commands.ide2cli import auto_convert
-from ksm.copier import format_diff_summary
+from ksm.copier import CopyResult, copy_tree, format_diff_summary
 from ksm.errors import format_error, format_warning
 from ksm.git_ops import pull_repo
 from ksm.installer import install_bundle
@@ -162,6 +162,24 @@ def run_sync(
             target_global=target_global,
         )
 
+    # Collect target workspaces for hook distribution
+    if sync_all:
+        ws_paths: set[str] = set()
+        for e in manifest.entries:
+            if e.scope == "local" and e.workspace_path:
+                ws_paths.add(e.workspace_path)
+        # Also include current workspace
+        ws_paths.add(str(target_local.parent.resolve()))
+        target_workspaces = [Path(p) for p in sorted(ws_paths)]
+    else:
+        target_workspaces = [target_local.parent]
+
+    _sync_global_hooks(
+        registry_index=registry_index,
+        manifest=manifest,
+        target_workspaces=target_workspaces,
+    )
+
     save_manifest(manifest, manifest_path)
     return 0
 
@@ -261,12 +279,87 @@ def _sync_entry(
         rel = [str(r.path.relative_to(target_dir)) for r in results]
         generated = auto_convert(target_dir, rel)
         if generated:
-            ws = str(target_dir.parent.resolve()) if entry.scope == "local" else None
+            ws_path: str | None = (
+                str(target_dir.parent.resolve()) if entry.scope == "local" else None
+            )
             matches = find_entries(
                 manifest,
                 entry.bundle_name,
                 entry.scope,
-                ws,
+                ws_path,
             )
             if matches:
                 matches[0].installed_files.extend(generated)
+
+
+def _sync_global_hooks(
+    *,
+    registry_index: RegistryIndex,
+    manifest: Manifest,
+    target_workspaces: list[Path],
+) -> list[CopyResult]:
+    """Copy hooks from global bundles to workspace(s).
+
+    Finds global manifest entries with has_hooks=True, resolves
+    each bundle from the registry, and copies only the hooks/
+    subdirectory into each target workspace's .kiro/hooks/.
+
+    Returns all CopyResult entries from the copy operations.
+    """
+    global_with_hooks = [
+        e for e in manifest.entries if e.scope == "global" and e.has_hooks
+    ]
+
+    all_results: list[CopyResult] = []
+    for entry in global_with_hooks:
+        result = resolve_bundle(entry.bundle_name, registry_index)
+        if not result.matches:
+            searched = ", ".join(result.searched)
+            print(
+                format_warning(
+                    f"Bundle '{entry.bundle_name}' not"
+                    f" found in registries: {searched}",
+                    "Skipping hook sync for this" " bundle.",
+                    stream=sys.stderr,
+                ),
+                file=sys.stderr,
+            )
+            continue
+        resolved = result.matches[0]
+
+        # Check bundle actually has hooks/ subdir
+        hooks_src = resolved.path / "hooks"
+        if not hooks_src.is_dir():
+            continue
+
+        for ws_dir in target_workspaces:
+            if not ws_dir.exists():
+                print(
+                    format_warning(
+                        f"Workspace '{ws_dir}' no" " longer exists.",
+                        "Skipping hook sync for this" " workspace.",
+                        stream=sys.stderr,
+                    ),
+                    file=sys.stderr,
+                )
+                continue
+
+            hooks_dst = ws_dir / ".kiro" / "hooks"
+            results = copy_tree(hooks_src, hooks_dst)
+            all_results.extend(results)
+
+            if results:
+                check = success(SYM_CHECK, stream=sys.stderr)
+                name = accent(entry.bundle_name, stream=sys.stderr)
+                arrow = SYM_ARROW
+                print(
+                    f"{check} Synced hooks from {name}"
+                    f" {arrow} {ws_dir}/.kiro/hooks/",
+                    file=sys.stderr,
+                )
+                print(
+                    format_diff_summary(results, stream=sys.stderr),
+                    file=sys.stderr,
+                )
+
+    return all_results

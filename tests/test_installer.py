@@ -895,3 +895,206 @@ def test_update_manifest_matching_entry_updates_it(
     assert entry.source_registry == "updated"
     assert entry.installed_files == ["steering/new.md"]
     assert entry.workspace_path == ws
+
+
+# --- Tests for hooks filtering in global installs (FR-1.1, FR-1.3, FR-1.4, FR-3.1) ---
+
+
+def test_global_install_with_hooks_skips_hooks_and_sets_has_hooks(
+    tmp_path: Path,
+) -> None:
+    """(a) Global install of bundle with hooks skips hooks/ subdir
+    and sets has_hooks=True on manifest entry.
+
+    **Validates: Requirements FR-1.1, FR-1.3**
+    """
+    from ksm.installer import install_bundle
+
+    reg = tmp_path / "reg"
+    target = tmp_path / "target" / ".kiro"
+    bundle = _make_resolved_bundle(
+        reg,
+        "my-bundle",
+        {
+            "skills": {"my-skill/SKILL.md": b"skill data"},
+            "steering": {"guide.md": b"steering data"},
+            "hooks": {"on-save.json": b"hook data"},
+        },
+    )
+    manifest = Manifest(entries=[])
+
+    results = install_bundle(
+        bundle=bundle,
+        target_dir=target,
+        scope="global",
+        subdirectory_filter=None,
+        dot_selection=None,
+        manifest=manifest,
+        source_label="default",
+    )
+
+    # hooks/ should NOT be copied
+    assert not (target / "hooks").exists()
+    # Non-hook subdirs should be copied
+    assert (target / "skills" / "my-skill" / "SKILL.md").exists()
+    assert (target / "steering" / "guide.md").exists()
+    # No result should reference hooks
+    result_paths = [str(r.path.relative_to(target)) for r in results]
+    assert not any(p.startswith("hooks") for p in result_paths)
+    # Manifest entry should have has_hooks=True
+    assert len(manifest.entries) == 1
+    entry = manifest.entries[0]
+    assert entry.has_hooks is True
+    # Manifest installed_files should not contain hooks paths
+    assert not any(f.startswith("hooks") for f in entry.installed_files)
+
+
+def test_global_install_without_hooks_sets_has_hooks_false(
+    tmp_path: Path,
+) -> None:
+    """(b) Global install of bundle without hooks sets has_hooks=False.
+
+    **Validates: Requirements FR-1.4**
+    """
+    from ksm.installer import install_bundle
+
+    reg = tmp_path / "reg"
+    target = tmp_path / "target" / ".kiro"
+    bundle = _make_resolved_bundle(
+        reg,
+        "no-hooks-bundle",
+        {
+            "skills": {"s.md": b"skill"},
+            "steering": {"st.md": b"steer"},
+        },
+    )
+    manifest = Manifest(entries=[])
+
+    install_bundle(
+        bundle=bundle,
+        target_dir=target,
+        scope="global",
+        subdirectory_filter=None,
+        dot_selection=None,
+        manifest=manifest,
+        source_label="default",
+    )
+
+    assert len(manifest.entries) == 1
+    entry = manifest.entries[0]
+    assert entry.has_hooks is False
+
+
+def test_local_install_with_hooks_copies_hooks_and_has_hooks_false(
+    tmp_path: Path,
+) -> None:
+    """(c) Local install of bundle with hooks copies all subdirs
+    including hooks and sets has_hooks=False.
+
+    **Validates: Requirements FR-3.1**
+    """
+    from ksm.installer import install_bundle
+
+    reg = tmp_path / "reg"
+    target = tmp_path / "project" / ".kiro"
+    bundle = _make_resolved_bundle(
+        reg,
+        "hooks-bundle",
+        {
+            "skills": {"s.md": b"skill"},
+            "hooks": {"on-save.json": b"hook data"},
+        },
+    )
+    manifest = Manifest(entries=[])
+
+    results = install_bundle(
+        bundle=bundle,
+        target_dir=target,
+        scope="local",
+        subdirectory_filter=None,
+        dot_selection=None,
+        manifest=manifest,
+        source_label="default",
+    )
+
+    # hooks/ SHOULD be copied for local installs
+    assert (target / "hooks" / "on-save.json").exists()
+    assert (target / "skills" / "s.md").exists()
+    assert len(results) == 2
+    # Manifest entry should have has_hooks=False (local unchanged)
+    assert len(manifest.entries) == 1
+    entry = manifest.entries[0]
+    assert entry.has_hooks is False
+
+
+# --- Property-based test: CP-1 Hook exclusion from global installs ---
+
+
+# Strategy: generate bundles that always include hooks/ plus
+# at least one other recognised subdir.
+_non_hook_subdirs = sorted(RECOGNISED_SUBDIRS - {"hooks"})
+
+_global_bundle_with_hooks_strategy = st.dictionaries(
+    keys=st.sampled_from(_non_hook_subdirs),
+    values=st.dictionaries(
+        keys=st.from_regex(r"[a-z]{1,6}\.[a-z]{1,3}", fullmatch=True),
+        values=st.binary(min_size=1, max_size=50),
+        min_size=1,
+        max_size=3,
+    ),
+    min_size=1,
+    max_size=3,
+).map(
+    lambda d: {
+        **d,
+        "hooks": {"hook-file.json": b"hook content"},
+    }
+)
+
+
+@given(file_map=_global_bundle_with_hooks_strategy)
+def test_property_cp1_global_install_no_hooks_in_installed_files(
+    file_map: dict[str, dict[str, bytes]],
+) -> None:
+    """CP-1: For any global install, no installed file path starts
+    with 'hooks/'.
+
+    **Validates: Requirements FR-1.1**
+    """
+    import tempfile
+
+    from ksm.installer import install_bundle
+
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td)
+        reg = base / "reg"
+        target = base / "target"
+        bundle = _make_resolved_bundle(reg, "b", file_map)
+        manifest = Manifest(entries=[])
+
+        results = install_bundle(
+            bundle=bundle,
+            target_dir=target,
+            scope="global",
+            subdirectory_filter=None,
+            dot_selection=None,
+            manifest=manifest,
+            source_label="default",
+        )
+
+        # No installed file path should start with "hooks/"
+        for r in results:
+            rel = str(r.path.relative_to(target))
+            assert not rel.startswith(
+                "hooks/"
+            ), f"Global install contains hooks path: {rel}"
+
+        # Manifest installed_files should also not contain hooks
+        entry = manifest.entries[0]
+        for f in entry.installed_files:
+            assert not f.startswith("hooks/"), f"Manifest contains hooks path: {f}"
+
+        # hooks/ directory should not exist on disk
+        assert not (
+            target / "hooks"
+        ).exists(), "hooks/ dir should not exist after global install"

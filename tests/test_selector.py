@@ -266,9 +266,7 @@ def test_property_installed_label_accuracy(
         )
         for n in names
     ]
-    lines = render_add_selector(
-        bundles, installed_info=installed_info, selected=0
-    )
+    lines = render_add_selector(bundles, installed_info=installed_info, selected=0)
 
     # Extract bundle lines (skip header + group header lines)
     bundle_lines = _extract_bundle_lines(lines)
@@ -441,7 +439,9 @@ def test_render_add_selector_installed_column_aligned() -> None:
         ),
     ]
     lines = render_add_selector(
-        bundles, installed_info={"a": {"global"}, "long_bundle_name": {"global"}}, selected=0
+        bundles,
+        installed_info={"a": {"global"}, "long_bundle_name": {"global"}},
+        selected=0,
     )
 
     # Skip header lines and group headers; only check bundle lines
@@ -450,7 +450,9 @@ def test_render_add_selector_installed_column_aligned() -> None:
     for line in bundle_lines:
         pos = line.index("[installed:")
         tag_positions.append(pos)
-    assert len(set(tag_positions)) == 1, f"[installed:] tags misaligned: {tag_positions}"
+    assert (
+        len(set(tag_positions)) == 1
+    ), f"[installed:] tags misaligned: {tag_positions}"
 
 
 def test_render_removal_selector_columns_aligned() -> None:
@@ -1254,9 +1256,7 @@ def test_render_add_selector_empty_filter_shows_all() -> None:
         BundleInfo(name="alpha", path=Path("/a"), subdirectories=["skills"]),
         BundleInfo(name="beta", path=Path("/b"), subdirectories=["hooks"]),
     ]
-    lines = render_add_selector(
-        bundles, installed_info={}, selected=0, filter_text=""
-    )
+    lines = render_add_selector(bundles, installed_info={}, selected=0, filter_text="")
     bundle_lines = _extract_bundle_lines(lines)
     assert len(bundle_lines) == 2
 
@@ -2688,9 +2688,7 @@ def test_bug_condition_registry_column_alignment(
         for n in names
     ]
     installed_info = {n: {"global"} for n in installed}
-    lines = render_add_selector(
-        bundles, installed_info=installed_info, selected=0
-    )
+    lines = render_add_selector(bundles, installed_info=installed_info, selected=0)
     bundle_lines = lines[3:]
     bundle_lines = _extract_bundle_lines(lines)
 
@@ -2835,9 +2833,7 @@ def test_bug_condition_tui_registry_column_alignment(
         key=lambda b: (b.name.lower(), b.registry_name.lower()),
     )
     display_items = [(b.name, b) for b in sorted_bundles]
-    installed_info: dict[str, set[str]] = {
-        n: {"global"} for n in installed
-    }
+    installed_info: dict[str, set[str]] = {n: {"global"} for n in installed}
 
     max_name = max(len(name) for name, _ in display_items)
 
@@ -2845,12 +2841,7 @@ def test_bug_condition_tui_registry_column_alignment(
     if installed_info:
         badge_width = max(
             (
-                len(
-                    " "
-                    + format_installed_badge(
-                        installed_info.get(b.name, set())
-                    )
-                )
+                len(" " + format_installed_badge(installed_info.get(b.name, set())))
                 for _, b in display_items
                 if b.name in installed_info
             ),
@@ -2860,9 +2851,7 @@ def test_bug_condition_tui_registry_column_alignment(
     labels: list[Text] = []
     for _display, bundle in display_items:
         is_installed = bundle.name in installed_info
-        badge_text = format_installed_badge(
-            installed_info.get(bundle.name, set())
-        )
+        badge_text = format_installed_badge(installed_info.get(bundle.name, set()))
         label = Text()
         label.append(_display.ljust(max_name), style="bold cyan")
         if badge_width:

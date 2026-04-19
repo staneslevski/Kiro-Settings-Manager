@@ -19,6 +19,7 @@ def _make_entry(
     files: list[str] | None = None,
     installed_at: str = "2025-01-01T00:00:00Z",
     updated_at: str = "2025-01-01T00:00:00Z",
+    has_hooks: bool = False,
 ) -> ManifestEntry:
     """Create a ManifestEntry with defaults."""
     return ManifestEntry(
@@ -28,6 +29,7 @@ def _make_entry(
         installed_files=files or ["skills/f.md"],
         installed_at=installed_at,
         updated_at=updated_at,
+        has_hooks=has_hooks,
     )
 
 
@@ -838,3 +840,102 @@ def test_property_ls_verbose_indented_muted_paths(
                 # Wrapped in muted ANSI code
                 assert "\033[2m" in fl
                 assert "\033[0m" in fl
+
+
+# ── Hooks indicator tests ────────────────────────────────────
+
+
+class TestListHooksIndicator:
+    """Tests for [hooks: workspace-only] indicator in ls output.
+
+    **Validates: Requirements FR-5.1**
+    """
+
+    def test_verbose_global_has_hooks_shows_indicator(
+        self,
+    ) -> None:
+        """(a) Verbose output for global entry with has_hooks=True
+        contains [hooks: workspace-only]."""
+        from ksm.commands.ls import _format_grouped
+
+        entries = [
+            _make_entry(
+                "my-bundle",
+                "global",
+                "default",
+                files=["skills/cross.md"],
+                has_hooks=True,
+            ),
+        ]
+        with patch("ksm.color._color_level", return_value=2):
+            output = _format_grouped(entries, verbose=True)
+
+        assert "[hooks: workspace-only]" in output
+
+    def test_verbose_global_no_hooks_no_indicator(
+        self,
+    ) -> None:
+        """(b) Verbose output for global entry with has_hooks=False
+        does not contain the indicator."""
+        from ksm.commands.ls import _format_grouped
+
+        entries = [
+            _make_entry(
+                "my-bundle",
+                "global",
+                "default",
+                files=["skills/cross.md"],
+                has_hooks=False,
+            ),
+        ]
+        with patch("ksm.color._color_level", return_value=2):
+            output = _format_grouped(entries, verbose=True)
+
+        assert "[hooks: workspace-only]" not in output
+
+    def test_verbose_local_has_hooks_no_indicator(
+        self,
+    ) -> None:
+        """(c) Verbose output for local entry with has_hooks=True
+        does not show the indicator."""
+        from ksm.commands.ls import _format_grouped
+
+        entries = [
+            _make_entry(
+                "my-bundle",
+                "local",
+                "default",
+                files=["hooks/pre-commit.sh"],
+                has_hooks=True,
+            ),
+        ]
+        with patch("ksm.color._color_level", return_value=2):
+            output = _format_grouped(entries, verbose=True)
+
+        assert "[hooks: workspace-only]" not in output
+
+    def test_json_includes_has_hooks_when_true(
+        self,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """(d) JSON output includes has_hooks when True."""
+        from ksm.commands.ls import run_ls
+
+        manifest = Manifest(
+            entries=[
+                _make_entry(
+                    "my-bundle",
+                    "global",
+                    "default",
+                    has_hooks=True,
+                ),
+            ]
+        )
+        args = _make_ls_args(output_format="json")
+        code = run_ls(args, manifest=manifest)
+
+        assert code == 0
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert len(data) == 1
+        assert data[0]["has_hooks"] is True

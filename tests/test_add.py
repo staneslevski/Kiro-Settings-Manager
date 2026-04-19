@@ -3199,3 +3199,577 @@ def test_property_add_success_output_format(
         # scope path
         expected_path = "~/.kiro/" if use_global else ".kiro/"
         assert expected_path in output
+
+
+# ── Hooks workspace-only guard tests (FR-2.1, FR-2.2, FR-2.3) ──
+
+
+class TestHooksWorkspaceOnlyGuards:
+    """Tests for hooks workspace-only guards in run_add.
+
+    FR-2.1: --only hooks -g → exit 1, error to stderr
+    FR-2.2: --only hooks -l → succeeds normally
+    FR-2.3: --only hooks,steering -g → install steering, warn
+    Dot notation: bundle.hooks.item -g → exit 1
+    """
+
+    def test_only_hooks_global_rejected_with_exit_1(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """FR-2.1: --only hooks -g exits with code 1 and
+        prints error to stderr containing 'workspace'.
+        **Validates: Requirements FR-2.1**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {"aws": {"hooks": {"my-hook.md": b"hook"}}},
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+
+        args = _make_args(
+            bundle_spec="aws",
+            global_=True,
+            only=["hooks"],
+        )
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=target_global,
+        )
+
+        assert code == 1
+        captured = capsys.readouterr()
+        assert "workspace" in captured.err.lower()
+        # Nothing should be installed
+        assert not (target_global / "hooks").exists()
+
+    def test_only_hooks_local_succeeds(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """FR-2.2: --only hooks -l installs hooks locally
+        as normal.
+        **Validates: Requirements FR-2.2**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {
+                "aws": {
+                    "hooks": {"my-hook.md": b"hook"},
+                    "skills": {"S.md": b"skill"},
+                }
+            },
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+
+        args = _make_args(
+            bundle_spec="aws",
+            local=True,
+            only=["hooks"],
+        )
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=target_global,
+        )
+
+        assert code == 0
+        assert (target_local / "hooks" / "my-hook.md").exists()
+        # skills should NOT be installed (filtered by --only)
+        assert not (target_local / "skills").exists()
+
+    def test_only_hooks_steering_global_installs_steering_warns(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """FR-2.3: --only hooks,steering -g installs only
+        steering globally, skips hooks, and prints warning.
+        **Validates: Requirements FR-2.3**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {
+                "aws": {
+                    "hooks": {"my-hook.md": b"hook"},
+                    "steering": {"IAM.md": b"iam"},
+                }
+            },
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+
+        args = _make_args(
+            bundle_spec="aws",
+            global_=True,
+            only=["hooks,steering"],
+        )
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=target_global,
+        )
+
+        assert code == 0
+        # Steering should be installed globally
+        assert (target_global / "steering" / "IAM.md").exists()
+        # Hooks should NOT be installed globally
+        assert not (target_global / "hooks").exists()
+        # Warning about hooks being workspace-only
+        captured = capsys.readouterr()
+        assert "workspace" in captured.err.lower()
+
+    def test_dot_notation_hooks_global_rejected_with_exit_1(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Dot notation bundle.hooks.item -g exits with code 1.
+        **Validates: Requirements FR-2.1**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {
+                "aws": {
+                    "hooks": {"my-hook/hook.md": b"hook"},
+                }
+            },
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+
+        args = _make_args(
+            bundle_spec="aws.hooks.my-hook",
+            global_=True,
+        )
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=target_global,
+        )
+
+        assert code == 1
+        captured = capsys.readouterr()
+        assert "workspace" in captured.err.lower()
+        # Nothing should be installed
+        assert not (target_global / "hooks").exists()
+
+
+# ── Hooks warning after global install tests (FR-1.2) ──
+
+
+class TestHooksWarningAfterGlobalInstall:
+    """Tests for hooks warning printed after global install.
+
+    FR-1.2: Global install of bundle with hooks prints warning
+    to stderr containing "workspace" and "ksm sync".
+    """
+
+    def test_global_install_with_hooks_prints_warning(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """FR-1.2: Global install of bundle WITH hooks prints
+        warning to stderr containing 'workspace' and 'ksm sync'.
+        **Validates: Requirements FR-1.2**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {
+                "aws": {
+                    "hooks": {"my-hook.md": b"hook content"},
+                    "steering": {"IAM.md": b"iam content"},
+                }
+            },
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+
+        args = _make_args(bundle_spec="aws", global_=True)
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=target_global,
+        )
+
+        assert code == 0
+        # Steering installed globally, hooks skipped
+        assert (target_global / "steering" / "IAM.md").exists()
+        assert not (target_global / "hooks").exists()
+        # Warning must mention workspace and ksm sync
+        captured = capsys.readouterr()
+        assert "workspace" in captured.err.lower()
+        assert "ksm sync" in captured.err.lower()
+
+    def test_global_install_without_hooks_no_warning(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """FR-1.4: Global install of bundle WITHOUT hooks
+        prints no hooks warning.
+        **Validates: Requirements FR-1.2**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {
+                "aws": {
+                    "steering": {"IAM.md": b"iam content"},
+                }
+            },
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+
+        args = _make_args(bundle_spec="aws", global_=True)
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=target_global,
+        )
+
+        assert code == 0
+        assert (target_global / "steering" / "IAM.md").exists()
+        # No hooks warning should appear
+        captured = capsys.readouterr()
+        err_lower = captured.err.lower()
+        # Should not contain the hooks workspace warning
+        assert "ksm sync" not in err_lower
+
+    def test_local_install_with_hooks_no_warning(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """FR-3.1: Local install of bundle WITH hooks prints
+        no hooks warning — hooks are installed normally.
+        **Validates: Requirements FR-1.2**"""
+        from ksm.commands.add import run_add
+
+        reg = _setup_registry(
+            tmp_path,
+            {
+                "aws": {
+                    "hooks": {"my-hook.md": b"hook content"},
+                    "steering": {"IAM.md": b"iam content"},
+                }
+            },
+        )
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        manifest = Manifest(entries=[])
+
+        args = _make_args(bundle_spec="aws", local=True)
+        code = run_add(
+            args,
+            registry_index=idx,
+            manifest=manifest,
+            manifest_path=ksm_dir / "manifest.json",
+            target_local=target_local,
+            target_global=target_global,
+        )
+
+        assert code == 0
+        # Both hooks and steering installed locally
+        assert (target_local / "hooks" / "my-hook.md").exists()
+        assert (target_local / "steering" / "IAM.md").exists()
+        # No hooks warning should appear
+        captured = capsys.readouterr()
+        err_lower = captured.err.lower()
+        assert "ksm sync" not in err_lower
+
+
+# ── Ephemeral hooks warning after global install tests (FR-1.2) ──
+
+
+class TestEphemeralHooksWarningAfterGlobalInstall:
+    """Tests for hooks warning in _handle_ephemeral flow.
+
+    FR-1.2: Ephemeral global install of bundle with hooks prints
+    warning to stderr containing "workspace" and "ksm sync".
+    """
+
+    def test_ephemeral_global_install_with_hooks_prints_warning(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """FR-1.2: Ephemeral global install of bundle WITH hooks
+        prints warning to stderr.
+        **Validates: Requirements FR-1.2**"""
+        from ksm.commands.add import run_add
+
+        ephemeral_dir = tmp_path / "ephemeral"
+        ephemeral_dir.mkdir()
+        bundle_dir = ephemeral_dir / "aws"
+        (bundle_dir / "hooks").mkdir(parents=True)
+        (bundle_dir / "hooks" / "my-hook.md").write_bytes(b"hook")
+        (bundle_dir / "steering").mkdir(parents=True)
+        (bundle_dir / "steering" / "IAM.md").write_bytes(b"iam")
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(registries=[])
+        manifest = Manifest(entries=[])
+
+        args = _make_args(
+            bundle_spec="aws",
+            global_=True,
+            from_url="https://github.com/org/repo.git",
+        )
+
+        with patch(
+            "ksm.commands.add.clone_ephemeral",
+            return_value=ephemeral_dir,
+        ):
+            with patch("ksm.commands.add.shutil.rmtree"):
+                code = run_add(
+                    args,
+                    registry_index=idx,
+                    manifest=manifest,
+                    manifest_path=ksm_dir / "manifest.json",
+                    target_local=target_local,
+                    target_global=target_global,
+                )
+
+        assert code == 0
+        # Steering installed globally, hooks skipped
+        assert (target_global / "steering" / "IAM.md").exists()
+        assert not (target_global / "hooks").exists()
+        # Warning must mention workspace and ksm sync
+        captured = capsys.readouterr()
+        assert "workspace" in captured.err.lower()
+        assert "ksm sync" in captured.err.lower()
+
+    def test_ephemeral_global_install_without_hooks_no_warning(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Ephemeral global install of bundle WITHOUT hooks
+        prints no hooks warning.
+        **Validates: Requirements FR-1.2**"""
+        from ksm.commands.add import run_add
+
+        ephemeral_dir = tmp_path / "ephemeral"
+        ephemeral_dir.mkdir()
+        bundle_dir = ephemeral_dir / "aws"
+        (bundle_dir / "steering").mkdir(parents=True)
+        (bundle_dir / "steering" / "IAM.md").write_bytes(b"iam")
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(registries=[])
+        manifest = Manifest(entries=[])
+
+        args = _make_args(
+            bundle_spec="aws",
+            global_=True,
+            from_url="https://github.com/org/repo.git",
+        )
+
+        with patch(
+            "ksm.commands.add.clone_ephemeral",
+            return_value=ephemeral_dir,
+        ):
+            with patch("ksm.commands.add.shutil.rmtree"):
+                code = run_add(
+                    args,
+                    registry_index=idx,
+                    manifest=manifest,
+                    manifest_path=ksm_dir / "manifest.json",
+                    target_local=target_local,
+                    target_global=target_global,
+                )
+
+        assert code == 0
+        assert (target_global / "steering" / "IAM.md").exists()
+        # No hooks warning should appear
+        captured = capsys.readouterr()
+        assert "ksm sync" not in captured.err.lower()
+
+    def test_ephemeral_local_install_with_hooks_no_warning(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Ephemeral local install of bundle WITH hooks prints
+        no hooks warning.
+        **Validates: Requirements FR-1.2**"""
+        from ksm.commands.add import run_add
+
+        ephemeral_dir = tmp_path / "ephemeral"
+        ephemeral_dir.mkdir()
+        bundle_dir = ephemeral_dir / "aws"
+        (bundle_dir / "hooks").mkdir(parents=True)
+        (bundle_dir / "hooks" / "my-hook.md").write_bytes(b"hook")
+        (bundle_dir / "steering").mkdir(parents=True)
+        (bundle_dir / "steering" / "IAM.md").write_bytes(b"iam")
+
+        target_local = tmp_path / "workspace" / ".kiro"
+        target_global = tmp_path / "home" / ".kiro"
+        ksm_dir = tmp_path / "ksm_state"
+        ksm_dir.mkdir(parents=True)
+
+        idx = RegistryIndex(registries=[])
+        manifest = Manifest(entries=[])
+
+        args = _make_args(
+            bundle_spec="aws",
+            local=True,
+            from_url="https://github.com/org/repo.git",
+        )
+
+        with patch(
+            "ksm.commands.add.clone_ephemeral",
+            return_value=ephemeral_dir,
+        ):
+            with patch("ksm.commands.add.shutil.rmtree"):
+                code = run_add(
+                    args,
+                    registry_index=idx,
+                    manifest=manifest,
+                    manifest_path=ksm_dir / "manifest.json",
+                    target_local=target_local,
+                    target_global=target_global,
+                )
+
+        assert code == 0
+        # Both hooks and steering installed locally
+        assert (target_local / "hooks" / "my-hook.md").exists()
+        assert (target_local / "steering" / "IAM.md").exists()
+        # No hooks warning should appear
+        captured = capsys.readouterr()
+        assert "ksm sync" not in captured.err.lower()

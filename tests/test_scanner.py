@@ -6,7 +6,7 @@ from pathlib import Path
 from hypothesis import HealthCheck, given, settings as h_settings
 from hypothesis import strategies as st
 
-from ksm.scanner import RECOGNISED_SUBDIRS, scan_registry
+from ksm.scanner import RECOGNISED_SUBDIRS, WORKSPACE_ONLY_SUBDIRS, scan_registry
 
 
 def _make_bundle(registry: Path, name: str, subdirs: list[str]) -> Path:
@@ -193,6 +193,15 @@ def test_property_scanner_identifies_valid_bundles(
     result_map = {b.name: set(b.subdirectories) for b in results}
 
     assert result_map == expected_bundles
+
+
+# --- WORKSPACE_ONLY_SUBDIRS constant ---
+
+
+def test_workspace_only_subdirs_contains_hooks() -> None:
+    """WORKSPACE_ONLY_SUBDIRS contains 'hooks' and is a subset of RECOGNISED_SUBDIRS."""
+    assert "hooks" in WORKSPACE_ONLY_SUBDIRS
+    assert WORKSPACE_ONLY_SUBDIRS <= RECOGNISED_SUBDIRS
 
 
 # --- Phase 5.2: registry_name population ---

@@ -12,6 +12,8 @@ RECOGNISED_SUBDIRS: frozenset[str] = frozenset(
     {"skills", "steering", "hooks", "agents"}
 )
 
+WORKSPACE_ONLY_SUBDIRS: frozenset[str] = frozenset({"hooks"})
+
 
 @dataclass
 class BundleInfo:

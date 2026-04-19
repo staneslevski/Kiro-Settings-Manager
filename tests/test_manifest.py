@@ -767,3 +767,137 @@ def test_format_installed_badge_local_global() -> None:
     from ksm.manifest import format_installed_badge
 
     assert format_installed_badge({"local", "global"}) == "[installed: local, global]"
+
+
+# --- has_hooks serialization tests (FR-6.1, FR-6.2, FR-6.3) ---
+
+
+def test_entry_with_has_hooks_true_includes_key_in_dict() -> None:
+    """Validates: Requirements FR-6.2
+    Serialization includes has_hooks only when True."""
+    entry = ManifestEntry(
+        bundle_name="my_bundle",
+        source_registry="default",
+        scope="global",
+        installed_files=["steering/test.md"],
+        installed_at="2025-01-20T12:00:00Z",
+        updated_at="2025-01-20T12:00:00Z",
+        has_hooks=True,
+    )
+
+    d = _entry_to_dict(entry)
+    assert "has_hooks" in d
+    assert d["has_hooks"] is True
+
+
+def test_entry_with_has_hooks_false_omits_key_in_dict() -> None:
+    """Validates: Requirements FR-6.2
+    Serialization omits has_hooks when False (backward compat)."""
+    entry = ManifestEntry(
+        bundle_name="my_bundle",
+        source_registry="default",
+        scope="global",
+        installed_files=["steering/test.md"],
+        installed_at="2025-01-20T12:00:00Z",
+        updated_at="2025-01-20T12:00:00Z",
+        has_hooks=False,
+    )
+
+    d = _entry_to_dict(entry)
+    assert "has_hooks" not in d
+
+
+def test_entry_default_has_hooks_omits_key_in_dict() -> None:
+    """Validates: Requirements FR-6.1, FR-6.2
+    Entry created without has_hooks defaults to False and omits key."""
+    entry = ManifestEntry(
+        bundle_name="my_bundle",
+        source_registry="default",
+        scope="global",
+        installed_files=["steering/test.md"],
+        installed_at="2025-01-20T12:00:00Z",
+        updated_at="2025-01-20T12:00:00Z",
+    )
+
+    assert entry.has_hooks is False
+    d = _entry_to_dict(entry)
+    assert "has_hooks" not in d
+
+
+def test_dict_without_has_hooks_deserializes_as_false() -> None:
+    """Validates: Requirements FR-6.3
+    Legacy dict without has_hooks deserializes with False default."""
+    data = {
+        "bundle_name": "old_bundle",
+        "source_registry": "default",
+        "scope": "global",
+        "installed_files": ["steering/old.md"],
+        "installed_at": "2025-01-15T10:30:00Z",
+        "updated_at": "2025-01-15T10:30:00Z",
+    }
+
+    entry = _dict_to_entry(data)
+    assert entry.has_hooks is False
+
+
+def test_dict_with_has_hooks_true_deserializes_correctly() -> None:
+    """Validates: Requirements FR-6.3
+    Dict with has_hooks=True deserializes correctly."""
+    data = {
+        "bundle_name": "hooks_bundle",
+        "source_registry": "default",
+        "scope": "global",
+        "installed_files": ["steering/test.md"],
+        "installed_at": "2025-01-15T10:30:00Z",
+        "updated_at": "2025-01-15T10:30:00Z",
+        "has_hooks": True,
+    }
+
+    entry = _dict_to_entry(data)
+    assert entry.has_hooks is True
+
+
+def test_has_hooks_full_save_load_round_trip(
+    tmp_path: Path,
+) -> None:
+    """Validates: Requirements FR-6.1, FR-6.2, FR-6.3
+    save/load round-trip preserves has_hooks on entries."""
+    filepath = tmp_path / "manifest.json"
+    manifest = Manifest(
+        entries=[
+            ManifestEntry(
+                bundle_name="bundle_with_hooks",
+                source_registry="default",
+                scope="global",
+                installed_files=["steering/test.md"],
+                installed_at="2025-02-01T00:00:00Z",
+                updated_at="2025-02-01T00:00:00Z",
+                has_hooks=True,
+            ),
+            ManifestEntry(
+                bundle_name="bundle_without_hooks",
+                source_registry="default",
+                scope="global",
+                installed_files=["steering/other.md"],
+                installed_at="2025-02-01T00:00:00Z",
+                updated_at="2025-02-01T00:00:00Z",
+                has_hooks=False,
+            ),
+            ManifestEntry(
+                bundle_name="bundle_default_hooks",
+                source_registry="default",
+                scope="local",
+                installed_files=["skills/SKILL.md"],
+                installed_at="2025-02-01T00:00:00Z",
+                updated_at="2025-02-01T00:00:00Z",
+                workspace_path="/tmp/ws",
+            ),
+        ]
+    )
+
+    save_manifest(manifest, filepath)
+    loaded = load_manifest(filepath)
+
+    assert loaded.entries[0].has_hooks is True
+    assert loaded.entries[1].has_hooks is False
+    assert loaded.entries[2].has_hooks is False
