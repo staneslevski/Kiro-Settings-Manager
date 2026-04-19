@@ -36,7 +36,7 @@ pip install -r requirements.txt
 ```
 
 ### Setup Process
-1. Create virtual environment: `python3.13 -m venv .venv`
+1. Create virtual environment: `python3 -m venv .venv`
 2. Activate and upgrade pip: `source .venv/bin/activate && pip install --upgrade pip`
 3. Install dependencies: `source .venv/bin/activate && pip install -e .`
 4. All subsequent commands follow the same `source .venv/bin/activate && ...` pattern
@@ -104,7 +104,7 @@ extend-ignore = ["E203", "W503"]
 exclude = [".venv", ".git", "__pycache__", ".hypothesis", ".pytest_cache"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

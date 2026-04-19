@@ -194,7 +194,23 @@ def _sync_entry(
     target_global: Path,
 ) -> None:
     """Re-install a single bundle from its source registry."""
-    target_dir = target_global if entry.scope == "global" else target_local
+    if entry.scope == "global":
+        target_dir = target_global
+    elif entry.workspace_path is not None:
+        ws = Path(entry.workspace_path)
+        if not ws.exists():
+            print(
+                format_warning(
+                    f"Workspace '{entry.workspace_path}'" " no longer exists.",
+                    f"Skipping sync for" f" '{entry.bundle_name}'.",
+                    stream=sys.stderr,
+                ),
+                file=sys.stderr,
+            )
+            return
+        target_dir = ws / ".kiro"
+    else:
+        target_dir = target_local
 
     result = resolve_bundle(entry.bundle_name, registry_index)
     if not result.matches:

@@ -289,6 +289,7 @@ def test_sync_updates_manifest_timestamp(
     reg = tmp_path / "reg"
     _setup_bundle(reg, "aws", {"skills/f.md": b"data"})
     target = tmp_path / "target" / ".kiro"
+    target.mkdir(parents=True)
     ksm_dir = tmp_path / "ksm"
     ksm_dir.mkdir(parents=True)
 
@@ -801,6 +802,7 @@ def test_property_sync_updates_timestamp(
         reg = base / "reg"
         _setup_bundle(reg, "b", {"skills/f.md": b"x"})
         target = base / "target" / ".kiro"
+        target.mkdir(parents=True)
         ksm_dir = base / "ksm"
         ksm_dir.mkdir()
 
@@ -1928,3 +1930,235 @@ def test_sync_named_with_duplicates_syncs_all(
     captured = capsys.readouterr()
     # Named sync should sync both entries (no dedup)
     assert captured.err.count("Synced") == 2
+
+
+# --- Tests for workspace-path-aware sync targeting (Issue #30) ---
+
+
+def test_sync_entry_uses_workspace_path_for_local(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """_sync_entry syncs to workspace_path/.kiro, not target_local,
+    when workspace_path is set on a local entry."""
+    from ksm.commands.sync import run_sync
+
+    reg = tmp_path / "reg"
+    _setup_bundle(reg, "aws", {"skills/f.md": b"ws-data"})
+
+    # workspace_path points to ws_dir (different from target_local)
+    ws_dir = tmp_path / "actual-workspace"
+    ws_kiro = ws_dir / ".kiro"
+    ws_kiro.mkdir(parents=True)
+
+    # target_local is a DIFFERENT directory
+    target_local = tmp_path / "wrong-workspace" / ".kiro"
+    target_local.mkdir(parents=True)
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+    entry.workspace_path = str(ws_dir.resolve())
+    manifest = Manifest(entries=[entry])
+
+    args = _make_args(bundle_names=["aws"], yes=True)
+    code = run_sync(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    # Files should be written to workspace_path/.kiro
+    assert (ws_kiro / "skills" / "f.md").exists()
+    assert (ws_kiro / "skills" / "f.md").read_bytes() == b"ws-data"
+    # Files should NOT be written to target_local
+    assert not (target_local / "skills" / "f.md").exists()
+
+
+def test_sync_entry_falls_back_to_target_local_when_no_workspace_path(
+    tmp_path: Path,
+) -> None:
+    """_sync_entry falls back to target_local when workspace_path
+    is None (legacy entry)."""
+    from ksm.commands.sync import run_sync
+
+    reg = tmp_path / "reg"
+    _setup_bundle(reg, "aws", {"skills/f.md": b"legacy-data"})
+
+    target_local = tmp_path / "target" / ".kiro"
+    target_local.mkdir(parents=True)
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    # workspace_path is None by default from _make_entry
+    entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+    assert entry.workspace_path is None
+    manifest = Manifest(entries=[entry])
+
+    args = _make_args(bundle_names=["aws"], yes=True)
+    code = run_sync(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    # Files should be written to target_local
+    assert (target_local / "skills" / "f.md").exists()
+    assert (target_local / "skills" / "f.md").read_bytes() == b"legacy-data"
+
+
+def test_sync_entry_warns_and_skips_missing_workspace(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """_sync_entry warns and skips when workspace_path does not
+    exist on disk."""
+    from ksm.commands.sync import run_sync
+
+    reg = tmp_path / "reg"
+    _setup_bundle(reg, "aws", {"skills/f.md": b"data"})
+
+    # workspace_path points to a non-existent directory
+    missing_ws = tmp_path / "gone-workspace"
+    # Do NOT create missing_ws
+
+    target_local = tmp_path / "target" / ".kiro"
+    target_local.mkdir(parents=True)
+
+    ksm_dir = tmp_path / "ksm"
+    ksm_dir.mkdir(parents=True)
+
+    idx = RegistryIndex(
+        registries=[
+            RegistryEntry(
+                name="default",
+                url=None,
+                local_path=str(reg),
+                is_default=True,
+            )
+        ]
+    )
+    entry = _make_entry("aws", scope="local", files=["skills/f.md"])
+    entry.workspace_path = str(missing_ws)
+    manifest = Manifest(entries=[entry])
+
+    args = _make_args(bundle_names=["aws"], yes=True)
+    code = run_sync(
+        args,
+        registry_index=idx,
+        manifest=manifest,
+        manifest_path=ksm_dir / "manifest.json",
+        target_local=target_local,
+        target_global=tmp_path / "global" / ".kiro",
+    )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    # Warning about missing workspace
+    assert "no longer exists" in captured.err
+    # No files written anywhere
+    assert not (target_local / "skills" / "f.md").exists()
+    assert not (missing_ws / ".kiro" / "skills" / "f.md").exists()
+
+
+# Feature: sync-all-wrong-workspace, Property 1: Workspace targeting
+# **Validates: Requirements 1.2**
+@given(
+    ws_suffix=st.from_regex(r"[a-z]{3,8}", fullmatch=True),
+)
+@h_settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_property_sync_entry_targets_workspace_path(
+    ws_suffix: str,
+) -> None:
+    """Property 1: For local entries with non-null workspace_path,
+    the install target is always Path(workspace_path) / '.kiro'
+    and never target_local."""
+    import tempfile
+
+    from ksm.commands.sync import run_sync
+
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td)
+        reg = base / "reg"
+        _setup_bundle(reg, "b", {"skills/f.md": b"x"})
+
+        # Create workspace directory with generated suffix
+        ws_dir = base / f"ws-{ws_suffix}"
+        ws_kiro = ws_dir / ".kiro"
+        ws_kiro.mkdir(parents=True)
+
+        # target_local is a DIFFERENT directory
+        target_local = base / "wrong" / ".kiro"
+        target_local.mkdir(parents=True)
+
+        ksm_dir = base / "ksm"
+        ksm_dir.mkdir()
+
+        idx = RegistryIndex(
+            registries=[
+                RegistryEntry(
+                    name="default",
+                    url=None,
+                    local_path=str(reg),
+                    is_default=True,
+                )
+            ]
+        )
+        entry = _make_entry("b", scope="local", files=["skills/f.md"])
+        entry.workspace_path = str(ws_dir.resolve())
+        manifest = Manifest(entries=[entry])
+
+        args = _make_args(bundle_names=["b"], yes=True)
+
+        with patch("ksm.commands.sync.install_bundle") as mock_install:
+            mock_install.return_value = []
+            run_sync(
+                args,
+                registry_index=idx,
+                manifest=manifest,
+                manifest_path=ksm_dir / "manifest.json",
+                target_local=target_local,
+                target_global=base / "global" / ".kiro",
+            )
+
+        mock_install.assert_called_once()
+        call_kwargs = mock_install.call_args
+        actual_target = call_kwargs.kwargs.get(
+            "target_dir",
+            call_kwargs.args[1] if len(call_kwargs.args) > 1 else None,
+        )
+        expected = Path(entry.workspace_path) / ".kiro"
+        assert actual_target == expected, (
+            f"Expected target_dir={expected}, " f"got {actual_target}"
+        )
+        assert actual_target != target_local

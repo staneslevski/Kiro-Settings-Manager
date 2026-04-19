@@ -1,0 +1,3 @@
+specType: bugfix
+workflowType: requirements-first
+featureName: sync-all-wrong-workspace

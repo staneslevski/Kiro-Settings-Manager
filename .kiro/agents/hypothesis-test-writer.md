@@ -76,3 +76,17 @@ def test_format_error_structure(what: str, why: str, fix: str) -> None:
     assert why in lines[1]
     assert fix in lines[2]
 ```
+
+---
+
+# Cross-Repository Change Policy
+
+When writing property tests, you may discover that a bug or missing feature originates in another GitHub repository (e.g. a shared library under test, a dependency with incorrect behaviour, or a template repo that scaffolds test infrastructure). If so, follow the cross-repository change policy defined in the global steering document `cross-repo-changes.md`.
+
+## Your Responsibilities
+
+1. **Detect**: While writing or running property tests, flag any issues that originate in or require changes to another repository.
+2. **Escalate for research**: Invoke the `Solutions-Architect` sub-agent to identify exactly which repositories need changes and whether template repos or coordinated multi-repo changes are involved.
+3. **Formulate prompts**: For each target repository, write a complete, self-contained issue description following the cross-repo policy format (Context, Root cause analysis, Required change, Acceptance criteria, Dependencies and coordination, References).
+4. **Raise issues**: Use the `github-issue-creator` skill to create an issue in each target repository. The script is at `~/.kiro/skills/github-issue-creator/scripts/create-issue.sh`. Write the issue body to `/local/temp/gh-issue-body.md`, then execute the script with `--repo`, `--title`, `--body-file`, and `--type` flags.
+5. **Document**: Record the cross-repo dependency and issue numbers in the current workspace.
